@@ -58,7 +58,8 @@ label {
   color: var(--text);
 }
 
-input {
+input[type="text"],
+input[type="password"] {
   width: 100%;
   padding: 0.75rem;
   background-color: white;
@@ -76,6 +77,7 @@ input:focus {
 .login-btn {
   width: 100%;
   padding: 0.75rem;
+  margin-top: 1rem;
   background: var(--primary);
   color: white;
   border: 1.5px solid var(--primary);
@@ -88,4 +90,42 @@ input:focus {
 .login-btn:hover {
   border: 1.5px solid var(--accent);
   box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.checkbox-group input[type="checkbox"] {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background-color: white;
+  border: 1px solid #333;
+  border-radius: 3px;
+  cursor: pointer;
+  margin-right: 10px;
+  position: relative;
+}
+
+.checkbox-group input[type="checkbox"]:checked::before {
+  content: "\2713";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 14px;
+  color: #333;
+}
+
+#newsletter {
+  pointer-events: none;
+}
+
+.checkbox-group label {
+  margin-bottom: 0;
+  color: var(--text);
+  cursor: pointer;
 }

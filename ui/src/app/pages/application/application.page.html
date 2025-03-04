@@ -1,13 +1,20 @@
-<ion-header [translucent]="true">
-  <ion-toolbar>
-    <ion-title>application</ion-title>
-  </ion-toolbar>
-</ion-header>
-
 <ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">application</ion-title>
-    </ion-toolbar>
-  </ion-header>
+  <div class="page-container">
+    <div class="header">
+      <div class="title">Business Application</div>
+    </div>
+    <div class="content">
+      <form class="login-form">
+        <div class="form-group">
+          <label>Company Name</label>
+          <input type="text" required />
+        </div>
+        <div class="form-group">
+          <label>Company Description</label>
+          <input type="password" required />
+        </div>
+        <button type="submit" class="login-btn">Submit</button>
+      </form>
+    </div>
+  </div>
 </ion-content>

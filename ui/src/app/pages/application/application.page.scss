@@ -1,0 +1,115 @@
+.page-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 20px;
+  margin-left: 50px;
+  background-color: var(--theme-background);
+
+  .header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    margin-bottom: 20px;
+
+    .title {
+      font-size: 40px;
+      padding: 8px;
+      color: var(--theme-text);
+      margin-right: 20px;
+    }
+  }
+
+  .content {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+
+    body {
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    p {
+      color: var(--theme-text);
+      margin-bottom: 2rem;
+    }
+
+    a {
+      color: var(--theme-accent);
+      text-decoration: none;
+    }
+
+    .login-section {
+      flex: 1;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      background: var(--theme-background);
+    }
+
+    .graphic-section {
+      flex: 1;
+      background: var(--theme-primary);
+    }
+
+    h1 {
+      margin-bottom: 1rem;
+      color: var(--theme-text);
+    }
+
+    .login-form {
+      max-width: 300px;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: var(--theme-text);
+    }
+
+    input {
+      width: 100%;
+      padding: 0.75rem;
+      background-color: white;
+      border: 1.5px solid var(--theme-primary);
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--theme-accent);
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .login-btn {
+      width: 100%;
+      padding: 0.75rem;
+      background: var(--theme-primary);
+      color: white;
+      border: 1.5px solid var(--theme-primary);
+      border-radius: 4px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .login-btn:hover {
+      border: 1.5px solid var(--theme-accent);
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    }
+  }
+}
+
+ion-fab {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+}

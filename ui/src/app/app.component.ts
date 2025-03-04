@@ -9,8 +9,4 @@ import { MenuController } from '@ionic/angular';
 })
 export class AppComponent {
   constructor(private menuCtrl: MenuController) {}
-
-  toggleMenu() {
-    this.menuCtrl.toggle('mainMenu');
-  }
 }

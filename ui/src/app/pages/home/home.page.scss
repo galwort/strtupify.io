@@ -33,3 +33,8 @@ ion-fab {
   bottom: 20px;
   right: 20px;
 }
+
+ion-fab-button {
+  --color: var(--theme-background);
+  --background: var(--theme-primary);
+}

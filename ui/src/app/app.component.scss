@@ -1,22 +1,28 @@
-.sidebar-bar {
+.sidebar {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 50px;
-  height: 100%;
-  background-color: #333;
-  z-index: 10;
-  cursor: pointer;
-}
+  height: 100vh;
+  display: flex;
+  z-index: 1;
 
-ion-menu {
-  --width: 250px;
-}
+  ion-toolbar {
+    --background: var(--theme-primary);
+  }
 
-ion-menu ion-content {
-  --background: #f4f4f4;
-}
+  .buttons {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--theme-primary);
+    width: 50px;
+    margin-top: 10px;
 
-ion-menu ion-item {
-  --background: transparent;
+    ion-icon {
+      color: var(--theme-text);
+      font-size: 30px;
+      margin-bottom: 5px;
+    }
+  }
+
+  .devops-logo {
+    filter: brightness(100);
+  }
 }

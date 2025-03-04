@@ -10,12 +10,12 @@ body {
 }
 
 p {
-  color: var(--text);
+  color: var(--theme-text);
   margin-bottom: 2rem;
 }
 
 a {
-  color: var(--accent);
+  color: var(--theme-accent);
   text-decoration: none;
 }
 
@@ -31,17 +31,17 @@ a {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  background: var(--background);
+  background: var(--theme-background);
 }
 
 .graphic-section {
   flex: 1;
-  background: var(--secondary);
+  background: var(--theme-secondary);
 }
 
 h1 {
   margin-bottom: 1rem;
-  color: var(--text);
+  color: var(--theme-text);
 }
 
 .login-form {
@@ -55,7 +55,7 @@ h1 {
 label {
   display: block;
   margin-bottom: 0.5rem;
-  color: var(--text);
+  color: var(--theme-text);
 }
 
 input[type="text"],
@@ -63,14 +63,15 @@ input[type="password"] {
   width: 100%;
   padding: 0.75rem;
   background-color: white;
-  border: 1.5px solid var(--primary);
+  border: 1.5px solid var(--theme-primary);
   border-radius: 4px;
   font-size: 1rem;
+  color: var(--theme-text);
 }
 
 input:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--theme-accent);
   box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
 }
 
@@ -78,9 +79,9 @@ input:focus {
   width: 100%;
   padding: 0.75rem;
   margin-top: 1rem;
-  background: var(--primary);
+  background: var(--theme-primary);
   color: white;
-  border: 1.5px solid var(--primary);
+  border: 1.5px solid var(--theme-primary);
   border-radius: 4px;
   font-size: 1rem;
   cursor: pointer;
@@ -88,7 +89,7 @@ input:focus {
 }
 
 .login-btn:hover {
-  border: 1.5px solid var(--accent);
+  border: 1.5px solid var(--theme-accent);
   box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
 }
 
@@ -126,6 +127,6 @@ input:focus {
 
 .checkbox-group label {
   margin-bottom: 0;
-  color: var(--text);
+  color: var(--theme-text);
   cursor: pointer;
 }

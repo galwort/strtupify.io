@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { AlertController } from '@ionic/angular';
 
 @Component({
   selector: 'app-application',
@@ -11,16 +12,41 @@ export class ApplicationPage implements OnInit {
   companyName: string = '';
   companyDescription: string = '';
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private alertController: AlertController
+  ) {}
 
   ngOnInit() {}
 
-  onSubmit() {
+  async onSubmit() {
     const url = 'https://fa-strtupifyio.azurewebsites.net/api/jobs';
     const body = { company_description: this.companyDescription };
+
     this.http.post(url, body).subscribe({
-      next: (response) => console.log(response),
-      error: (err) => console.error('Error:', err),
+      next: async (response: any) => {
+        if (response.error) {
+          await this.presentErrorAlert(response.error);
+        } else {
+          console.log(response);
+        }
+      },
+      error: (err) => {
+        console.error('Error:', err);
+        this.presentErrorAlert(
+          'An unexpected error occurred. Please try again.'
+        );
+      },
     });
+  }
+
+  async presentErrorAlert(errorMessage: string) {
+    const alert = await this.alertController.create({
+      header: 'Business Application Rejected',
+      message: errorMessage,
+      buttons: ['OK'],
+    });
+
+    await alert.present();
   }
 }

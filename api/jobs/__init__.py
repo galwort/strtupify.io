@@ -48,10 +48,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     response = gen_jobs(company_description)
 
-    if "error" in jobs:
-        return func.HttpResponse(
-            dumps({"error": response["error"]}), mimetype="application/json"
-        )
+    if "error" in response:
+        error = loads(response)["error"]
+        return func.HttpResponse(dumps({"error": error}), mimetype="application/json")
     else:
         jobs = loads(response)["jobs"]
         return func.HttpResponse(dumps({"jobs": jobs}), mimetype="application/json")

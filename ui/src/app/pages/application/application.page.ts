@@ -20,9 +20,17 @@ export class ApplicationPage implements OnInit {
   ngOnInit() {}
 
   async onSubmit() {
+    if (!this.companyName || this.companyName.trim().length === 0) {
+      const alert = await this.alertController.create({
+        header: 'Business Application Rejected',
+        message: 'No company name listed',
+        buttons: ['OK'],
+      });
+      await alert.present();
+      return;
+    }
     const url = 'https://fa-strtupifyio.azurewebsites.net/api/jobs';
     const body = { company_description: this.companyDescription };
-
     this.http.post(url, body).subscribe({
       next: async (response: any) => {
         if (response.error) {
@@ -46,7 +54,6 @@ export class ApplicationPage implements OnInit {
       message: errorMessage,
       buttons: ['OK'],
     });
-
     await alert.present();
   }
 }

@@ -1,6 +1,17 @@
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { AlertController, LoadingController } from '@ionic/angular';
+import { initializeApp } from 'firebase/app';
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
+import { environment } from 'src/environments/environment';
+
+export const app = initializeApp(environment.firebase);
+export const db = getFirestore(app);
 
 @Component({
   selector: 'app-application',
@@ -27,28 +38,50 @@ export class ApplicationPage implements OnInit {
       await loading.dismiss();
       const alert = await this.alertController.create({
         header: 'Business Application Rejected',
-        message: 'No company name listed.',
+        message: 'No company name listed',
         buttons: ['OK'],
       });
       await alert.present();
       return;
     }
-    const url = 'https://fa-strtupifyio.azurewebsites.net/api/jobs';
-    const body = { company_description: this.companyDescription };
-    this.http.post(url, body).subscribe({
-      next: async (response: any) => {
-        await loading.dismiss();
-        if (response.error) {
-          await this.presentErrorAlert(response.error);
-        } else {
-          console.log(response);
-        }
+    const logoUrl = 'https://fa-strtupifyio.azurewebsites.net/api/logo';
+    const logoBody = { input: this.companyDescription };
+    this.http.post(logoUrl, logoBody).subscribe({
+      next: (logoResponse) => {
+        const logoValue = logoResponse || '';
+        const url = 'https://fa-strtupifyio.azurewebsites.net/api/jobs';
+        const body = { company_description: this.companyDescription };
+        this.http.post(url, body).subscribe({
+          next: async (response) => {
+            await addDoc(collection(db, 'company'), {
+              company: this.companyName,
+              company_description: this.companyDescription,
+              logo: logoValue,
+              colors: '',
+              created: serverTimestamp(),
+              updated: serverTimestamp(),
+            });
+            await loading.dismiss();
+            if ((response as any).error) {
+              await this.presentErrorAlert((response as any).error);
+            } else {
+              console.log(response);
+            }
+          },
+          error: async (err) => {
+            await loading.dismiss();
+            console.error(err);
+            this.presentErrorAlert(
+              'An unexpected error occurred. Please try again.'
+            );
+          },
+        });
       },
       error: async (err) => {
         await loading.dismiss();
-        console.error('Error:', err);
+        console.error(err);
         this.presentErrorAlert(
-          'An unexpected error occurred. Please try again.'
+          'An unexpected error occurred while generating the logo.'
         );
       },
     });

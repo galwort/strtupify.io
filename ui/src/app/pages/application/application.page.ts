@@ -46,7 +46,7 @@ export class ApplicationPage implements OnInit {
     }
     const logoUrl = 'https://fa-strtupifyio.azurewebsites.net/api/logo';
     const logoBody = { input: this.companyDescription };
-    this.http.post(logoUrl, logoBody).subscribe({
+    this.http.post(logoUrl, logoBody, { responseType: 'text' }).subscribe({
       next: (logoResponse) => {
         const logoValue = logoResponse || '';
         const url = 'https://fa-strtupifyio.azurewebsites.net/api/jobs';

@@ -60,10 +60,6 @@
       color: var(--theme-text);
     }
 
-    .login-form {
-      max-width: 300px;
-    }
-
     .form-group {
       margin-bottom: 1.5rem;
     }
@@ -74,23 +70,34 @@
       color: var(--theme-text);
     }
 
-    input {
-      width: 100%;
+    input,
+    textarea {
       padding: 0.75rem;
       background-color: white;
       border: 1.5px solid var(--theme-primary);
       border-radius: 4px;
       font-size: 1rem;
+      color: var(--theme-text);
     }
 
-    input:focus {
+    input {
+      width: 300px;
+    }
+
+    textarea {
+      width: 500px;
+      height: 100px;
+    }
+
+    input:focus,
+    textarea:focus {
       outline: none;
       border-color: var(--theme-accent);
       box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
     }
 
     .login-btn {
-      width: 100%;
+      width: 300px;
       padding: 0.75rem;
       background: var(--theme-primary);
       color: white;

@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-application',
@@ -7,7 +8,19 @@ import { Component, OnInit } from '@angular/core';
   standalone: false,
 })
 export class ApplicationPage implements OnInit {
-  constructor() {}
+  companyName: string = '';
+  companyDescription: string = '';
+
+  constructor(private http: HttpClient) {}
 
   ngOnInit() {}
+
+  onSubmit() {
+    const url = 'https://fa-strtupifyio.azurewebsites.net/api/jobs';
+    const body = { company_description: this.companyDescription };
+    this.http.post(url, body).subscribe({
+      next: (response) => console.log(response),
+      error: (err) => console.error('Error:', err),
+    });
+  }
 }

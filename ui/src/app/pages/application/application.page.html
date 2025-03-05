@@ -4,14 +4,23 @@
       <div class="title">Business Application</div>
     </div>
     <div class="content">
-      <form class="login-form">
+      <form (ngSubmit)="onSubmit()" class="login-form">
         <div class="form-group">
           <label>Company Name</label>
-          <input type="text" required />
+          <input
+            type="text"
+            [(ngModel)]="companyName"
+            name="companyName"
+            required
+          />
         </div>
         <div class="form-group">
           <label>Company Description</label>
-          <textarea required></textarea>
+          <textarea
+            [(ngModel)]="companyDescription"
+            name="companyDescription"
+            required
+          ></textarea>
         </div>
         <button type="submit" class="login-btn">Submit</button>
       </form>

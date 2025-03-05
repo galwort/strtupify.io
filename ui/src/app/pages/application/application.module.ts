@@ -8,13 +8,16 @@ import { ApplicationPageRoutingModule } from './application-routing.module';
 
 import { ApplicationPage } from './application.page';
 
+import { HttpClientModule } from '@angular/common/http';
+
 @NgModule({
   imports: [
     CommonModule,
     FormsModule,
     IonicModule,
-    ApplicationPageRoutingModule
+    ApplicationPageRoutingModule,
+    HttpClientModule,
   ],
-  declarations: [ApplicationPage]
+  declarations: [ApplicationPage],
 })
 export class ApplicationPageModule {}

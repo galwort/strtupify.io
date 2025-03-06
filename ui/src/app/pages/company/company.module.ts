@@ -8,13 +8,16 @@ import { CompanyPageRoutingModule } from './company-routing.module';
 
 import { CompanyPage } from './company.page';
 
+import { RolesComponent } from 'src/app/components/roles/roles.component';
+
 @NgModule({
   imports: [
     CommonModule,
     FormsModule,
     IonicModule,
-    CompanyPageRoutingModule
+    CompanyPageRoutingModule,
+    RolesComponent,
   ],
-  declarations: [CompanyPage]
+  declarations: [CompanyPage],
 })
 export class CompanyPageModule {}

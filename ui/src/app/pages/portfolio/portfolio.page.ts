@@ -1,4 +1,6 @@
 import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
+import { getAuth } from 'firebase/auth';
 
 @Component({
   selector: 'app-portfolio',
@@ -7,7 +9,17 @@ import { Component, OnInit } from '@angular/core';
   standalone: false,
 })
 export class PortfolioPage implements OnInit {
-  constructor() {}
+  constructor(private router: Router) {}
 
   ngOnInit() {}
+
+  logout() {
+    const auth = getAuth();
+    auth.signOut();
+    this.navigateTo('');
+  }
+
+  navigateTo(page: string) {
+    this.router.navigateByUrl(`/${page}`);
+  }
 }

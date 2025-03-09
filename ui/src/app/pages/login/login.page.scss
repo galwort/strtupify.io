@@ -74,7 +74,8 @@ input:focus {
   box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
 }
 
-.login-btn {
+.login-btn,
+.google-btn {
   width: 100%;
   padding: 0.75rem;
   background: var(--theme-primary);
@@ -84,9 +85,25 @@ input:focus {
   font-size: 1rem;
   cursor: pointer;
   transition: background 0.3s;
+  margin-top: 1rem;
 }
 
-.login-btn:hover {
+.login-btn:hover,
+.google-btn:hover {
   border: 1.5px solid var(--theme-accent);
   box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.google-btn {
+  background: white;
+  color: var(--theme-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gsi-material-button-icon {
+  margin-right: 1rem;
+  height: 1rem;
+  width: 1rem;
 }

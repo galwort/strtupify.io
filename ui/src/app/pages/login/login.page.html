@@ -12,7 +12,12 @@
           <label for="password">Password</label>
           <input type="password" id="password" name="password" required />
         </div>
-        <button type="submit" class="login-btn">Sign In</button>
+        <button type="submit" class="login-btn" (click)="emailLogin()">
+          Sign In
+        </button>
+        <button expand="block" (click)="googleLogin()">
+          Continue with Google
+        </button>
       </form>
     </div>
     <div class="graphic-section"></div>

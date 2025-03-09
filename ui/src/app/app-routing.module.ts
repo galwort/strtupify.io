@@ -42,7 +42,11 @@ const routes: Routes = [
     loadChildren: () =>
       import('./pages/company/company.module').then((m) => m.CompanyPageModule),
     canActivate: [AuthenticatedGuard],
+  },  {
+    path: 'portfolio',
+    loadChildren: () => import('./pages/portfolio/portfolio.module').then( m => m.PortfolioPageModule)
   },
+
 ];
 
 @NgModule({

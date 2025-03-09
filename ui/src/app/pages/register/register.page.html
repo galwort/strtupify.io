@@ -3,7 +3,7 @@
     <div class="login-section">
       <h1><b>Create account</b></h1>
       <p>Already have an account? <a href="/login">Login</a></p>
-      <form class="login-form">
+      <form class="login-form" (submit)="register()">
         <div class="form-group">
           <label for="username">Username</label>
           <input type="text" id="username" name="username" required />

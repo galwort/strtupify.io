@@ -34,6 +34,7 @@ export class ApplicationPage implements OnInit {
   async onSubmit() {
     const loading = await this.loadingController.create();
     await loading.present();
+
     if (!this.companyName || this.companyName.trim().length === 0) {
       await loading.dismiss();
       const alert = await this.alertController.create({
@@ -44,42 +45,52 @@ export class ApplicationPage implements OnInit {
       await alert.present();
       return;
     }
+
     const logoUrl = 'https://fa-strtupifyio.azurewebsites.net/api/logo';
     const logoBody = { input: this.companyDescription };
+
     this.http.post(logoUrl, logoBody, { responseType: 'text' }).subscribe({
       next: (logoResponse) => {
         const logoValue = logoResponse || '';
         const url = 'https://fa-strtupifyio.azurewebsites.net/api/jobs';
         const body = { company_description: this.companyDescription };
+
         this.http.post(url, body).subscribe({
-          next: async (response) => {
-            await addDoc(collection(db, 'company'), {
-              company: this.companyName,
-              company_description: this.companyDescription,
+          next: async (response: any) => {
+            const companyDocRef = await addDoc(collection(db, 'companies'), {
+              company_name: this.companyName,
+              description: this.companyDescription,
               logo: logoValue,
               colors: '',
               created: serverTimestamp(),
               updated: serverTimestamp(),
             });
-            await loading.dismiss();
-            if ((response as any).error) {
-              await this.presentErrorAlert((response as any).error);
-            } else {
-              console.log(response);
+
+            if (Array.isArray(response.jobs)) {
+              for (const role of response.jobs) {
+                await addDoc(
+                  collection(db, `companies/${companyDocRef.id}/roles`),
+                  {
+                    title: role,
+                    created: serverTimestamp(),
+                    updated: serverTimestamp(),
+                  }
+                );
+              }
             }
-          },
-          error: async (err) => {
+
             await loading.dismiss();
-            console.error(err);
+          },
+          error: async () => {
+            await loading.dismiss();
             this.presentErrorAlert(
               'An unexpected error occurred. Please try again.'
             );
           },
         });
       },
-      error: async (err) => {
+      error: async () => {
         await loading.dismiss();
-        console.error(err);
         this.presentErrorAlert(
           'An unexpected error occurred while generating the logo.'
         );

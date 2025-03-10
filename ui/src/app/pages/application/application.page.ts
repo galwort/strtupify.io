@@ -9,6 +9,7 @@ import {
   setDoc,
   collection,
   addDoc,
+  getDoc,
   serverTimestamp,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
@@ -49,9 +50,18 @@ export class ApplicationPage implements OnInit {
       await alert.present();
       return;
     }
-    const cleanedName = this.companyName
+
+    let cleanedName = this.companyName
       .replace(/[^a-zA-Z0-9]/g, '')
       .toLowerCase();
+    let uniqueName = cleanedName;
+    let counter = 2;
+
+    while (await this.checkIfCompanyExists(uniqueName)) {
+      uniqueName = `${cleanedName}${counter}`;
+      counter++;
+    }
+
     const logoUrl = 'https://fa-strtupifyio.azurewebsites.net/api/logo';
     const logoBody = { input: this.companyDescription };
 
@@ -63,7 +73,7 @@ export class ApplicationPage implements OnInit {
 
         this.http.post(url, body).subscribe({
           next: async (response: any) => {
-            const docRef = doc(db, 'companies', cleanedName);
+            const docRef = doc(db, 'companies', uniqueName);
             await setDoc(docRef, {
               company_name: this.companyName,
               description: this.companyDescription,
@@ -75,7 +85,7 @@ export class ApplicationPage implements OnInit {
 
             if (Array.isArray(response.jobs)) {
               for (const role of response.jobs) {
-                await addDoc(collection(db, `companies/${cleanedName}/roles`), {
+                await addDoc(collection(db, `companies/${uniqueName}/roles`), {
                   title: role,
                   created: serverTimestamp(),
                   updated: serverTimestamp(),
@@ -84,7 +94,7 @@ export class ApplicationPage implements OnInit {
             }
 
             await loading.dismiss();
-            this.router.navigateByUrl(`/company/${cleanedName}`);
+            this.router.navigateByUrl(`/company/${uniqueName}`);
           },
           error: async () => {
             await loading.dismiss();
@@ -101,6 +111,12 @@ export class ApplicationPage implements OnInit {
         );
       },
     });
+  }
+
+  async checkIfCompanyExists(companyId: string): Promise<boolean> {
+    const docRef = doc(db, 'companies', companyId);
+    const docSnap = await getDoc(docRef);
+    return docSnap.exists();
   }
 
   async presentErrorAlert(errorMessage: string) {

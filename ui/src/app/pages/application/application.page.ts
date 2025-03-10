@@ -1,9 +1,12 @@
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { AlertController, LoadingController } from '@ionic/angular';
+import { Router } from '@angular/router';
 import { initializeApp } from 'firebase/app';
 import {
   getFirestore,
+  doc,
+  setDoc,
   collection,
   addDoc,
   serverTimestamp,
@@ -26,7 +29,8 @@ export class ApplicationPage implements OnInit {
   constructor(
     private http: HttpClient,
     private alertController: AlertController,
-    private loadingController: LoadingController
+    private loadingController: LoadingController,
+    private router: Router
   ) {}
 
   ngOnInit() {}
@@ -45,7 +49,9 @@ export class ApplicationPage implements OnInit {
       await alert.present();
       return;
     }
-
+    const cleanedName = this.companyName
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .toLowerCase();
     const logoUrl = 'https://fa-strtupifyio.azurewebsites.net/api/logo';
     const logoBody = { input: this.companyDescription };
 
@@ -57,7 +63,8 @@ export class ApplicationPage implements OnInit {
 
         this.http.post(url, body).subscribe({
           next: async (response: any) => {
-            const companyDocRef = await addDoc(collection(db, 'companies'), {
+            const docRef = doc(db, 'companies', cleanedName);
+            await setDoc(docRef, {
               company_name: this.companyName,
               description: this.companyDescription,
               logo: logoValue,
@@ -68,18 +75,16 @@ export class ApplicationPage implements OnInit {
 
             if (Array.isArray(response.jobs)) {
               for (const role of response.jobs) {
-                await addDoc(
-                  collection(db, `companies/${companyDocRef.id}/roles`),
-                  {
-                    title: role,
-                    created: serverTimestamp(),
-                    updated: serverTimestamp(),
-                  }
-                );
+                await addDoc(collection(db, `companies/${cleanedName}/roles`), {
+                  title: role,
+                  created: serverTimestamp(),
+                  updated: serverTimestamp(),
+                });
               }
             }
 
             await loading.dismiss();
+            this.router.navigateByUrl(`/company/${cleanedName}`);
           },
           error: async () => {
             await loading.dismiss();

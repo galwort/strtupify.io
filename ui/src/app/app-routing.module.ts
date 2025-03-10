@@ -46,6 +46,10 @@ const routes: Routes = [
     path: 'portfolio',
     loadChildren: () => import('./pages/portfolio/portfolio.module').then( m => m.PortfolioPageModule)
   },
+  {
+    path: 'company-instance',
+    loadChildren: () => import('./pages/company-instance/company-instance.module').then( m => m.CompanyInstancePageModule)
+  },
 
 ];
 

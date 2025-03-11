@@ -23,6 +23,7 @@ def gen_skills(job_title):
         + "that would be needed for that job. "
         + "You should generate no more than 5 skills. "
         + "The skills should be concise and no more than a couple words. "
+        + "The skills should be in proper case. "
         + "Reply in JSON format with the word 'skills' as the key, "
         + "and the skills as a list of strings as the value."
     )

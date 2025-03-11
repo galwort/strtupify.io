@@ -5,4 +5,9 @@
     each role
   </p>
 </div>
-<div class="content"></div>
+<div class="content">
+  <div *ngFor="let role of roles">
+    <label>{{ role.title }}</label>
+    <input type="number" [(ngModel)]="role.count" />
+  </div>
+</div>

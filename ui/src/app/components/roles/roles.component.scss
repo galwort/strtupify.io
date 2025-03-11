@@ -44,4 +44,22 @@
     width: 42px;
     padding: 4px;
   }
+
+  button {
+    width: 300px;
+    padding: 0.75rem;
+    background: var(--theme-primary);
+    color: white;
+    border: 1.5px solid var(--theme-primary);
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.3s;
+    margin-top: 1rem;
+  }
+
+  button:hover {
+    border: 1.5px solid var(--theme-accent);
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+  }
 }

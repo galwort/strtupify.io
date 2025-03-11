@@ -1,12 +1,9 @@
 <div class="header">
   <div class="title">Resource Planning</div>
-  <p>
-    Select the positions you wish to fill and indicate the number of hires for
-    each role
-  </p>
+  <p>Indicate the number of employees you need for each role</p>
 </div>
 <div class="content">
-  <div *ngFor="let role of roles">
+  <div *ngFor="let role of roles" class="role">
     <label>{{ role.title }}</label>
     <input type="number" [(ngModel)]="role.count" />
   </div>

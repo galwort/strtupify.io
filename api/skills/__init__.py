@@ -2,12 +2,17 @@ import azure.functions as func
 from json import dumps, loads
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
-from openai import OpenAI
+from openai import AzureOpenAI
 
-vault_url = "https://kv-galwort.vault.azure.net/"
+vault_url = "https://kv-strtupifyio.vault.azure.net/"
 credential = DefaultAzureCredential()
 secret_client = SecretClient(vault_url=vault_url, credential=credential)
-client = OpenAI(api_key=secret_client.get_secret("OAIKey").value)
+endpoint = secret_client.get_secret("AIEndpoint").value
+api_key = secret_client.get_secret("AIKey").value
+deployment = secret_client.get_secret("AIDeploymentMini").value
+client = AzureOpenAI(
+    api_version="2023-07-01-preview", azure_endpoint=endpoint, api_key=api_key
+)
 
 
 def gen_skills(job_title):
@@ -27,7 +32,7 @@ def gen_skills(job_title):
     messages.append(user_message)
 
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model=deployment,
         response_format={"type": "json_object"},
         messages=messages,
     )

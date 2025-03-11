@@ -4,7 +4,7 @@
 </div>
 <div class="content">
   <div *ngFor="let role of roles" class="role">
-    <label>{{ role.title }}</label>
     <input type="number" [(ngModel)]="role.count" />
+    <label>{{ role.title }}</label>
   </div>
 </div>

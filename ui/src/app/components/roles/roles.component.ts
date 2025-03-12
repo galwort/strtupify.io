@@ -22,7 +22,7 @@ export const db = getFirestore(app);
   imports: [CommonModule, FormsModule],
 })
 export class RolesComponent implements OnInit {
-  roles: { id: string; title: string; count: number }[] = [];
+  roles: { id: string; title: string; count: number; skills?: string[] }[] = [];
   companyId: string = '';
 
   constructor(private route: ActivatedRoute, private router: Router) {}
@@ -45,17 +45,34 @@ export class RolesComponent implements OnInit {
     }));
   }
 
+  async fetchSkills(jobTitle: string): Promise<string[]> {
+    const response = await fetch(
+      'https://fa-strtupifyio.azurewebsites.net/api/skills',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_title: jobTitle }),
+      }
+    );
+    const data = await response.json();
+    return data.skills;
+  }
+
   async screen() {
     if (!this.companyId) return;
 
     const timestamp = new Date().toISOString();
 
     for (let role of this.roles) {
-      const roleRef = doc(db, `companies/${this.companyId}/roles`, role.id);
-      await updateDoc(roleRef, {
-        openings: role.count,
-        updated: timestamp,
-      });
+      if (role.count > 0) {
+        const skills = await this.fetchSkills(role.title);
+        const roleRef = doc(db, `companies/${this.companyId}/roles`, role.id);
+        await updateDoc(roleRef, {
+          openings: role.count,
+          skills: skills,
+          updated: timestamp,
+        });
+      }
     }
 
     alert('Resumé screening has begun!');

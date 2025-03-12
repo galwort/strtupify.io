@@ -1,10 +1,9 @@
-<ion-content [fullscreen]="true">
-  <div class="page-container">
+<ion-content>
+  <div class="page-container" [class.hidden]="showLoading">
     <app-roles (loadingStateChange)="handleLoadingState($event)"></app-roles>
   </div>
-  <div class="page-container">
+  <div class="page-container" [class.hidden]="!showLoading">
     <app-loading
-      *ngIf="showLoading"
       [totalTasks]="totalTasks"
       [completedTasks]="completedTasks"
     ></app-loading>

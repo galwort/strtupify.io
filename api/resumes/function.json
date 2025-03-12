@@ -6,7 +6,7 @@
       "direction": "in",
       "name": "req",
       "methods": ["post"],
-      "route": "personalities"
+      "route": "jobs"
     },
     {
       "type": "http",

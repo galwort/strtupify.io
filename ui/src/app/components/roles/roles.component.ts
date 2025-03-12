@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, Output, EventEmitter, NgZone } from '@angular/core';
 import { initializeApp } from 'firebase/app';
 import {
   getFirestore,
@@ -22,22 +22,27 @@ export const db = getFirestore(app);
   imports: [CommonModule, FormsModule],
 })
 export class RolesComponent implements OnInit {
+  @Output() loadingStateChange = new EventEmitter<{
+    show: boolean;
+    totalTasks: number;
+    completedTasks: number;
+  }>();
   roles: { id: string; title: string; count: number; skills?: string[] }[] = [];
   companyId: string = '';
 
-  constructor(private route: ActivatedRoute, private router: Router) {}
+  constructor(
+    private route: ActivatedRoute,
+    private router: Router,
+    private zone: NgZone
+  ) {}
 
   async ngOnInit() {
     let segments = this.router.url.split('/');
     this.companyId = segments.length > 2 ? segments[2] : '';
-    if (!this.companyId) {
-      return;
-    }
-
+    if (!this.companyId) return;
     let querySnapshot = await getDocs(
       collection(db, 'companies/' + this.companyId + '/roles')
     );
-
     this.roles = querySnapshot.docs.map((docSnap) => ({
       id: docSnap.id,
       title: docSnap.data()['title'],
@@ -60,21 +65,55 @@ export class RolesComponent implements OnInit {
 
   async screen() {
     if (!this.companyId) return;
-
+    const filtered = this.roles.filter((r) => r.count > 0);
+    const totalTasks = filtered.length * 4;
+    let completedTasks = 0;
+    this.loadingStateChange.emit({ show: true, totalTasks, completedTasks });
     const timestamp = new Date().toISOString();
-
-    for (let role of this.roles) {
-      if (role.count > 0) {
-        const skills = await this.fetchSkills(role.title);
-        const roleRef = doc(db, `companies/${this.companyId}/roles`, role.id);
-        await updateDoc(roleRef, {
+    for (const role of filtered) {
+      await this.delayStep(async () => {
+        role.skills = await this.fetchSkills(role.title);
+      });
+      this.updateProgress(++completedTasks, totalTasks);
+      await this.delayStep(async () => {
+        await updateDoc(doc(db, `companies/${this.companyId}/roles`, role.id), {
           openings: role.count,
-          skills: skills,
+        });
+      });
+      this.updateProgress(++completedTasks, totalTasks);
+      await this.delayStep(async () => {
+        await updateDoc(doc(db, `companies/${this.companyId}/roles`, role.id), {
+          skills: role.skills,
+        });
+      });
+      this.updateProgress(++completedTasks, totalTasks);
+      await this.delayStep(async () => {
+        await updateDoc(doc(db, `companies/${this.companyId}/roles`, role.id), {
           updated: timestamp,
         });
-      }
+      });
+      this.updateProgress(++completedTasks, totalTasks);
     }
-
+    this.loadingStateChange.emit({
+      show: false,
+      totalTasks: 0,
+      completedTasks: 0,
+    });
     alert('Resumé screening has begun!');
+  }
+
+  async delayStep(stepFn: () => Promise<void>) {
+    await stepFn();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+
+  updateProgress(done: number, total: number) {
+    this.zone.run(() => {
+      this.loadingStateChange.emit({
+        show: true,
+        totalTasks: total,
+        completedTasks: done,
+      });
+    });
   }
 }

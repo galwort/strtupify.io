@@ -1,0 +1,25 @@
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: var(--theme-background);
+  color: var(--theme-text);
+}
+
+.progress-bar {
+  width: 80%;
+  height: 20px;
+  border-radius: 10px;
+  border: 1px solid var(--theme-primary);
+  background-color: white;
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-color: var(--theme-primary);
+  transition: width 0.3s ease;
+}

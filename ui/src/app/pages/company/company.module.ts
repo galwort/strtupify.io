@@ -9,6 +9,7 @@ import { CompanyPageRoutingModule } from './company-routing.module';
 import { CompanyPage } from './company.page';
 
 import { RolesComponent } from 'src/app/components/roles/roles.component';
+import { LoadingComponent } from 'src/app/components/loading/loading.component';
 
 @NgModule({
   imports: [
@@ -17,6 +18,7 @@ import { RolesComponent } from 'src/app/components/roles/roles.component';
     IonicModule,
     CompanyPageRoutingModule,
     RolesComponent,
+    LoadingComponent,
   ],
   declarations: [CompanyPage],
 })

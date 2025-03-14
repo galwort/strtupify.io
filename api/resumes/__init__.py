@@ -1,7 +1,10 @@
 import azure.functions as func
-from json import dumps, loads
+import firebase_admin
+
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
+from firebase_admin import credentials, firestore
+from json import dumps, loads
 from openai import AzureOpenAI
 from random import gauss
 from requests import get
@@ -9,6 +12,7 @@ from requests import get
 vault_url = "https://kv-strtupifyio.vault.azure.net/"
 credential = DefaultAzureCredential()
 secret_client = SecretClient(vault_url=vault_url, credential=credential)
+
 endpoint = secret_client.get_secret("AIEndpoint").value
 api_key = secret_client.get_secret("AIKey").value
 deployment = secret_client.get_secret("AIDeploymentMini").value
@@ -16,12 +20,21 @@ client = AzureOpenAI(
     api_version="2023-07-01-preview", azure_endpoint=endpoint, api_key=api_key
 )
 
+firestore_sdk = secret_client.get_secret("FirebaseSDK").value
+cred = credentials.Certificate(loads(firestore_sdk))
+firebase_admin.initialize_app(cred)
+db = firestore.client()
+
 
 def pull_name():
     url = "https://randomuser.me/api/?nat=us"
     response = get(url)
     name = response.json()["results"][0]["name"]["first"]
     return name
+
+
+def pull_skills():
+    pass
 
 
 def get_skill_levels():
@@ -88,6 +101,7 @@ def gen_salary(job_title, skills):
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     req_body = req.get_json()
+    company = req_body["company"]
     job_title = req_body["job_title"]
     # pull skills
     # run functions

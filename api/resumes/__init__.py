@@ -1,9 +1,8 @@
 import azure.functions as func
-import firebase_admin
 
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
-from firebase_admin import credentials, firestore
+from firebase_admin import credentials, initialize_app, firestore
 from json import dumps, loads
 from openai import AzureOpenAI
 from random import gauss
@@ -22,7 +21,7 @@ client = AzureOpenAI(
 
 firestore_sdk = secret_client.get_secret("FirebaseSDK").value
 cred = credentials.Certificate(loads(firestore_sdk))
-firebase_admin.initialize_app(cred)
+initialize_app(cred)
 db = firestore.client()
 
 
@@ -33,8 +32,12 @@ def pull_name():
     return name
 
 
-def pull_skills():
-    pass
+def pull_skills(company, job_title):
+    ref = db.collection("companies").document(company).collection("roles")
+    docs = ref.where("title", "==", job_title).limit(1).get()
+    if docs:
+        return docs[0].to_dict().get("skills", [])
+    return []
 
 
 def get_skill_levels():
@@ -103,6 +106,38 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     req_body = req.get_json()
     company = req_body["company"]
     job_title = req_body["job_title"]
-    # pull skills
-    # run functions
-    # post to firestore
+    skills = pull_skills(company, job_title)
+    name = pull_name()
+    personality = gen_personality(name)
+    skill_data = []
+    for s in skills:
+        skill_data.append({"skill": s, "level": max(1, min(10, round(gauss(5, 2))))})
+    salary = gen_salary(job_title, skill_data)
+    ref = db.collection("companies").document(company).collection("employees")
+    docs = ref.get()
+    if not docs:
+        employee_id = 1
+    else:
+        employee_id = max(int(d.id) for d in docs if d.id.isdigit()) + 1
+    new_employee = ref.document(str(employee_id))
+    new_employee.set(
+        {
+            "name": name,
+            "title": job_title,
+            "salary": salary,
+            "personality": personality,
+            "hired": False,
+            "created": firestore.SERVER_TIMESTAMP,
+            "updated": firestore.SERVER_TIMESTAMP,
+        }
+    )
+    skill_ref = new_employee.collection("skills")
+    for item in skill_data:
+        skill_ref.add(
+            {
+                "skill": item["skill"],
+                "level": item["level"],
+                "updated": firestore.SERVER_TIMESTAMP,
+            }
+        )
+    return func.HttpResponse(dumps({"employeeId": employee_id}), status_code=200)

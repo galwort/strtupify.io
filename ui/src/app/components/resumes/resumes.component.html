@@ -9,7 +9,9 @@
       </li>
     </ul>
   </div>
-  <p>Salary: {{ currentEmployee.salary }}</p>
+  <p>
+    Salary: {{ currentEmployee.salary | currency : "USD" : "symbol" : "1.0-0" }}
+  </p>
   <div class="button-container">
     <button class="hire-button" (click)="hireEmployee()">Hire</button>
     <button (click)="prevResume()" [disabled]="currentIndex === 0">

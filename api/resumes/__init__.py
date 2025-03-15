@@ -106,7 +106,22 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     req_body = req.get_json()
     company = req_body["company"]
     job_title = req_body["job_title"]
-    skills = pull_skills(company, job_title)
+
+    company_doc = db.collection("companies").document(company).get()
+    if not company_doc.exists:
+        return func.HttpResponse(
+            dumps({"error": "Company does not exist"}), status_code=400
+        )
+
+    roles_ref = db.collection("companies").document(company).collection("roles")
+    docs = roles_ref.where("title", "==", job_title).limit(1).get()
+    if not docs:
+        return func.HttpResponse(
+            dumps({"error": "Job title does not exist for this company"}),
+            status_code=400,
+        )
+
+    skills = docs[0].to_dict().get("skills", [])
     name = pull_name()
     personality = gen_personality(name)
     skill_data = []
@@ -114,11 +129,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         skill_data.append({"skill": s, "level": max(1, min(10, round(gauss(5, 2))))})
     salary = gen_salary(job_title, skill_data)
     ref = db.collection("companies").document(company).collection("employees")
-    docs = ref.get()
-    if not docs:
+    docs_employee = ref.get()
+    if not docs_employee:
         employee_id = 1
     else:
-        employee_id = max(int(d.id) for d in docs if d.id.isdigit()) + 1
+        employee_id = max(int(d.id) for d in docs_employee if d.id.isdigit()) + 1
     new_employee = ref.document(str(employee_id))
     new_employee.set(
         {

@@ -5,6 +5,8 @@
   justify-content: flex-start;
   margin-bottom: 20px;
   color: var(--theme-text);
+  min-height: calc(100vh - 40px);
+  position: relative;
 
   h1 {
     font-size: min(3rem, 12vw);
@@ -58,21 +60,21 @@
       border: 1.5px solid var(--theme-accent);
     }
   }
-}
 
-.bottom-bar {
-  display: flex;
-  flex-direction: row;
-  color: white;
-  border: 1.5px solid var(--theme-primary);
-  border-radius: 4px;
-  margin-top: 20px;
-  padding: 8px;
-  box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+  .bottom-bar {
+    display: flex;
+    flex-direction: row;
+    color: white;
+    border: 1.5px solid var(--theme-primary);
+    border-radius: 4px;
+    margin-top: auto;
+    padding: 8px;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
 
-  .role {
-    margin-right: 16px;
-    font-size: 18px;
-    color: var(--theme-text);
+    .role {
+      margin-right: 16px;
+      font-size: 18px;
+      color: var(--theme-text);
+    }
   }
 }

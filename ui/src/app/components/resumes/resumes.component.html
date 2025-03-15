@@ -2,13 +2,17 @@
   <h1>{{ currentEmployee.name }}</h1>
   <h2>{{ currentEmployee.title }}</h2>
   <p>{{ currentEmployee.personality }}</p>
-  <div>
-    <ul>
-      <li *ngFor="let skill of currentEmployeeSkills">
-        {{ skill.skill }} (Level: {{ skill.level }})
-      </li>
-    </ul>
-  </div>
+  <ul>
+    <li *ngFor="let skill of currentEmployeeSkills">
+      <span class="skill-name">{{ skill.skill }}</span>
+      <div class="progress-bar">
+        <div
+          class="progress-fill"
+          [style.width.%]="(skill.level / 10) * 100"
+        ></div>
+      </div>
+    </li>
+  </ul>
   <p>
     Salary: {{ currentEmployee.salary | currency : "USD" : "symbol" : "1.0-0" }}
   </p>

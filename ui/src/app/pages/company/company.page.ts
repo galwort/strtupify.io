@@ -8,6 +8,7 @@ import { Component, OnInit } from '@angular/core';
 })
 export class CompanyPage implements OnInit {
   showLoading = false;
+  showResumes = false;
   totalTasks = 0;
   completedTasks = 0;
 
@@ -19,9 +20,11 @@ export class CompanyPage implements OnInit {
     show: boolean;
     totalTasks: number;
     completedTasks: number;
+    showResumes: boolean;
   }) {
     this.showLoading = event.show;
     this.totalTasks = event.totalTasks;
     this.completedTasks = event.completedTasks;
+    this.showResumes = event.showResumes;
   }
 }

@@ -10,6 +10,7 @@ import { CompanyPage } from './company.page';
 
 import { RolesComponent } from 'src/app/components/roles/roles.component';
 import { LoadingComponent } from 'src/app/components/loading/loading.component';
+import { ResumesComponent } from 'src/app/components/resumes/resumes.component';
 
 @NgModule({
   imports: [
@@ -19,6 +20,7 @@ import { LoadingComponent } from 'src/app/components/loading/loading.component';
     CompanyPageRoutingModule,
     RolesComponent,
     LoadingComponent,
+    ResumesComponent,
   ],
   declarations: [CompanyPage],
 })

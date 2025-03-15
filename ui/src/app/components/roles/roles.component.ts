@@ -33,6 +33,7 @@ export class RolesComponent implements OnInit {
     show: boolean;
     totalTasks: number;
     completedTasks: number;
+    showResumes: boolean;
   }>();
   roles: { id: string; title: string; count: number; skills?: string[] }[] = [];
   companyId: string = '';
@@ -79,7 +80,12 @@ export class RolesComponent implements OnInit {
       totalTasks += generateResumeCount(role.count);
     }
     let completedTasks = 0;
-    this.loadingStateChange.emit({ show: true, totalTasks, completedTasks });
+    this.loadingStateChange.emit({
+      show: true,
+      totalTasks,
+      completedTasks,
+      showResumes: false,
+    });
     const timestamp = new Date().toISOString();
     for (const role of filtered) {
       await this.delayStep(async () => {
@@ -123,8 +129,8 @@ export class RolesComponent implements OnInit {
       show: false,
       totalTasks: 0,
       completedTasks: 0,
+      showResumes: true,
     });
-    alert('Resumé screening has begun!');
   }
 
   async delayStep(stepFn: () => Promise<void>) {
@@ -138,6 +144,7 @@ export class RolesComponent implements OnInit {
         show: true,
         totalTasks: total,
         completedTasks: done,
+        showResumes: false,
       });
     });
   }

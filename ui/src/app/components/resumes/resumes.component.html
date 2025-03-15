@@ -1,3 +1,29 @@
-<p>
-  resumes works!
-</p>
+<div *ngIf="currentEmployee" class="resume-container">
+  <h2>{{ currentEmployee.title }}</h2>
+  <h3>{{ currentEmployee.name }}</h3>
+  <p>{{ currentEmployee.personality }}</p>
+  <p>Salary: {{ currentEmployee.salary }}</p>
+  <div>
+    <strong>Skills:</strong>
+    <ul>
+      <li *ngFor="let skill of currentEmployeeSkills">
+        {{ skill.skill }} (Level: {{ skill.level }})
+      </li>
+    </ul>
+  </div>
+  <button (click)="hireEmployee()">Hire</button>
+  <button (click)="prevResume()" [disabled]="currentIndex === 0">
+    Previous
+  </button>
+  <button
+    (click)="nextResume()"
+    [disabled]="currentIndex === employees.length - 1"
+  >
+    Next
+  </button>
+</div>
+<div class="bottom-bar">
+  <div class="role" *ngFor="let role of roles">
+    {{ role.title }} ({{ role.openings }})
+  </div>
+</div>

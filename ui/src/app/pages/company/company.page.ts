@@ -14,7 +14,7 @@ export const db = getFirestore(app);
   standalone: false,
 })
 export class CompanyPage implements OnInit {
-  showLoading = false;
+  showLoading = true;
   showResumes = false;
   totalTasks = 0;
   completedTasks = 0;
@@ -25,7 +25,10 @@ export class CompanyPage implements OnInit {
   async ngOnInit() {
     let segments = this.router.url.split('/');
     this.companyId = segments.length > 2 ? segments[2] : '';
-    if (!this.companyId) return;
+    if (!this.companyId) {
+      this.showLoading = false;
+      return;
+    }
     let employeesQuery = await getDocs(
       collection(db, 'companies/' + this.companyId + '/employees')
     );
@@ -37,6 +40,7 @@ export class CompanyPage implements OnInit {
     } else if (!rolesQuery.empty) {
       this.showResumes = false;
     }
+    this.showLoading = false;
   }
 
   handleLoadingState(event: {

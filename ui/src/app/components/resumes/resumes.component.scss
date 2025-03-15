@@ -6,67 +6,69 @@
   margin-bottom: 20px;
   color: var(--theme-text);
 
-  h2 {
-    font-size: 32px;
-    padding: 8px;
-    margin: 0;
+  h1 {
+    font-size: min(3rem, 12vw);
+    font-weight: 700;
+    color: var(--theme-text);
   }
 
-  h3 {
-    font-size: 24px;
-    padding: 8px;
-    margin: 0;
+  h2 {
+    font-size: min(1.5rem, 8vw);
+    font-weight: 600;
+    margin-top: 0;
+    color: var(--theme-text);
   }
 
   p {
-    margin: 4px 0;
+    font-size: min(1rem, 6vw);
+    margin-top: 0;
+    line-height: 1.5rem;
     color: var(--theme-text);
-    padding: 0 8px;
   }
 
-  strong {
-    margin-left: 8px;
-  }
+  .button-container {
+    display: flex;
+    width: 100%;
 
-  ul {
-    padding-left: 40px;
-    margin: 8px 0;
-  }
+    button {
+      width: 150px;
+      padding: 0.75rem;
+      background: var(--theme-primary);
+      color: white;
+      border: 1.5px solid var(--theme-primary);
+      border-radius: 4px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.3s;
+      margin-right: 8px;
+    }
 
-  li {
-    margin-bottom: 4px;
-  }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
 
-  button {
-    width: 150px;
-    padding: 0.75rem;
-    background: var(--theme-primary);
-    color: white;
-    border: 1.5px solid var(--theme-primary);
-    border-radius: 4px;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: background 0.3s;
-    margin: 8px 4px 0 0;
-  }
+    button:hover:not(:disabled) {
+      border: 1.5px solid var(--theme-accent);
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    }
 
-  button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  button:hover:not(:disabled) {
-    border: 1.5px solid var(--theme-accent);
-    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    .hire-button {
+      background: var(--theme-accent);
+      border: 1.5px solid var(--theme-accent);
+    }
   }
 }
 
 .bottom-bar {
   display: flex;
   flex-direction: row;
-  border-top: 1px solid var(--theme-text);
+  color: white;
+  border: 1.5px solid var(--theme-primary);
+  border-radius: 4px;
   margin-top: 20px;
   padding: 8px;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
 
   .role {
     margin-right: 16px;

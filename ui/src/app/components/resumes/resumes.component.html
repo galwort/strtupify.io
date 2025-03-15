@@ -9,6 +9,7 @@
         <div
           class="progress-fill"
           [style.width.%]="(skill.level / 10) * 100"
+          [ngClass]="{ 'full-skill': skill.level === 10 }"
         ></div>
       </div>
     </li>

@@ -15,6 +15,13 @@ import { FormsModule } from '@angular/forms';
 export const app = initializeApp(environment.firebase);
 export const db = getFirestore(app);
 
+function generateResumeCount(openings: number, cap: number = 20): number {
+  const maxMultiplier = 1.5 + (2.5 - 2.5 * (openings / cap));
+  const multiplier = Math.random() * (Math.max(1.2, maxMultiplier) - 1.1) + 1.1;
+  const resumes = Math.max(openings + 1, Math.round(openings * multiplier));
+  return Math.min(resumes, cap);
+}
+
 @Component({
   selector: 'app-roles',
   templateUrl: './roles.component.html',
@@ -66,7 +73,11 @@ export class RolesComponent implements OnInit {
   async screen() {
     if (!this.companyId) return;
     const filtered = this.roles.filter((r) => r.count > 0);
-    const totalTasks = filtered.length * 4;
+    let totalTasks = 0;
+    for (const role of filtered) {
+      totalTasks += 4;
+      totalTasks += generateResumeCount(role.count);
+    }
     let completedTasks = 0;
     this.loadingStateChange.emit({ show: true, totalTasks, completedTasks });
     const timestamp = new Date().toISOString();
@@ -93,6 +104,20 @@ export class RolesComponent implements OnInit {
         });
       });
       this.updateProgress(++completedTasks, totalTasks);
+      const resumeCount = generateResumeCount(role.count);
+      for (let i = 0; i < resumeCount; i++) {
+        await this.delayStep(async () => {
+          await fetch('https://fa-strtupifyio.azurewebsites.net/api/resumes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              company: this.companyId,
+              job_title: role.title,
+            }),
+          });
+        });
+        this.updateProgress(++completedTasks, totalTasks);
+      }
     }
     this.loadingStateChange.emit({
       show: false,

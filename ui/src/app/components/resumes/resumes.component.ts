@@ -60,6 +60,10 @@ export class ResumesComponent implements OnInit {
     this.employees = employeesData.filter((e) => e['hired'] === false);
   }
 
+  get rolesWithOpenings() {
+    return this.roles.filter((role) => role.openings > 0);
+  }
+
   get currentEmployee() {
     return this.employees[this.currentIndex];
   }

@@ -29,9 +29,11 @@
       Next
     </button>
   </div>
-  <div class="bottom-bar">
-    <div class="role" *ngFor="let role of roles">
-      {{ role.title }} ({{ role.openings }})
+  <div class="bottom-container">
+    <div class="bottom-bar">
+      <div class="role" *ngFor="let role of rolesWithOpenings">
+        {{ role.title }} ({{ role.openings }})
+      </div>
     </div>
   </div>
 </div>

@@ -29,6 +29,7 @@ def pull_name():
     url = "https://randomuser.me/api/?nat=us"
     response = get(url)
     name = response.json()["results"][0]["name"]["first"]
+    name += " " + response.json()["results"][0]["name"]["last"]
     return name
 
 

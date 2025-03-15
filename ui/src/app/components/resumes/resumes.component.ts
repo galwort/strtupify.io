@@ -53,6 +53,9 @@ export class ResumesComponent implements OnInit {
         )
       );
       e.skills = skillsSnapshot.docs.map((s) => ({ id: s.id, ...s.data() }));
+      e.skills.sort((a, b) =>
+        a.skill.localeCompare(b.skill, undefined, { sensitivity: 'base' })
+      );
     }
     this.employees = employeesData.filter((e) => e['hired'] === false);
   }

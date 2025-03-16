@@ -3,7 +3,20 @@
     <div class="header">
       <div class="title">Companies</div>
     </div>
-    <div class="content"></div>
+    <div class="content">
+      <div
+        *ngFor="let company of companies"
+        class="company-card"
+        [routerLink]="['/company', company.id]"
+      >
+        <div class="card-grid">
+          <div class="company-title">{{ company.title }}</div>
+          <div class="company-logo">
+            <ion-icon [name]="company.logo"></ion-icon>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <ion-fab vertical="bottom" horizontal="end" slot="fixed">

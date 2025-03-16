@@ -10,9 +10,9 @@
         [routerLink]="['/company', company.id]"
       >
         <div class="card-grid">
-          <div class="company-title">{{ company.title }}</div>
+          <div class="company-title">{{ company.company_name }}</div>
           <div class="company-logo">
-            <ion-icon [name]="company.logo"></ion-icon>
+            <span class="material-symbols-outlined"> {{company.logo}} </span>
           </div>
         </div>
       </div>

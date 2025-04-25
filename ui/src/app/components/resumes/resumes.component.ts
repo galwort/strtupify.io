@@ -49,6 +49,7 @@ export class ResumesComponent implements OnInit {
   employees: Employee[] = [];
   roles: Role[] = [];
   currentIndex = 0;
+  private doneEmitted = false;
 
   constructor(private router: Router) {}
 
@@ -86,10 +87,11 @@ export class ResumesComponent implements OnInit {
     }
 
     this.employees = temp.filter((x) => !x.hired);
+    this.checkComplete();
   }
 
   get rolesWithOpenings() {
-    return this.roles.filter((r) => r.openings > 0);
+    return this.roles.filter((r) => typeof r.openings === 'number' && r.openings > 0);
   }
 
   get currentEmployee() {
@@ -123,7 +125,8 @@ export class ResumesComponent implements OnInit {
     if (this.currentIndex >= this.employees.length)
       this.currentIndex = this.employees.length - 1;
 
-    if (this.roles.every((r) => r.openings === 0)) this.hiringFinished.emit();
+    console.log('openings left:', this.roles.map(r => `${r.title}:${r.openings}`));
+    this.checkComplete();
   }
 
   nextResume() {
@@ -132,5 +135,15 @@ export class ResumesComponent implements OnInit {
 
   prevResume() {
     if (this.currentIndex > 0) this.currentIndex--;
+  }
+
+  private checkComplete() {
+    const stillNeeded = this.roles.filter(
+      (r) => typeof r.openings === 'number' && r.openings > 0
+    );
+    if (!this.doneEmitted && stillNeeded.length === 0) {
+      this.doneEmitted = true;
+      this.hiringFinished.emit();
+    }
   }
 }

@@ -65,6 +65,7 @@ export class CompanyPage implements OnInit {
   }
 
   openBoardroom() {
+    console.log('openBoardroom called');
     this.showLoading = false;
     this.showResumes = false;
     this.showBoardroom = true;

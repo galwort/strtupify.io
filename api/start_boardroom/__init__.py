@@ -2,6 +2,7 @@ import azure.functions as func
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from firebase_admin import credentials, initialize_app, firestore
+import firebase_admin
 from openai import AzureOpenAI
 from random import gauss, random
 import json, uuid
@@ -14,7 +15,8 @@ deployment=sc.get_secret("AIDeploymentMini").value
 client=AzureOpenAI(api_version="2023-07-01-preview",azure_endpoint=endpoint,api_key=key)
 
 cred=credentials.Certificate(json.loads(sc.get_secret("FirebaseSDK").value))
-initialize_app(cred)
+if not firebase_admin._apps:
+    initialize_app(cred)
 db=firestore.client()
 
 role_weights={"Project Manager":0.8,"Designer":0.6,"Developer":0.5}
@@ -49,7 +51,7 @@ def main(req:func.HttpRequest)->func.HttpResponse:
     directive=body.get("directive","Come up with the company’s first product")
     emps=load_employees(company)
     if not emps:
-        return func.HttpResponse(json.dumps({"error":"no employees"}),status_code=400)
+        return func.HttpResponse(json.dumps({"error":"no employees"}),400)
     speaker=pick_first_speaker(emps)
     line=gen_agent_line(speaker,[],directive)
     product_id=store_product(company,speaker["name"],line,directive)

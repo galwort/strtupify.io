@@ -1,4 +1,5 @@
 import azure.functions as func
+import firebase_admin
 
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
@@ -21,7 +22,8 @@ client = AzureOpenAI(
 
 firestore_sdk = secret_client.get_secret("FirebaseSDK").value
 cred = credentials.Certificate(loads(firestore_sdk))
-initialize_app(cred)
+if not firebase_admin._apps:
+    initialize_app(cred)
 db = firestore.client()
 
 

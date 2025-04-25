@@ -27,9 +27,15 @@ export class HomePage implements OnInit {
 
   async onDelete(event: Event, companyId: string) {
     event.stopPropagation();
-    // remove from Firestore
+    const subcollections = ['products', 'employees', 'roles'];
+    for (const sub of subcollections) {
+      const subCol = collection(db, 'companies', companyId, sub);
+      const subSnap = await getDocs(subCol);
+      for (const docItem of subSnap.docs) {
+        await deleteDoc(docItem.ref);
+      }
+    }
     await deleteDoc(doc(db, 'companies', companyId));
-    // update local list
     this.companies = this.companies.filter(c => c.id !== companyId);
   }
 }

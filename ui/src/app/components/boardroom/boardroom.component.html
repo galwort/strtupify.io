@@ -1,3 +1,15 @@
-<p>
-  boardroom works!
-</p>
+<div class="transcript">
+  <div class="line" *ngFor="let t of transcript">
+    <b>{{ t.speaker }}:</b> {{ t.line }}
+  </div>
+</div>
+
+<div class="outcome" *ngIf="outcome.name || outcome.description">
+  <h3>Proposed product</h3>
+  <p><b>Name:</b> {{ outcome.name }}</p>
+  <p><b>Description:</b> {{ outcome.description }}</p>
+</div>
+
+<button expand="block" ion-button (click)="next()" [disabled]="busy || finished">
+  {{ finished ? 'Conversation complete' : 'Next' }}
+</button>

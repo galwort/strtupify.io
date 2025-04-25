@@ -1,14 +1,17 @@
 <ion-content>
-  <div class="page-container" *ngIf="!showLoading && !showResumes">
+  <div class="page-container" *ngIf="!showLoading && !showResumes && !showBoardroom">
     <app-roles (loadingStateChange)="handleLoadingState($event)"></app-roles>
   </div>
+
   <div class="page-container" *ngIf="showLoading">
-    <app-loading
-      [totalTasks]="totalTasks"
-      [completedTasks]="completedTasks"
-    ></app-loading>
+    <app-loading [totalTasks]="totalTasks" [completedTasks]="completedTasks"></app-loading>
   </div>
+
   <div class="page-container" *ngIf="!showLoading && showResumes">
-    <app-resumes></app-resumes>
+    <app-resumes (hiringFinished)="openBoardroom()"></app-resumes>
+  </div>
+
+  <div class="page-container" *ngIf="showBoardroom">
+    <app-boardroom [companyId]="companyId"></app-boardroom>
   </div>
 </ion-content>

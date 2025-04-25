@@ -1,0 +1,21 @@
+.transcript {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+  color: var(--theme-text);
+}
+.line b {
+  margin-right: 4px;
+}
+.outcome {
+  border: 1px solid var(--theme-primary);
+  padding: 12px;
+  margin-bottom: 24px;
+  color: var(--theme-text);
+}
+button[ion-button] {
+  width: 100%;
+  background: var(--theme-accent);
+  color: #fff;
+}

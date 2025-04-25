@@ -1,14 +1,38 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { BoardroomService } from '../../services/boardroom.service';
 
 @Component({
   selector: 'app-boardroom',
   templateUrl: './boardroom.component.html',
   styleUrls: ['./boardroom.component.scss'],
+  imports: [CommonModule]
 })
-export class BoardroomComponent  implements OnInit {
+export class BoardroomComponent implements OnInit {
+  @Input() companyId = '';
+  productId = '';
+  transcript: { speaker: string; line: string }[] = [];
+  outcome = { name: '', description: '' };
+  busy = false;
+  finished = false;
 
-  constructor() { }
+  constructor(private api: BoardroomService) {}
 
-  ngOnInit() {}
+  ngOnInit() {
+    this.api.start(this.companyId).subscribe((r) => {
+      this.productId = r.productId;
+      this.transcript.push({ speaker: r.speaker, line: r.line });
+    });
+  }
 
+  next() {
+    if (this.busy || this.finished) return;
+    this.busy = true;
+    this.api.step(this.companyId, this.productId).subscribe((r) => {
+      this.transcript.push({ speaker: r.speaker, line: r.line });
+      this.outcome = r.outcome;
+      this.finished = r.done;
+      this.busy = false;
+    });
+  }
 }

@@ -16,6 +16,7 @@ export const db = getFirestore(app);
 export class CompanyPage implements OnInit {
   showLoading = true;
   showResumes = false;
+  showBoardroom = false;
   totalTasks = 0;
   completedTasks = 0;
   companyId = '';
@@ -23,35 +24,49 @@ export class CompanyPage implements OnInit {
   constructor(private router: Router) {}
 
   async ngOnInit() {
-    let segments = this.router.url.split('/');
+    const segments = this.router.url.split('/');
     this.companyId = segments.length > 2 ? segments[2] : '';
     if (!this.companyId) {
       this.showLoading = false;
       return;
     }
-    let employeesQuery = await getDocs(
-      collection(db, 'companies/' + this.companyId + '/employees')
+
+    const rolesSnap = await getDocs(
+      collection(db, `companies/${this.companyId}/roles`)
     );
-    let rolesQuery = await getDocs(
-      collection(db, 'companies/' + this.companyId + '/roles')
+    const allFilled = rolesSnap.docs.every(
+      (d) => (d.data() as any).openings === 0
     );
-    if (!employeesQuery.empty) {
-      this.showResumes = true;
-    } else if (!rolesQuery.empty) {
-      this.showResumes = false;
+
+    if (allFilled) {
+      this.showBoardroom = true;
+      this.showLoading = false;
+      return;
     }
+
+    const employeesSnap = await getDocs(
+      collection(db, `companies/${this.companyId}/employees`)
+    );
+
+    if (!employeesSnap.empty) this.showResumes = true;
     this.showLoading = false;
   }
 
-  handleLoadingState(event: {
+  handleLoadingState(e: {
     show: boolean;
     totalTasks: number;
     completedTasks: number;
     showResumes: boolean;
   }) {
-    this.showLoading = event.show;
-    this.totalTasks = event.totalTasks;
-    this.completedTasks = event.completedTasks;
-    this.showResumes = event.showResumes;
+    this.showLoading = e.show;
+    this.totalTasks = e.totalTasks;
+    this.completedTasks = e.completedTasks;
+    this.showResumes = e.showResumes;
+  }
+
+  openBoardroom() {
+    this.showLoading = false;
+    this.showResumes = false;
+    this.showBoardroom = true;
   }
 }

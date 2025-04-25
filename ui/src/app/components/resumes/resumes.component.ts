@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, Output, EventEmitter } from '@angular/core';
 import { initializeApp } from 'firebase/app';
 import {
   getFirestore,
@@ -8,11 +8,33 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
-import { ActivatedRoute, Router } from '@angular/router';
+import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 
 export const app = initializeApp(environment.firebase);
 export const db = getFirestore(app);
+
+interface Skill {
+  id: string;
+  skill: string;
+  level: number;
+}
+
+interface Employee {
+  id: string;
+  name: string;
+  title: string;
+  salary: number;
+  personality: string;
+  hired: boolean;
+  skills: Skill[];
+}
+
+interface Role {
+  id: string;
+  title: string;
+  openings: number;
+}
 
 @Component({
   selector: 'app-resumes',
@@ -21,47 +43,53 @@ export const db = getFirestore(app);
   imports: [CommonModule],
 })
 export class ResumesComponent implements OnInit {
-  companyId: string = '';
-  employees: any[] = [];
-  currentIndex = 0;
-  roles: any[] = [];
+  @Output() hiringFinished = new EventEmitter<void>();
 
-  constructor(private route: ActivatedRoute, private router: Router) {}
+  companyId = '';
+  employees: Employee[] = [];
+  roles: Role[] = [];
+  currentIndex = 0;
+
+  constructor(private router: Router) {}
 
   async ngOnInit() {
-    let segments = this.router.url.split('/');
+    const segments = this.router.url.split('/');
     this.companyId = segments.length > 2 ? segments[2] : '';
     if (!this.companyId) return;
-    let rolesQuery = await getDocs(
-      collection(db, 'companies/' + this.companyId + '/roles')
+
+    const rolesSnap = await getDocs(
+      collection(db, `companies/${this.companyId}/roles`)
     );
-    this.roles = rolesQuery.docs.map((r) => ({ id: r.id, ...r.data() }));
-    let employeesQuery = await getDocs(
-      collection(db, 'companies/' + this.companyId + '/employees')
+    this.roles = rolesSnap.docs.map(
+      (d) => ({ id: d.id, ...d.data() } as Role)
     );
-    let employeesData: { id: string; skills: any[]; [key: string]: any }[] =
-      employeesQuery.docs.map((e) => ({
-        id: e.id,
-        skills: [],
-        ...e.data(),
-      }));
-    for (let e of employeesData) {
-      let skillsSnapshot = await getDocs(
-        collection(
-          db,
-          'companies/' + this.companyId + '/employees/' + e.id + '/skills'
-        )
+
+    const empSnap = await getDocs(
+      collection(db, `companies/${this.companyId}/employees`)
+    );
+
+    const temp: Employee[] = empSnap.docs.map((d) => {
+      const data = d.data() as Omit<Employee, 'id' | 'skills'>;
+      return { ...data, id: d.id, skills: [] as Skill[] };
+    });
+
+    for (const e of temp) {
+      const sSnap = await getDocs(
+        collection(db, `companies/${this.companyId}/employees/${e.id}/skills`)
       );
-      e.skills = skillsSnapshot.docs.map((s) => ({ id: s.id, ...s.data() }));
-      e.skills.sort((a, b) =>
-        a.skill.localeCompare(b.skill, undefined, { sensitivity: 'base' })
-      );
+      e.skills = sSnap.docs
+        .map((s) => {
+          const sd = s.data() as Omit<Skill, 'id'>;
+          return { ...sd, id: s.id } as Skill;
+        })
+        .sort((a, b) => a.skill.localeCompare(b.skill));
     }
-    this.employees = employeesData.filter((e) => e['hired'] === false);
+
+    this.employees = temp.filter((x) => !x.hired);
   }
 
   get rolesWithOpenings() {
-    return this.roles.filter((role) => role.openings > 0);
+    return this.roles.filter((r) => r.openings > 0);
   }
 
   get currentEmployee() {
@@ -69,45 +97,40 @@ export class ResumesComponent implements OnInit {
   }
 
   get currentEmployeeSkills() {
-    return this.currentEmployee ? this.currentEmployee.skills || [] : [];
+    return this.currentEmployee ? this.currentEmployee.skills : [];
   }
 
   async hireEmployee() {
     if (!this.currentEmployee) return;
-    let role = this.roles.find((r) => r.title === this.currentEmployee.title);
+
+    const role = this.roles.find(
+      (r) => r.title === this.currentEmployee.title
+    );
     if (role && role.openings > 0) {
       role.openings -= 1;
-      await updateDoc(doc(db, 'companies', this.companyId, 'roles', role.id), {
-        openings: role.openings,
-      });
+      await updateDoc(
+        doc(db, 'companies', this.companyId, 'roles', role.id),
+        { openings: role.openings }
+      );
     }
+
     await updateDoc(
-      doc(
-        db,
-        'companies',
-        this.companyId,
-        'employees',
-        this.currentEmployee.id
-      ),
-      {
-        hired: true,
-      }
+      doc(db, 'companies', this.companyId, 'employees', this.currentEmployee.id),
+      { hired: true }
     );
+
     this.employees.splice(this.currentIndex, 1);
-    if (this.currentIndex >= this.employees.length) {
+    if (this.currentIndex >= this.employees.length)
       this.currentIndex = this.employees.length - 1;
-    }
+
+    if (this.roles.every((r) => r.openings === 0)) this.hiringFinished.emit();
   }
 
   nextResume() {
-    if (this.currentIndex < this.employees.length - 1) {
-      this.currentIndex++;
-    }
+    if (this.currentIndex < this.employees.length - 1) this.currentIndex++;
   }
 
   prevResume() {
-    if (this.currentIndex > 0) {
-      this.currentIndex--;
-    }
+    if (this.currentIndex > 0) this.currentIndex--;
   }
 }

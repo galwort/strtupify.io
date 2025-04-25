@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, getDocs } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 
 const app = initializeApp(environment.firebase);
@@ -23,5 +23,13 @@ export class HomePage implements OnInit {
       id: doc.id,
       ...doc.data(),
     }));
+  }
+
+  async onDelete(event: Event, companyId: string) {
+    event.stopPropagation();
+    // remove from Firestore
+    await deleteDoc(doc(db, 'companies', companyId));
+    // update local list
+    this.companies = this.companies.filter(c => c.id !== companyId);
   }
 }

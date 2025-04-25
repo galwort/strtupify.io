@@ -15,6 +15,11 @@
             <span class="material-symbols-outlined"> {{company.logo}} </span>
           </div>
         </div>
+        <ion-icon
+          class="delete-icon"
+          name="close"
+          (click)="onDelete($event, company.id)"
+        ></ion-icon>
       </div>
     </div>
   </div>

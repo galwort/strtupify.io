@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 
 @Injectable({ providedIn: 'root' })
 export class BoardroomService {
-  private api = '/api';
+  private api = 'https://fa-strtupifyio.azurewebsites.net/api'
   constructor(private http: HttpClient) {}
 
   start(companyId: string) {

@@ -2,10 +2,9 @@ import azure.functions as func
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from firebase_admin import credentials, initialize_app, firestore
-import firebase_admin
+import firebase_admin, json, uuid, datetime
 from openai import AzureOpenAI
 from random import gauss
-import json, uuid
 
 vault = "https://kv-strtupifyio.vault.azure.net/"
 sc = SecretClient(vault_url=vault, credential=DefaultAzureCredential())
@@ -32,11 +31,8 @@ def load_employees(company):
 
 
 def calc_weights(emps, directive):
-    system_message = (
-        "You assign each participant a confidence weight between 0 and 1 based on their title, "
-        "personality, and the meeting directive. Return only JSON mapping names to numbers."
-    )
-    user_message = json.dumps(
+    sys = "Assign each participant a confidence weight 0-1 based on title, personality, and meeting directive. Return JSON."
+    user = json.dumps(
         {
             "directive": directive,
             "participants": [
@@ -48,47 +44,35 @@ def calc_weights(emps, directive):
     rsp = client.chat.completions.create(
         model=deployment,
         response_format={"type": "json_object"},
-        messages=[{"role": "system", "content": system_message}, {"role": "user", "content": user_message}],
+        messages=[{"role": "system", "content": sys}, {"role": "user", "content": user}],
     )
-    data = json.loads(rsp.choices[0].message.content)
-    return {k: max(0, min(1, float(v))) for k, v in data.items()}
+    raw = json.loads(rsp.choices[0].message.content)
+    weights = {}
+    for k, v in raw.items():
+        try:
+            weights[k] = max(0, min(1, float(v)))
+        except (ValueError, TypeError):
+            continue
+    if not weights:
+        for e in emps:
+            weights[e["name"]] = 0.5
+    return weights
 
 
 def pick_first_speaker(emps, weights):
     return max(emps, key=lambda e: weights.get(e["name"], 0.4) + gauss(0, 0.05))
 
 
-def gen_agent_line(agent, history, directive):
+def gen_agent_line(agent, directive):
     sys = (
         f"You are {agent['name']}, a {agent['title']} at a brand-new startup. Personality: {agent['personality']}. "
-        f"Keep your sentences concise. The meeting goal is: {directive}. Begin EXACTLY one sentence."
+        f"Keep your sentences concise. Meeting goal: {directive}. Begin EXACTLY one sentence."
     )
-    msgs = [{"role": "system", "content": sys}]
-    for h in history[-6:]:
-        msgs.append({"role": "assistant", "content": f"{h['speaker']}: {h['msg']}"})
-    msgs.append({"role": "assistant", "content": f"{agent['name']}:"})
-    rsp = client.chat.completions.create(model=deployment, messages=msgs)
+    rsp = client.chat.completions.create(
+        model=deployment,
+        messages=[{"role": "system", "content": sys}, {"role": "assistant", "content": f"{agent['name']}:"}],
+    )
     return rsp.choices[0].message.content.strip()
-
-
-def store_product(company, speaker, line, directive, weights):
-    ref = (
-        db.collection("companies")
-        .document(company)
-        .collection("products")
-        .document(str(uuid.uuid4()))
-    )
-    ref.set(
-        {
-            "boardroom": [{"speaker": speaker, "msg": line}],
-            "outcome": {"name": "", "description": ""},
-            "directive": directive,
-            "weights": weights,
-            "created": firestore.SERVER_TIMESTAMP,
-            "updated": firestore.SERVER_TIMESTAMP,
-        }
-    )
-    return ref.id
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
@@ -100,9 +84,30 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(json.dumps({"error": "no employees"}), status_code=400)
     weights = calc_weights(emps, directive)
     speaker = pick_first_speaker(emps, weights)
-    line = gen_agent_line(speaker, [], directive)
-    product_id = store_product(company, speaker["name"], line, directive, weights)
+    line = gen_agent_line(speaker, directive)
+    doc_ref = (
+        db.collection("companies")
+        .document(company)
+        .collection("products")
+        .document(str(uuid.uuid4()))
+    )
+    doc_ref.set(
+        {
+            "boardroom": [
+                {
+                    "speaker": speaker["name"],
+                    "msg": line,
+                    "weights": weights,
+                    "at": datetime.datetime.utcnow().isoformat(),
+                }
+            ],
+            "product": "",
+            "description": "",
+            "created": firestore.SERVER_TIMESTAMP,
+            "updated": firestore.SERVER_TIMESTAMP,
+        }
+    )
     return func.HttpResponse(
-        json.dumps({"productId": product_id, "speaker": speaker["name"], "line": line}),
+        json.dumps({"productId": doc_ref.id, "speaker": speaker["name"], "line": line}),
         mimetype="application/json",
     )

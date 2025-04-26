@@ -2,10 +2,9 @@ import azure.functions as func
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from firebase_admin import credentials, initialize_app, firestore
-import firebase_admin as fb
+import firebase_admin as fb, json, datetime
 from openai import AzureOpenAI
 from random import gauss
-import json, datetime
 
 vault = "https://kv-strtupifyio.vault.azure.net/"
 sc = SecretClient(vault_url=vault, credential=DefaultAzureCredential())
@@ -20,10 +19,8 @@ if not fb._apps:
 db = firestore.client()
 
 
-def load_product(company, product):
-    ref = (
-        db.collection("companies").document(company).collection("products").document(product)
-    )
+def load_state(company, product):
+    ref = db.collection("companies").document(company).collection("products").document(product)
     doc = ref.get().to_dict()
     emps = [
         d.to_dict() | {"id": d.id}
@@ -37,11 +34,8 @@ def load_product(company, product):
 
 
 def calc_weights(emps, directive):
-    system_message = (
-        "You assign each participant a confidence weight between 0 and 1 based on their title, "
-        "personality, and the meeting directive. Return only JSON mapping names to numbers."
-    )
-    user_message = json.dumps(
+    sys = "Assign each participant a confidence weight 0-1 based on title, personality, and meeting directive. Return JSON."
+    user = json.dumps(
         {
             "directive": directive,
             "participants": [
@@ -53,10 +47,19 @@ def calc_weights(emps, directive):
     rsp = client.chat.completions.create(
         model=deployment,
         response_format={"type": "json_object"},
-        messages=[{"role": "system", "content": system_message}, {"role": "user", "content": user_message}],
+        messages=[{"role": "system", "content": sys}, {"role": "user", "content": user}],
     )
-    data = json.loads(rsp.choices[0].message.content)
-    return {k: max(0, min(1, float(v))) for k, v in data.items()}
+    raw = json.loads(rsp.choices[0].message.content)
+    weights = {}
+    for k, v in raw.items():
+        try:
+            weights[k] = max(0, min(1, float(v)))
+        except (ValueError, TypeError):
+            continue
+    if not weights:
+        for e in emps:
+            weights[e["name"]] = 0.5
+    return weights
 
 
 def choose_next_speaker(emps, history, weights):
@@ -72,7 +75,7 @@ def choose_next_speaker(emps, history, weights):
 def gen_agent_line(agent, history, directive):
     sys = (
         f"You are {agent['name']}, a {agent['title']} at a brand-new startup. Personality: {agent['personality']}. "
-        f"Keep your sentences concise. The meeting goal is: {directive}. Begin EXACTLY one sentence."
+        f"Keep your sentences concise. Meeting goal: {directive}. Begin EXACTLY one sentence."
     )
     msgs = [{"role": "system", "content": sys}]
     for h in history[-6:]:
@@ -83,7 +86,7 @@ def gen_agent_line(agent, history, directive):
 
 
 def gen_outcome(history):
-    sys = "Return only JSON with keys 'name' and 'description' for the agreed product idea."
+    sys = "Return only JSON with keys 'product' and 'description' for the agreed idea."
     msgs = [
         {"role": "system", "content": sys},
         {"role": "user", "content": "\n".join(f"{h['speaker']}: {h['msg']}" for h in history[-20:])},
@@ -92,39 +95,45 @@ def gen_outcome(history):
         model=deployment, response_format={"type": "json_object"}, messages=msgs
     )
     data = json.loads(rsp.choices[0].message.content)
-    return {"name": data.get("name", ""), "description": data.get("description", "")}
+    return {"product": data.get("product", ""), "description": data.get("description", "")}
 
 
-def append_line(ref, speaker, msg):
+def append_line(ref, speaker, msg, weights):
     ref.update(
         {
             "boardroom": firestore.ArrayUnion(
-                [{"speaker": speaker, "msg": msg, "at": datetime.datetime.utcnow().isoformat()}]
+                [
+                    {
+                        "speaker": speaker,
+                        "msg": msg,
+                        "weights": weights,
+                        "at": datetime.datetime.utcnow().isoformat(),
+                    }
+                ]
             ),
             "updated": firestore.SERVER_TIMESTAMP,
         }
     )
 
 
-def conversation_complete(outcome):
-    return bool(outcome.get("name") and outcome.get("description"))
+def conversation_complete(state):
+    return bool(state.get("product") and state.get("description"))
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     body = req.get_json()
     company = body["company"]
     product = body["product"]
-    ref, doc, emps = load_product(company, product)
+    directive = body.get("directive", "Come up with the company’s first product")
+    ref, doc, emps = load_state(company, product)
     history = doc["boardroom"]
-    directive = doc["directive"]
     weights = calc_weights(emps, directive)
-    ref.update({"weights": weights})
     speaker = choose_next_speaker(emps, history, weights)
     line = gen_agent_line(speaker, history, directive)
-    append_line(ref, speaker["name"], line)
+    append_line(ref, speaker["name"], line, weights)
     history.append({"speaker": speaker["name"], "msg": line})
     outcome = gen_outcome(history)
-    ref.update({"outcome": outcome})
+    ref.update(outcome)
     done = conversation_complete(outcome)
     return func.HttpResponse(
         json.dumps({"speaker": speaker["name"], "line": line, "outcome": outcome, "done": done}),

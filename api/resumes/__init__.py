@@ -6,7 +6,7 @@ from azure.keyvault.secrets import SecretClient
 from firebase_admin import credentials, initialize_app, firestore
 from json import dumps, loads
 from openai import AzureOpenAI
-from random import gauss
+from random import choice, gauss
 from requests import get
 
 vault_url = "https://kv-strtupifyio.vault.azure.net/"
@@ -29,10 +29,15 @@ db = firestore.client()
 
 def pull_name():
     url = "https://randomuser.me/api/?nat=us"
-    response = get(url)
-    name = response.json()["results"][0]["name"]["first"]
-    name += " " + response.json()["results"][0]["name"]["last"]
-    return name
+    try:
+        r = get(url, timeout=5)
+        r.raise_for_status()
+        d = r.json()["results"][0]["name"]
+        return f"{d['first']} {d['last']}"
+    except Exception:
+        first = ["Alex","Jordan","Taylor","Casey","Morgan","Quinn","Jamie","Riley","Cameron"]
+        last  = ["Smith","Johnson","Brown","Jones","Miller","Davis","Garcia","Rodriguez","Martinez","Hernandez"]
+        return f"{choice(first)} {choice(last)}"
 
 
 def pull_skills(company, job_title):

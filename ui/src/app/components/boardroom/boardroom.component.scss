@@ -1,21 +1,104 @@
-.transcript {
+.content-container {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-bottom: 24px;
+  align-items: flex-start;
+  justify-content: flex-start;
+  margin-bottom: 20px;
   color: var(--theme-text);
-}
-.line b {
-  margin-right: 4px;
-}
-.outcome {
-  border: 1px solid var(--theme-primary);
-  padding: 12px;
-  margin-bottom: 24px;
-  color: var(--theme-text);
-}
-button[ion-button] {
-  width: 100%;
-  background: var(--theme-accent);
-  color: #fff;
+  min-height: calc(100vh - 40px);
+  position: relative;
+    
+  .header {
+    display: flex;
+    flex-direction: column;
+    align-items: left;
+    justify-content: flex-start;
+    margin-bottom: 20px;
+
+    .title {
+      font-size: 40px;
+      padding: 8px;
+      color: var(--theme-text);
+    }
+  }
+
+  .transcript-container {
+      padding: 0.75rem;
+      background-color: white;
+      border: 1.5px solid var(--theme-primary);
+      border-radius: 4px;
+      width: 100%;
+
+    .transcript {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 24px;
+      color: var(--theme-text);
+    }
+
+    .line b {
+      margin-right: 4px;
+    }
+  }
+
+  .button-container {
+    display: flex;
+    width: 100%;
+    margin-top: 20px;
+
+    button {
+      width: 150px;
+      padding: 0.75rem;
+      background: var(--theme-primary);
+      color: white;
+      border: 1.5px solid var(--theme-primary);
+      border-radius: 4px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.3s;
+      margin-right: 8px;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    button:hover:not(:disabled) {
+      border: 1.5px solid var(--theme-accent);
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    }
+  }
+
+  .bottom-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: auto;
+    width: 100%;
+
+    .bottom-bar {
+      width: fit-content;
+      color: white;
+      border: 1.5px solid var(--theme-primary);
+      border-radius: 4px;
+      padding: 8px;
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+
+      h2 {
+        font-size: min(1.5rem, 8vw);
+        font-weight: 600;
+        margin-top: 0;
+        color: var(--theme-text);
+      }
+
+      p {
+        font-size: min(1rem, 6vw);
+        margin-top: 0;
+        line-height: 1.5rem;
+        color: var(--theme-text);
+      }
+    }
+  }
 }

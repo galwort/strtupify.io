@@ -18,7 +18,7 @@ export class BoardroomService {
     return this.http.post<{
       speaker: string;
       line: string;
-      outcome: { name: string; description: string };
+      outcome: { product: string; description: string };
       done: boolean;
     }>(`${this.api}/boardroom_step`, { company: companyId, product: productId });
   }

@@ -30,7 +30,7 @@ export class BoardroomComponent implements OnInit {
     this.busy = true;
     this.api.step(this.companyId, this.productId).subscribe((r) => {
       this.transcript.push({ speaker: r.speaker, line: r.line });
-      this.outcome = r.outcome;
+      this.outcome = { name: r.outcome.product, description: r.outcome.description };
       this.finished = r.done;
       this.busy = false;
     });

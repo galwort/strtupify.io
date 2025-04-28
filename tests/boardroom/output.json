@@ -1,0 +1,92 @@
+[
+  {
+    "company": {
+      "name": "Acme Robotics",
+      "description": "We build AI-driven home-assistant robots that handle cooking and cleaning."
+    },
+    "boardroom": [
+      {
+        "speaker": "Riley Chen",
+        "msg": "We should develop a user-friendly project management tool that integrates seamlessly with existing workflows.",
+        "weights": {
+          "Alex Smith": 0.5,
+          "Jordan Lee": 0.5,
+          "Riley Chen": 0.5
+        },
+        "at": "2025-04-28T00:45:56.515116"
+      },
+      {
+        "speaker": "Alex Smith",
+        "msg": "Let's focus on leveraging AI to enhance team collaboration and predictive task management.",
+        "weights": {
+          "Alex Smith": 0.5,
+          "Jordan Lee": 0.5,
+          "Riley Chen": 0.5
+        },
+        "at": "2025-04-28T00:45:58.220625"
+      }
+    ],
+    "product": "AI-Enhanced Project Management Tool",
+    "description": "A user-friendly project management tool designed to integrate seamlessly with existing workflows, leveraging AI to enhance team collaboration and provide predictive task management capabilities."
+  },
+  {
+    "company": {
+      "name": "GreenLeaf Foods",
+      "description": "A startup creating plant-based snacks that taste like traditional comfort foods."
+    },
+    "boardroom": [
+      {
+        "speaker": "Taylor Brooks",
+        "msg": "Our first product will be a subscription-based meal kit service that focuses on locally sourced ingredients.",
+        "weights": {
+          "Morgan Patel": 0.5,
+          "Taylor Brooks": 0.5,
+          "Casey Nguyen": 0.5
+        },
+        "at": "2025-04-28T00:46:02.227001"
+      },
+      {
+        "speaker": "Casey Nguyen",
+        "msg": "Our first product will be a subscription-based meal kit service that focuses on locally sourced ingredients, featuring eco-friendly packaging and seasonal recipes.",
+        "weights": {
+          "Morgan Patel": 0.5,
+          "Taylor Brooks": 0.5,
+          "Casey Nguyen": 0.5
+        },
+        "at": "2025-04-28T00:46:07.756334"
+      }
+    ],
+    "product": "Subscription-based meal kit service",
+    "description": "A meal kit service that focuses on locally sourced ingredients, featuring eco-friendly packaging and seasonal recipes."
+  },
+  {
+    "company": {
+      "name": "Horizon HealthTech",
+      "description": "Develops wearable devices that monitor vital signs and provide real-time health insights."
+    },
+    "boardroom": [
+      {
+        "speaker": "Blake Rivera",
+        "msg": "We should develop a low-power IoT sensor that monitors environmental conditions for smart homes.",
+        "weights": {
+          "Sasha Gomez": 0.5,
+          "Blake Rivera": 0.5,
+          "Quinn Harper": 0.5
+        },
+        "at": "2025-04-28T00:46:12.670687"
+      },
+      {
+        "speaker": "Quinn Harper",
+        "msg": "I love that idea, Blake; we can design it with an emphasis on accessibility, ensuring all users can easily interact with the data it provides.",
+        "weights": {
+          "Sasha Gomez": 0.5,
+          "Blake Rivera": 0.5,
+          "Quinn Harper": 0.5
+        },
+        "at": "2025-04-28T00:46:15.129832"
+      }
+    ],
+    "product": "Low-Power IoT Environmental Sensor",
+    "description": "A smart home sensor designed to monitor environmental conditions with a focus on low power consumption and accessibility, allowing all users to easily interact with and understand the data it provides."
+  }
+]

@@ -1,4 +1,4 @@
-import json, datetime, uuid
+import json, datetime
 from random import gauss
 from tqdm import tqdm
 from azure.identity import DefaultAzureCredential
@@ -70,12 +70,15 @@ def choose_next_speaker(emps, history, weights):
 
 def gen_agent_line(agent, history, directive):
     sys = (
-        f"You are {agent['name']}, a {agent['title']} at a brand-new startup. Personality: {agent['personality']}. "
-        f"Keep your sentences concise. Meeting goal: {directive}. Reply with EXACTLY one sentence."
+        f"You are {agent['name']}, a {agent['title']} at a new startup."
+        f"The company is holding its first meeting. "
+        f"Personality: {agent['personality']}. Meeting goal: {directive} "
+        f"You should respond as if you are in a meeting, "
+        f"and your response should be a single line of dialogue. "
     )
     msgs = [{"role": "system", "content": sys}]
     if history:
-        for h in history[-6:]:
+        for h in history[-10:]:
             msgs.append({"role": "assistant", "content": f"{h['speaker']}: {h['msg']}"})
     msgs.append({"role": "user", "content": f"{agent['name']}:"})
     rsp = client.chat.completions.create(model=deployment, messages=msgs)

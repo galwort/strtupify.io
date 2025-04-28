@@ -157,5 +157,218 @@
         ]
       }
     ]
+  },
+  {
+    "company": {
+      "name": "Nova Energy Solutions",
+      "description": "Designs smart solar panels and battery systems for residential rooftops, optimizing energy usage with AI."
+    },
+    "employees": [
+      {
+        "id": "1",
+        "name": "Jamie O’Neil",
+        "title": "Chief Innovation Officer",
+        "personality": "Relentlessly curious futurist driving sustainable tech breakthroughs.",
+        "salary": 178000,
+        "hired": true,
+        "skills": [
+          { "skill": "Renewable Energy Systems", "level": 9 },
+          { "skill": "AI Optimization", "level": 8 },
+          { "skill": "Product Strategy", "level": 8 },
+          { "skill": "Team Leadership", "level": 7 },
+          { "skill": "Public Speaking", "level": 6 }
+        ]
+      },
+      {
+        "id": "2",
+        "name": "Devon Carter",
+        "title": "Power Electronics Engineer",
+        "personality": "Detail-oriented tinkerer who maximizes efficiency in every watt.",
+        "salary": 128000,
+        "hired": true,
+        "skills": [
+          { "skill": "Circuit Design", "level": 9 },
+          { "skill": "Battery Management", "level": 8 },
+          { "skill": "Firmware", "level": 7 },
+          { "skill": "Thermal Analysis", "level": 6 },
+          { "skill": "Safety Compliance", "level": 7 }
+        ]
+      },
+      {
+        "id": "3",
+        "name": "Skylar Kim",
+        "title": "Customer Success Lead",
+        "personality": "Empathetic problem-solver who turns users into advocates.",
+        "salary": 92000,
+        "hired": true,
+        "skills": [
+          { "skill": "Technical Support", "level": 8 },
+          { "skill": "Data-Driven Insights", "level": 7 },
+          { "skill": "CRM Management", "level": 7 },
+          { "skill": "Upselling", "level": 6 },
+          { "skill": "Documentation", "level": 6 }
+        ]
+      }
+    ]
+  },
+  {
+    "company": {
+      "name": "EchoVerse Entertainment",
+      "description": "Creates immersive VR story experiences where audiences influence real-time narratives."
+    },
+    "employees": [
+      {
+        "id": "1",
+        "name": "Renee Delgado",
+        "title": "Creative Director",
+        "personality": "Visionary storyteller blending artistry with cutting-edge tech.",
+        "salary": 165000,
+        "hired": true,
+        "skills": [
+          { "skill": "Narrative Design", "level": 9 },
+          { "skill": "Virtual Production", "level": 8 },
+          { "skill": "Team Facilitation", "level": 7 },
+          { "skill": "3D Art Review", "level": 6 },
+          { "skill": "Audience Analytics", "level": 6 }
+        ]
+      },
+      {
+        "id": "2",
+        "name": "Kai Zhang",
+        "title": "XR Software Engineer",
+        "personality": "Performance-minded coder who eliminates latency in interactive scenes.",
+        "salary": 137000,
+        "hired": true,
+        "skills": [
+          { "skill": "Unity", "level": 9 },
+          { "skill": "C#", "level": 9 },
+          { "skill": "OpenXR", "level": 8 },
+          { "skill": "GPU Profiling", "level": 7 },
+          { "skill": "Multiplayer Netcode", "level": 6 }
+        ]
+      },
+      {
+        "id": "3",
+        "name": "Priya Singh",
+        "title": "Community Manager",
+        "personality": "Charismatic bridge between dev team and fandom; thrives on feedback loops.",
+        "salary": 85000,
+        "hired": true,
+        "skills": [
+          { "skill": "Social Engagement", "level": 9 },
+          { "skill": "Event Planning", "level": 7 },
+          { "skill": "Content Creation", "level": 8 },
+          { "skill": "Moderation", "level": 7 },
+          { "skill": "Analytics Reporting", "level": 6 }
+        ]
+      }
+    ]
+  },
+  {
+    "company": {
+      "name": "BrightPath Education",
+      "description": "Offers AI-powered personal tutors that adapt K-12 lessons to each student’s learning style."
+    },
+    "employees": [
+      {
+        "id": "1",
+        "name": "Dr. Leo Martinez",
+        "title": "Chief Learning Scientist",
+        "personality": "Data-centric educator committed to closing achievement gaps.",
+        "salary": 190000,
+        "hired": true,
+        "skills": [
+          { "skill": "Instructional Design", "level": 9 },
+          { "skill": "Adaptive Algorithms", "level": 8 },
+          { "skill": "Curriculum Standards", "level": 8 },
+          { "skill": "Educational Research", "level": 9 },
+          { "skill": "Stakeholder Communication", "level": 7 }
+        ]
+      },
+      {
+        "id": "2",
+        "name": "Harper Johnson",
+        "title": "Full-Stack Engineer",
+        "personality": "Pragmatic builder who ships polished features fast.",
+        "salary": 122000,
+        "hired": true,
+        "skills": [
+          { "skill": "TypeScript", "level": 9 },
+          { "skill": "React", "level": 8 },
+          { "skill": "Node.js", "level": 8 },
+          { "skill": "GraphQL", "level": 7 },
+          { "skill": "CI/CD", "level": 7 }
+        ]
+      },
+      {
+        "id": "3",
+        "name": "Samira Ali",
+        "title": "Education Partnerships Manager",
+        "personality": "Persuasive negotiator fostering district-level adoption.",
+        "salary": 98000,
+        "hired": true,
+        "skills": [
+          { "skill": "B2B Sales", "level": 8 },
+          { "skill": "Grant Writing", "level": 7 },
+          { "skill": "Contract Negotiation", "level": 7 },
+          { "skill": "Public Relations", "level": 6 },
+          { "skill": "Lead Generation", "level": 7 }
+        ]
+      }
+    ]
+  },
+  {
+    "company": {
+      "name": "SkyLink Logistics",
+      "description": "Operates autonomous drone networks for last-mile delivery in suburban areas."
+    },
+    "employees": [
+      {
+        "id": "1",
+        "name": "Diego Alvarez",
+        "title": "Fleet Operations Director",
+        "personality": "Mission-oriented organizer who excels in high-complexity deployments.",
+        "salary": 150000,
+        "hired": true,
+        "skills": [
+          { "skill": "Aviation Regulations", "level": 9 },
+          { "skill": "Route Planning", "level": 8 },
+          { "skill": "Risk Management", "level": 8 },
+          { "skill": "Team Leadership", "level": 7 },
+          { "skill": "Data Analytics", "level": 6 }
+        ]
+      },
+      {
+        "id": "2",
+        "name": "Erin Murphy",
+        "title": "Autonomy Engineer",
+        "personality": "Logic-driven coder focused on safe navigation and collision avoidance.",
+        "salary": 142000,
+        "hired": true,
+        "skills": [
+          { "skill": "Path-Planning Algorithms", "level": 9 },
+          { "skill": "Computer Vision", "level": 8 },
+          { "skill": "ROS2", "level": 8 },
+          { "skill": "Simulation", "level": 7 },
+          { "skill": "Matlab", "level": 6 }
+        ]
+      },
+      {
+        "id": "3",
+        "name": "Noah Bennett",
+        "title": "Regulatory Affairs Specialist",
+        "personality": "Diplomatic liaison harmonizing tech innovation with government policy.",
+        "salary": 102000,
+        "hired": true,
+        "skills": [
+          { "skill": "Policy Analysis", "level": 8 },
+          { "skill": "FAA Liaison", "level": 9 },
+          { "skill": "Documentation", "level": 7 },
+          { "skill": "Stakeholder Engagement", "level": 7 },
+          { "skill": "Compliance Auditing", "level": 6 }
+        ]
+      }
+    ]
   }
 ]
+

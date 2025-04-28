@@ -6,28 +6,148 @@
     },
     "boardroom": [
       {
-        "speaker": "Riley Chen",
-        "msg": "We should develop a user-friendly project management tool that integrates seamlessly with existing workflows.",
+        "speaker": "Alex Smith",
+        "msg": "We should develop an AI-driven platform that personalizes user experiences in real-time.",
         "weights": {
           "Alex Smith": 0.5,
           "Jordan Lee": 0.5,
           "Riley Chen": 0.5
         },
-        "at": "2025-04-28T00:45:56.515116"
+        "at": "2025-04-28T01:02:20.937717+00:00"
       },
       {
-        "speaker": "Alex Smith",
-        "msg": "Let's focus on leveraging AI to enhance team collaboration and predictive task management.",
+        "speaker": "Jordan Lee",
+        "msg": "That's a solid idea, Alex. We need to define our target users and the specific problems we're solving for them.",
         "weights": {
           "Alex Smith": 0.5,
           "Jordan Lee": 0.5,
           "Riley Chen": 0.5
         },
-        "at": "2025-04-28T00:45:58.220625"
+        "at": "2025-04-28T01:02:23.395642+00:00"
       }
     ],
-    "product": "AI-Enhanced Project Management Tool",
-    "description": "A user-friendly project management tool designed to integrate seamlessly with existing workflows, leveraging AI to enhance team collaboration and provide predictive task management capabilities."
+    "product": "AI-Driven Personalized Experience Platform",
+    "description": "A platform that uses artificial intelligence to tailor user experiences in real-time, addressing specific needs and preferences of target users to enhance engagement and satisfaction."
+  },
+  {
+    "company": {
+      "name": "Acme Robotics",
+      "description": "We build AI-driven home-assistant robots that handle cooking and cleaning."
+    },
+    "boardroom": [
+      {
+        "speaker": "Alex Smith",
+        "msg": "Our first product will be an AI-powered platform that streamlines remote team collaboration through advanced analytics and real-time feedback mechanisms.",
+        "weights": {
+          "Alex Smith": 0.5,
+          "Jordan Lee": 0.5,
+          "Riley Chen": 0.5
+        },
+        "at": "2025-04-28T01:02:26.285141+00:00"
+      },
+      {
+        "speaker": "Riley Chen",
+        "msg": "I propose we develop a customizable project management tool that leverages AI to optimize workflows and enhance team communication.",
+        "weights": {
+          "Alex Smith": 0.5,
+          "Jordan Lee": 0.5,
+          "Riley Chen": 0.5
+        },
+        "at": "2025-04-28T01:02:28.838159+00:00"
+      }
+    ],
+    "product": "AI-powered Collaboration and Project Management Tool",
+    "description": "An advanced platform that streamlines remote team collaboration through AI-driven analytics and real-time feedback mechanisms, while also offering customizable features to optimize workflows and enhance team communication."
+  },
+  {
+    "company": {
+      "name": "Acme Robotics",
+      "description": "We build AI-driven home-assistant robots that handle cooking and cleaning."
+    },
+    "boardroom": [
+      {
+        "speaker": "Alex Smith",
+        "msg": "We should develop an AI-driven personal assistant that integrates seamlessly with users' daily routines to enhance productivity and well-being.",
+        "weights": {
+          "Alex Smith": 0.5,
+          "Jordan Lee": 0.5,
+          "Riley Chen": 0.5
+        },
+        "at": "2025-04-28T01:02:31.996514+00:00"
+      },
+      {
+        "speaker": "Jordan Lee",
+        "msg": "I appreciate the idea, Alex. Let's focus on user research to identify key pain points in productivity and well-being that we can address effectively.",
+        "weights": {
+          "Alex Smith": 0.5,
+          "Jordan Lee": 0.5,
+          "Riley Chen": 0.5
+        },
+        "at": "2025-04-28T01:02:33.847697+00:00"
+      }
+    ],
+    "product": "AI-Driven Personal Assistant",
+    "description": "An intelligent assistant designed to integrate with users' daily routines, enhancing productivity and overall well-being by identifying and addressing key pain points through user research."
+  },
+  {
+    "company": {
+      "name": "Acme Robotics",
+      "description": "We build AI-driven home-assistant robots that handle cooking and cleaning."
+    },
+    "boardroom": [
+      {
+        "speaker": "Alex Smith",
+        "msg": "To revolutionize personal productivity, we should develop an AI-driven task management app that adapts to user behavior and preferences.",
+        "weights": {
+          "Alex Smith": 0.5,
+          "Jordan Lee": 0.5,
+          "Riley Chen": 0.5
+        },
+        "at": "2025-04-28T01:02:36.913710+00:00"
+      },
+      {
+        "speaker": "Riley Chen",
+        "msg": "We can enhance that idea by integrating a gamification element to boost user engagement and motivation.",
+        "weights": {
+          "Alex Smith": 0.5,
+          "Jordan Lee": 0.5,
+          "Riley Chen": 0.5
+        },
+        "at": "2025-04-28T01:02:39.368771+00:00"
+      }
+    ],
+    "product": "AI-driven gamified task management app",
+    "description": "An innovative app that combines artificial intelligence with gamification to enhance personal productivity. It adapts to user behavior and preferences, providing a personalized task management experience while integrating engaging game-like elements to boost motivation and encourage consistent usage."
+  },
+  {
+    "company": {
+      "name": "Acme Robotics",
+      "description": "We build AI-driven home-assistant robots that handle cooking and cleaning."
+    },
+    "boardroom": [
+      {
+        "speaker": "Alex Smith",
+        "msg": "Our first product should be an AI-driven platform that automates personalized customer experiences across multiple channels.",
+        "weights": {
+          "Alex Smith": 0.5,
+          "Jordan Lee": 0.5,
+          "Riley Chen": 0.5
+        },
+        "at": "2025-04-28T01:02:43.059823+00:00"
+      },
+      {
+        "speaker": "Riley Chen",
+        "msg": "We could create a user-friendly dashboard that integrates data from social media, emails, and websites to tailor marketing strategies in real-time.",
+        "weights": {
+          "Alex Smith": 0.5,
+          "Jordan Lee": 0.5,
+          "Riley Chen": 0.5
+        },
+        "at": "2025-04-28T01:02:45.816355+00:00"
+      }
+    ],
+    "product": "AI-Driven Customer Experience Automation Platform",
+    "description": "A platform that automates personalized customer experiences across multiple channels, featuring a user-friendly dashboard that integrates data from social media, emails, and websites to tailor marketing strategies in real-time."
   },
   {
     "company": {
@@ -37,27 +157,147 @@
     "boardroom": [
       {
         "speaker": "Taylor Brooks",
-        "msg": "Our first product will be a subscription-based meal kit service that focuses on locally sourced ingredients.",
+        "msg": "We should develop a sustainable multi-purpose water bottle that integrates a filtration system for both hydration and environmental impact.",
         "weights": {
           "Morgan Patel": 0.5,
           "Taylor Brooks": 0.5,
           "Casey Nguyen": 0.5
         },
-        "at": "2025-04-28T00:46:02.227001"
+        "at": "2025-04-28T01:02:49.506587+00:00"
       },
       {
         "speaker": "Casey Nguyen",
-        "msg": "Our first product will be a subscription-based meal kit service that focuses on locally sourced ingredients, featuring eco-friendly packaging and seasonal recipes.",
+        "msg": "Our first product will be an eco-friendly, stainless steel water bottle that features a built-in filtration system, promoting both hydration and sustainability.",
         "weights": {
           "Morgan Patel": 0.5,
           "Taylor Brooks": 0.5,
           "Casey Nguyen": 0.5
         },
-        "at": "2025-04-28T00:46:07.756334"
+        "at": "2025-04-28T01:02:51.963974+00:00"
       }
     ],
-    "product": "Subscription-based meal kit service",
-    "description": "A meal kit service that focuses on locally sourced ingredients, featuring eco-friendly packaging and seasonal recipes."
+    "product": "Eco-Friendly Stainless Steel Water Bottle with Built-in Filtration System",
+    "description": "A sustainable, multi-purpose water bottle designed to provide clean hydration on-the-go while reducing environmental impact. This innovative product combines the benefits of stainless steel durability with an integrated filtration system, ensuring safe drinking water and promoting eco-conscious practices."
+  },
+  {
+    "company": {
+      "name": "GreenLeaf Foods",
+      "description": "A startup creating plant-based snacks that taste like traditional comfort foods."
+    },
+    "boardroom": [
+      {
+        "speaker": "Morgan Patel",
+        "msg": "Let\u2019s create a sustainable, biodegradable packaging solution that reduces plastic waste and appeals to eco-conscious consumers.",
+        "weights": {
+          "Morgan Patel": 0.5,
+          "Taylor Brooks": 0.5,
+          "Casey Nguyen": 0.5
+        },
+        "at": "2025-04-28T01:02:56.263442+00:00"
+      },
+      {
+        "speaker": "Taylor Brooks",
+        "msg": "I suggest we conduct market research to identify the specific needs and preferences of our target audience regarding sustainable packaging.",
+        "weights": {
+          "Morgan Patel": 0.5,
+          "Taylor Brooks": 0.5,
+          "Casey Nguyen": 0.5
+        },
+        "at": "2025-04-28T01:02:58.512323+00:00"
+      }
+    ],
+    "product": "Sustainable Biodegradable Packaging",
+    "description": "A packaging solution designed to reduce plastic waste, utilizing eco-friendly materials that decompose safely in the environment. This product targets eco-conscious consumers and aims to meet their specific needs and preferences as identified through thorough market research."
+  },
+  {
+    "company": {
+      "name": "GreenLeaf Foods",
+      "description": "A startup creating plant-based snacks that taste like traditional comfort foods."
+    },
+    "boardroom": [
+      {
+        "speaker": "Morgan Patel",
+        "msg": "Our first product will be a biodegradable packaging solution that uses innovative materials to reduce plastic waste.",
+        "weights": {
+          "Morgan Patel": 0.5,
+          "Taylor Brooks": 0.5,
+          "Casey Nguyen": 0.5
+        },
+        "at": "2025-04-28T01:03:01.794451+00:00"
+      },
+      {
+        "speaker": "Casey Nguyen",
+        "msg": "We\u2019ll create eco-friendly packaging made from plant-based materials that decompose naturally, reducing our carbon footprint and appealing to conscious consumers.",
+        "weights": {
+          "Morgan Patel": 0.5,
+          "Taylor Brooks": 0.5,
+          "Casey Nguyen": 0.5
+        },
+        "at": "2025-04-28T01:03:06.708017+00:00"
+      }
+    ],
+    "product": "Biodegradable Packaging Solution",
+    "description": "An eco-friendly packaging made from innovative plant-based materials that decompose naturally, designed to reduce plastic waste and lower the carbon footprint, appealing to environmentally conscious consumers."
+  },
+  {
+    "company": {
+      "name": "GreenLeaf Foods",
+      "description": "A startup creating plant-based snacks that taste like traditional comfort foods."
+    },
+    "boardroom": [
+      {
+        "speaker": "Casey Nguyen",
+        "msg": "Our first product will be a reusable beeswax food wrap that keeps food fresh while reducing plastic waste!",
+        "weights": {
+          "Morgan Patel": 0.5,
+          "Taylor Brooks": 0.5,
+          "Casey Nguyen": 0.5
+        },
+        "at": "2025-04-28T01:03:23.802584+00:00"
+      },
+      {
+        "speaker": "Taylor Brooks",
+        "msg": "We should focus on sourcing sustainable materials and ensuring efficient production processes to streamline logistics.",
+        "weights": {
+          "Morgan Patel": 0.5,
+          "Taylor Brooks": 0.5,
+          "Casey Nguyen": 0.5
+        },
+        "at": "2025-04-28T01:03:26.470862+00:00"
+      }
+    ],
+    "product": "Reusable Beeswax Food Wrap",
+    "description": "A sustainable alternative to plastic wraps, made from natural beeswax, designed to keep food fresh while reducing plastic waste. It is reusable and environmentally friendly."
+  },
+  {
+    "company": {
+      "name": "GreenLeaf Foods",
+      "description": "A startup creating plant-based snacks that taste like traditional comfort foods."
+    },
+    "boardroom": [
+      {
+        "speaker": "Casey Nguyen",
+        "msg": "Our first product will be a stylish, reusable water bottle made from sustainable materials that features a built-in filter for purifying tap water on the go.",
+        "weights": {
+          "Morgan Patel": 0.5,
+          "Taylor Brooks": 0.5,
+          "Casey Nguyen": 0.5
+        },
+        "at": "2025-04-28T01:03:30.465352+00:00"
+      },
+      {
+        "speaker": "Morgan Patel",
+        "msg": "We should focus on integrating eco-friendly materials and a unique design that promotes sustainability while addressing water quality concerns.",
+        "weights": {
+          "Morgan Patel": 0.5,
+          "Taylor Brooks": 0.5,
+          "Casey Nguyen": 0.5
+        },
+        "at": "2025-04-28T01:03:32.631736+00:00"
+      }
+    ],
+    "product": "Stylish reusable water bottle with built-in filter",
+    "description": "A sleek, eco-friendly water bottle made from sustainable materials, designed to purify tap water on the go, promoting both style and sustainability."
   },
   {
     "company": {
@@ -66,27 +306,147 @@
     },
     "boardroom": [
       {
-        "speaker": "Blake Rivera",
-        "msg": "We should develop a low-power IoT sensor that monitors environmental conditions for smart homes.",
+        "speaker": "Sasha Gomez",
+        "msg": "Our first product should be an AI-driven telehealth platform that enhances patient monitoring and improves clinical outcomes through real-time data analysis.",
         "weights": {
           "Sasha Gomez": 0.5,
           "Blake Rivera": 0.5,
           "Quinn Harper": 0.5
         },
-        "at": "2025-04-28T00:46:12.670687"
+        "at": "2025-04-28T01:03:36.301779+00:00"
       },
       {
         "speaker": "Quinn Harper",
-        "msg": "I love that idea, Blake; we can design it with an emphasis on accessibility, ensuring all users can easily interact with the data it provides.",
+        "msg": "To ensure inclusivity, we should focus on creating a user-friendly interface that accommodates individuals with varying abilities and tech-savviness.",
         "weights": {
           "Sasha Gomez": 0.5,
           "Blake Rivera": 0.5,
           "Quinn Harper": 0.5
         },
-        "at": "2025-04-28T00:46:15.129832"
+        "at": "2025-04-28T01:03:38.759736+00:00"
       }
     ],
-    "product": "Low-Power IoT Environmental Sensor",
-    "description": "A smart home sensor designed to monitor environmental conditions with a focus on low power consumption and accessibility, allowing all users to easily interact with and understand the data it provides."
+    "product": "AI-Driven Telehealth Platform",
+    "description": "A telehealth solution that utilizes AI to enhance patient monitoring and improve clinical outcomes through real-time data analysis, designed with a user-friendly interface to cater to individuals of varying abilities and tech-savviness."
+  },
+  {
+    "company": {
+      "name": "Horizon HealthTech",
+      "description": "Develops wearable devices that monitor vital signs and provide real-time health insights."
+    },
+    "boardroom": [
+      {
+        "speaker": "Sasha Gomez",
+        "msg": "To create our first product, we should develop a data-driven telehealth platform that integrates AI for personalized patient assessments and treatment recommendations.",
+        "weights": {
+          "Sasha Gomez": 0.5,
+          "Blake Rivera": 0.5,
+          "Quinn Harper": 0.5
+        },
+        "at": "2025-04-28T01:03:42.426502+00:00"
+      },
+      {
+        "speaker": "Blake Rivera",
+        "msg": "To create our first product, we should develop a wearable device that monitors vital signs with high efficiency and optimizes battery usage for extended wear.",
+        "weights": {
+          "Sasha Gomez": 0.5,
+          "Blake Rivera": 0.5,
+          "Quinn Harper": 0.5
+        },
+        "at": "2025-04-28T01:03:45.093029+00:00"
+      }
+    ],
+    "product": "Data-Driven Telehealth Platform",
+    "description": "A telehealth platform that integrates AI to provide personalized patient assessments and treatment recommendations based on data analytics."
+  },
+  {
+    "company": {
+      "name": "Horizon HealthTech",
+      "description": "Develops wearable devices that monitor vital signs and provide real-time health insights."
+    },
+    "boardroom": [
+      {
+        "speaker": "Sasha Gomez",
+        "msg": "Our first product will be a telehealth platform that integrates AI-driven symptom checkers with personalized treatment recommendations.",
+        "weights": {
+          "Sasha Gomez": 0.5,
+          "Blake Rivera": 0.5,
+          "Quinn Harper": 0.5
+        },
+        "at": "2025-04-28T01:03:48.975764+00:00"
+      },
+      {
+        "speaker": "Blake Rivera",
+        "msg": "Our first product will be a smart wearable device that monitors vital signs and optimizes battery life through efficient data processing.",
+        "weights": {
+          "Sasha Gomez": 0.5,
+          "Blake Rivera": 0.5,
+          "Quinn Harper": 0.5
+        },
+        "at": "2025-04-28T01:03:51.968583+00:00"
+      }
+    ],
+    "product": "telehealth platform",
+    "description": "A platform that integrates AI-driven symptom checkers with personalized treatment recommendations."
+  },
+  {
+    "company": {
+      "name": "Horizon HealthTech",
+      "description": "Develops wearable devices that monitor vital signs and provide real-time health insights."
+    },
+    "boardroom": [
+      {
+        "speaker": "Quinn Harper",
+        "msg": "Let's design an intuitive mobile app that simplifies personal finance management for users of all ages and backgrounds.",
+        "weights": {
+          "Sasha Gomez": 0.5,
+          "Blake Rivera": 0.5,
+          "Quinn Harper": 0.5
+        },
+        "at": "2025-04-28T01:03:55.961508+00:00"
+      },
+      {
+        "speaker": "Blake Rivera",
+        "msg": "We should create a mobile app that tracks spending habits while optimizing battery usage for extended daily performance.",
+        "weights": {
+          "Sasha Gomez": 0.5,
+          "Blake Rivera": 0.5,
+          "Quinn Harper": 0.5
+        },
+        "at": "2025-04-28T01:04:00.581681+00:00"
+      }
+    ],
+    "product": "Personal Finance Management App",
+    "description": "An intuitive mobile application designed for users of all ages that simplifies personal finance management by tracking spending habits and optimizing battery usage for extended daily performance."
+  },
+  {
+    "company": {
+      "name": "Horizon HealthTech",
+      "description": "Develops wearable devices that monitor vital signs and provide real-time health insights."
+    },
+    "boardroom": [
+      {
+        "speaker": "Quinn Harper",
+        "msg": "Our first product should be an inclusive mobile app that simplifies mental wellness check-ins for users of all abilities.",
+        "weights": {
+          "Sasha Gomez": 0.5,
+          "Blake Rivera": 0.5,
+          "Quinn Harper": 0.5
+        },
+        "at": "2025-04-28T01:04:04.900139+00:00"
+      },
+      {
+        "speaker": "Blake Rivera",
+        "msg": "We should create a low-power wearable device that tracks and optimizes users' mental wellness through biofeedback and personalized interventions.",
+        "weights": {
+          "Sasha Gomez": 0.5,
+          "Blake Rivera": 0.5,
+          "Quinn Harper": 0.5
+        },
+        "at": "2025-04-28T01:04:08.146549+00:00"
+      }
+    ],
+    "product": "Inclusive Mental Wellness Mobile App",
+    "description": "A mobile application designed to simplify mental wellness check-ins tailored for users of all abilities, promoting inclusivity and ease of use."
   }
 ]

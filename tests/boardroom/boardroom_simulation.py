@@ -5,6 +5,8 @@ from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from openai import AzureOpenAI  
 
+RUNS_PER_COMPANY = 5
+
 vault = "https://kv-strtupifyio.vault.azure.net/"
 sc = SecretClient(vault_url=vault, credential=DefaultAzureCredential())
 client = AzureOpenAI(
@@ -89,44 +91,50 @@ with open("input.json") as f:
     companies = json.load(f)
 
 results = []
-for c in tqdm(companies, desc="Companies"):
-    emps = c["employees"]
-    history = []
-    weights = calc_weights(emps, directive)
-    speaker = pick_first_speaker(emps, weights)
-    line = gen_agent_line(speaker, history, directive)
-    history.append(
-        {
-            "speaker": speaker["name"],
-            "msg": line,
-            "weights": weights,
-            "at": datetime.datetime.utcnow().isoformat(),
-        }
-    )
-    outcome = {}
-    for _ in range(iterations - 1):
-        weights = calc_weights(emps, directive)
-        speaker = choose_next_speaker(emps, history, weights)
-        line = gen_agent_line(speaker, history, directive)
-        history.append(
-            {
-                "speaker": speaker["name"],
-                "msg": line,
-                "weights": weights,
-                "at": datetime.datetime.utcnow().isoformat(),
-            }
-        )
-        outcome = gen_outcome(history)
-        if conversation_complete(outcome):
-            break
-    results.append(
-        {
-            "company": c["company"],
-            "boardroom": history,
-            "product": outcome.get("product", ""),
-            "description": outcome.get("description", ""),
-        }
-    )
+total_runs = len(companies) * RUNS_PER_COMPANY
+
+
+with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
+    for c in companies:
+        for _ in range(RUNS_PER_COMPANY):
+            emps = c["employees"]
+            history = []
+            weights = calc_weights(emps, directive)
+            speaker = pick_first_speaker(emps, weights)
+            line = gen_agent_line(speaker, history, directive)
+            history.append(
+                {
+                    "speaker": speaker["name"],
+                    "msg": line,
+                    "weights": weights,
+                    "at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                }
+            )
+            outcome = {}
+            for _ in range(iterations - 1):
+                weights = calc_weights(emps, directive)
+                speaker = choose_next_speaker(emps, history, weights)
+                line = gen_agent_line(speaker, history, directive)
+                history.append(
+                    {
+                        "speaker": speaker["name"],
+                        "msg": line,
+                        "weights": weights,
+                        "at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    }
+                )
+                outcome = gen_outcome(history)
+                if conversation_complete(outcome):
+                    break
+            results.append(
+                {
+                    "company": c["company"],
+                    "boardroom": history,
+                    "product": outcome.get("product", ""),
+                    "description": outcome.get("description", ""),
+                }
+            )
+            pbar.update(1) 
 
 with open("output.json", "w") as f:
     json.dump(results, f, indent=2)

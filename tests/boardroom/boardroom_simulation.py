@@ -25,7 +25,12 @@ deployment = sc.get_secret("AIDeploymentMini").value
 
 
 def calc_weights(emps, directive):
-    sys = "Assign each participant a confidence weight 0-1 based on title, personality, and meeting directive. Return JSON."
+    sys = (
+        "Assign each participant a unique confidence weight between 0 and 1 "
+        "based on their title, personality, and the meeting goal. "
+        "Output JSON where keys are names and values are floats. "
+        "Weights must vary: at least one ≥ 0.75 and one ≤ 0.25."
+    )
     user = json.dumps(
         {
             "directive": directive,
@@ -47,9 +52,9 @@ def calc_weights(emps, directive):
             w[k] = max(0, min(1, float(v)))
         except:
             continue
-    if not w:
+    if len(set(w.values())) <= 1:
         for e in emps:
-            w[e["name"]] = 0.5
+            w[e["name"]] = max(0, min(1, gauss(0.5, 0.15)))
     return w
 
 
@@ -70,11 +75,12 @@ def choose_next_speaker(emps, history, weights):
 
 def gen_agent_line(agent, history, directive):
     sys = (
-        f"You are {agent['name']}, a {agent['title']} at a new startup."
-        f"The company is holding its first meeting. "
+        f"You are {agent['name']}, a {agent['title']} at a new startup. "
         f"Personality: {agent['personality']}. Meeting goal: {directive} "
-        f"You should respond as if you are in a meeting, "
-        f"and your response should be a single line of dialogue. "
+        f"You should respond naturally as if you are in a real meeting. "
+        f"Sometimes you may question, disagree, or express doubts about what was said before you. "
+        f"Your response should still feel collaborative but not always perfectly aligned. "
+        f"Respond with a single natural-sounding line of dialogue."
     )
     msgs = [{"role": "system", "content": sys}]
     if history:

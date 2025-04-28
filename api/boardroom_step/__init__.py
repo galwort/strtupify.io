@@ -6,6 +6,13 @@ import firebase_admin as fb, json, datetime
 from openai import AzureOpenAI
 from random import gauss
 
+MEETING_DIRECTIVE = (
+    "This is the first meeting of a new startup. "
+    "The goal is to come up with the first product or service that the company will offer. "
+    "Reminder that this is the first meeting between the employees, "
+    "so they don't know each other yet. "
+)
+
 vault = "https://kv-strtupifyio.vault.azure.net/"
 sc = SecretClient(vault_url=vault, credential=DefaultAzureCredential())
 endpoint = sc.get_secret("AIEndpoint").value
@@ -124,7 +131,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     body = req.get_json()
     company = body["company"]
     product = body["product"]
-    directive = body.get("directive", "Come up with the company’s first product")
+    directive = body.get("directive", MEETING_DIRECTIVE)
     ref, doc, emps = load_state(company, product)
     history = doc["boardroom"]
     weights = calc_weights(emps, directive)

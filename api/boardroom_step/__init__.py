@@ -93,7 +93,12 @@ def gen_agent_line(agent, history, directive):
 
 
 def gen_outcome(history):
-    sys = "Return only JSON with keys 'product' and 'description' for the agreed idea."
+    sys = (
+        "You are an impartial meeting observer. "
+        "If the conversation shows that all participants have clearly agreed on a single, specific product or service idea, "
+        "return a JSON object with keys 'product' and 'description' describing that idea. "
+        "If no consensus exists, return {\"product\":\"\", \"description\":\"\"}."
+    )
     msgs = [
         {"role": "system", "content": sys},
         {"role": "user", "content": "\n".join(f"{h['speaker']}: {h['msg']}" for h in history[-20:])},

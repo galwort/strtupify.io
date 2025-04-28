@@ -1,0 +1,161 @@
+[
+  {
+    "company": {
+      "name": "Acme Robotics",
+      "description": "We build AI-driven home-assistant robots that handle cooking and cleaning."
+    },
+    "employees": [
+      {
+        "id": "1",
+        "name": "Alex Smith",
+        "title": "Chief Technology Officer",
+        "personality": "Analytical and visionary; pushes technical boundaries.",
+        "salary": 185000,
+        "hired": true,
+        "skills": [
+          { "skill": "Robotics Engineering", "level": 9 },
+          { "skill": "Machine Learning", "level": 8 },
+          { "skill": "Systems Design", "level": 8 },
+          { "skill": "Leadership", "level": 7 },
+          { "skill": "Hardware Prototyping", "level": 6 }
+        ]
+      },
+      {
+        "id": "2",
+        "name": "Jordan Lee",
+        "title": "Product Manager",
+        "personality": "User-focused, pragmatic, great at consensus-building.",
+        "salary": 140000,
+        "hired": true,
+        "skills": [
+          { "skill": "Market Research", "level": 9 },
+          { "skill": "Road-mapping", "level": 8 },
+          { "skill": "Agile Planning", "level": 7 },
+          { "skill": "Communication", "level": 8 },
+          { "skill": "Budgeting", "level": 6 }
+        ]
+      },
+      {
+        "id": "3",
+        "name": "Riley Chen",
+        "title": "Software Engineer",
+        "personality": "Creative problem-solver who writes clean, maintainable code.",
+        "salary": 128000,
+        "hired": true,
+        "skills": [
+          { "skill": "Python", "level": 9 },
+          { "skill": "Robot OS", "level": 7 },
+          { "skill": "Cloud Functions", "level": 8 },
+          { "skill": "Testing", "level": 7 },
+          { "skill": "DevOps", "level": 6 }
+        ]
+      }
+    ]
+  },
+  {
+    "company": {
+      "name": "GreenLeaf Foods",
+      "description": "A startup creating plant-based snacks that taste like traditional comfort foods."
+    },
+    "employees": [
+      {
+        "id": "1",
+        "name": "Morgan Patel",
+        "title": "Head of R&D",
+        "personality": "Experimental, detail-oriented, passionate about sustainability.",
+        "salary": 160000,
+        "hired": true,
+        "skills": [
+          { "skill": "Food Science", "level": 9 },
+          { "skill": "Flavor Chemistry", "level": 8 },
+          { "skill": "Innovation Management", "level": 7 },
+          { "skill": "Nutrition Analysis", "level": 7 },
+          { "skill": "Project Leadership", "level": 6 }
+        ]
+      },
+      {
+        "id": "2",
+        "name": "Taylor Brooks",
+        "title": "Operations Manager",
+        "personality": "Process-driven and calm under pressure; excels at logistics.",
+        "salary": 115000,
+        "hired": true,
+        "skills": [
+          { "skill": "Supply Chain", "level": 8 },
+          { "skill": "Lean Manufacturing", "level": 8 },
+          { "skill": "Cost Control", "level": 7 },
+          { "skill": "Vendor Relations", "level": 7 },
+          { "skill": "Quality Assurance", "level": 6 }
+        ]
+      },
+      {
+        "id": "3",
+        "name": "Casey Nguyen",
+        "title": "Brand Marketing Specialist",
+        "personality": "Energetic storyteller who connects with eco-conscious audiences.",
+        "salary": 92000,
+        "hired": true,
+        "skills": [
+          { "skill": "Content Strategy", "level": 8 },
+          { "skill": "Social Media", "level": 9 },
+          { "skill": "Graphic Design", "level": 7 },
+          { "skill": "SEO", "level": 6 },
+          { "skill": "Copywriting", "level": 8 }
+        ]
+      }
+    ]
+  },
+  {
+    "company": {
+      "name": "Horizon HealthTech",
+      "description": "Develops wearable devices that monitor vital signs and provide real-time health insights."
+    },
+    "employees": [
+      {
+        "id": "1",
+        "name": "Sasha Gomez",
+        "title": "Chief Medical Officer",
+        "personality": "Evidence-driven clinician bridging medicine and technology.",
+        "salary": 210000,
+        "hired": true,
+        "skills": [
+          { "skill": "Clinical Research", "level": 9 },
+          { "skill": "Regulatory Affairs", "level": 8 },
+          { "skill": "Telemedicine", "level": 7 },
+          { "skill": "Data Interpretation", "level": 7 },
+          { "skill": "Public Speaking", "level": 6 }
+        ]
+      },
+      {
+        "id": "2",
+        "name": "Blake Rivera",
+        "title": "Firmware Engineer",
+        "personality": "Meticulous coder focused on efficiency and battery optimization.",
+        "salary": 135000,
+        "hired": true,
+        "skills": [
+          { "skill": "Embedded C", "level": 9 },
+          { "skill": "Bluetooth LE", "level": 8 },
+          { "skill": "Low-Power Design", "level": 8 },
+          { "skill": "Unit Testing", "level": 7 },
+          { "skill": "Circuit Debugging", "level": 6 }
+        ]
+      },
+      {
+        "id": "3",
+        "name": "Quinn Harper",
+        "title": "UX Designer",
+        "personality": "Empathetic designer who champions accessibility and clarity.",
+        "salary": 105000,
+        "hired": true,
+        "skills": [
+          { "skill": "Interaction Design", "level": 9 },
+          { "skill": "User Research", "level": 8 },
+          { "skill": "Prototyping", "level": 7 },
+          { "skill": "Data Visualization", "level": 7 },
+          { "skill": "Figma", "level": 8 }
+        ]
+      }
+    ]
+  }
+]

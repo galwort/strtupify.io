@@ -1,11 +1,18 @@
 import json, datetime, uuid
 from random import gauss
-from tqdm import tqdm  
-from azure.identity import DefaultAzureCredential  
+from tqdm import tqdm
+from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
-from openai import AzureOpenAI  
+from openai import AzureOpenAI
 
 RUNS_PER_COMPANY = 5
+ITERATIONS = 30
+DIRECTIVE = (
+    "This is the first meeting of a new startup. "
+    "The goal is to come up with the first product or service that the company will offer. "
+    "Reminder that this is the first meeting between the employees, "
+    "so they don't know each other yet. "
+)
 
 vault = "https://kv-strtupifyio.vault.azure.net/"
 sc = SecretClient(vault_url=vault, credential=DefaultAzureCredential())
@@ -15,6 +22,7 @@ client = AzureOpenAI(
     api_key=sc.get_secret("AIKey").value,
 )
 deployment = sc.get_secret("AIDeploymentMini").value
+
 
 def calc_weights(emps, directive):
     sys = "Assign each participant a confidence weight 0-1 based on title, personality, and meeting directive. Return JSON."
@@ -44,8 +52,10 @@ def calc_weights(emps, directive):
             w[e["name"]] = 0.5
     return w
 
+
 def pick_first_speaker(emps, weights):
     return max(emps, key=lambda e: weights.get(e["name"], 0.4) + gauss(0, 0.05))
+
 
 def choose_next_speaker(emps, history, weights):
     spoken = {}
@@ -57,18 +67,21 @@ def choose_next_speaker(emps, history, weights):
         + gauss(0, 0.05),
     )
 
+
 def gen_agent_line(agent, history, directive):
     sys = (
         f"You are {agent['name']}, a {agent['title']} at a brand-new startup. Personality: {agent['personality']}. "
-        f"Keep your sentences concise. Meeting goal: {directive}. Begin EXACTLY one sentence."
+        f"Keep your sentences concise. Meeting goal: {directive}. Reply with EXACTLY one sentence."
     )
     msgs = [{"role": "system", "content": sys}]
     if history:
         for h in history[-6:]:
             msgs.append({"role": "assistant", "content": f"{h['speaker']}: {h['msg']}"})
-    msgs.append({"role": "assistant", "content": f"{agent['name']}:"})
+    msgs.append({"role": "user", "content": f"{agent['name']}:"})
     rsp = client.chat.completions.create(model=deployment, messages=msgs)
-    return rsp.choices[0].message.content.strip()
+    content = rsp.choices[0].message.content or ""
+    return content.strip()
+
 
 def gen_outcome(history):
     sys = "Return only JSON with keys 'product' and 'description' for the agreed idea."
@@ -81,11 +94,10 @@ def gen_outcome(history):
     )
     return json.loads(rsp.choices[0].message.content)
 
+
 def conversation_complete(outcome):
     return bool(outcome.get("product") and outcome.get("description"))
 
-directive = "Come up with the company’s first product"
-iterations = 15
 
 with open("input.json") as f:
     companies = json.load(f)
@@ -93,15 +105,14 @@ with open("input.json") as f:
 results = []
 total_runs = len(companies) * RUNS_PER_COMPANY
 
-
 with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
     for c in companies:
         for _ in range(RUNS_PER_COMPANY):
             emps = c["employees"]
             history = []
-            weights = calc_weights(emps, directive)
+            weights = calc_weights(emps, DIRECTIVE)
             speaker = pick_first_speaker(emps, weights)
-            line = gen_agent_line(speaker, history, directive)
+            line = gen_agent_line(speaker, history, DIRECTIVE)
             history.append(
                 {
                     "speaker": speaker["name"],
@@ -111,10 +122,10 @@ with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
                 }
             )
             outcome = {}
-            for _ in range(iterations - 1):
-                weights = calc_weights(emps, directive)
+            for _ in range(ITERATIONS - 1):
+                weights = calc_weights(emps, DIRECTIVE)
                 speaker = choose_next_speaker(emps, history, weights)
-                line = gen_agent_line(speaker, history, directive)
+                line = gen_agent_line(speaker, history, DIRECTIVE)
                 history.append(
                     {
                         "speaker": speaker["name"],
@@ -134,7 +145,7 @@ with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
                     "description": outcome.get("description", ""),
                 }
             )
-            pbar.update(1) 
+            pbar.update(1)
 
 with open("output.json", "w") as f:
     json.dump(results, f, indent=2)

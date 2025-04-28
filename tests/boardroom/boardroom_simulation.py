@@ -85,7 +85,7 @@ def conversation_complete(outcome):
     return bool(outcome.get("product") and outcome.get("description"))
 
 directive = "Come up with the company’s first product"
-iterations = 5
+iterations = 15
 
 with open("input.json") as f:
     companies = json.load(f)

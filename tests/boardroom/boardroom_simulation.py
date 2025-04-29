@@ -13,6 +13,46 @@ DIRECTIVE = (
     "Reminder that this is the first meeting between the employees, "
     "so they don't know each other yet. "
 )
+STAGES = [
+    {"name": "INTRODUCTIONS",     "minutes": 10, "goal": "everyone_spoke"},
+    {"name": "BRAINSTORMING",     "minutes": 15, "goal": "idea_from_each"},
+    {"name": "DECIDE ON A PRODUCT","minutes": 5,  "goal": "consensus"},
+    {"name": "REFINEMENT",        "minutes": 10, "goal": "time_only"},
+]
+
+class StageClock:
+    def __init__(self, emp_names):
+        self.idx = 0
+        self.elapsed = 0
+        self.msgs_in_stage = 0
+        self.emp_names = emp_names
+        self.idea_owners = set() 
+
+    @property
+    def stage(self):
+        return STAGES[self.idx]["name"]
+
+    def tick(self):
+        self.elapsed += 2
+        self.msgs_in_stage += 1
+
+    def goal_met(self, history, outcome):
+        goal = STAGES[self.idx]["goal"]
+        if goal == "everyone_spoke":
+            return len({h["speaker"] for h in history}) >= len(emp_names)
+        if goal == "idea_from_each":
+            return all("idea" in h["msg"].lower() for h in history if h["speaker"] in emp_names)
+        if goal == "consensus":
+            return bool(outcome.get("product"))
+        return False
+
+    def advance_if_needed(self, history, outcome):
+        if (self.elapsed >= sum(s["minutes"] for s in STAGES[:self.idx+1])
+            or self.goal_met(history, outcome)):
+            if self.idx < len(STAGES) - 1:
+                self.idx += 1
+                self.msgs_in_stage = 0
+
 
 vault = "https://kv-strtupifyio.vault.azure.net/"
 sc = SecretClient(vault_url=vault, credential=DefaultAzureCredential())
@@ -57,7 +97,6 @@ def calc_weights(emps, directive, recent_lines):
     return w
 
 
-
 def pick_first_speaker(emps, weights):
     return max(emps, key=lambda e: weights.get(e["name"], 0.4) + gauss(0, 0.05))
 
@@ -73,7 +112,7 @@ def choose_next_speaker(emps, history, weights):
     )
 
 
-def gen_agent_line(agent, history, directive, company, company_description, counter):
+def gen_agent_line(agent, history, directive, company, company_description, counter, stage):
     sys = (
         f"You are {agent['name']}, a {agent['title']} at a new startup. "
         f"Company: {company}. Company description: {company_description}. "
@@ -82,7 +121,8 @@ def gen_agent_line(agent, history, directive, company, company_description, coun
         f"Sometimes you may question, disagree, or express doubts about what was said before you. "
         f"Your response should still feel collaborative but not always perfectly aligned. "
         f"Respond with a single natural-sounding line of dialogue."
-        f"So far, {counter} minutes have passed in the meeting. "
+        f"So far, {counter*2} minutes have passed in the meeting, "
+        f"which means you are in the {stage} stage of the meeting. "
     )
     msgs = [{"role": "system", "content": sys}]
     if history:
@@ -99,7 +139,7 @@ def gen_outcome(history, emp_names):
         "You are an impartial meeting observer. "
         "If the conversation shows that all participants have clearly agreed on a single, specific product or service idea, "
         "return a JSON object with keys 'product' and 'description' describing that idea. "
-        f"This meeting, in total, has {len(emps)} participants: {', '.join(emp_names)}. "
+        f"This meeting, in total, has {len(emp_names)} participants: {', '.join(emp_names)}. "
         "At least two thirds of the participants must have clearly expressed support—e.g. phrases like "
         "\"I agree\", \"Yes, that works\", \"Let's build X\", \"Sounds good to me\". "
         "Otherwise return {\"product\":\"\", \"description\":\"\"}. "
@@ -127,14 +167,15 @@ total_runs = len(companies) * RUNS_PER_COMPANY
 with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
     for c in companies:
         for _ in range(RUNS_PER_COMPANY):
-            company = c["company"]["name"]
-            company_description = c["company"]["description"]
             emps = c["employees"]
             emp_names = [e["name"] for e in emps]
+            clock = StageClock(emp_names)
+            company = c["company"]["name"]
+            company_description = c["company"]["description"]
             history = []
             weights = calc_weights(emps, DIRECTIVE, "")
             speaker = pick_first_speaker(emps, weights)
-            line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description, 0)
+            line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description, 0, clock.stage)
             history.append(
                 {
                     "speaker": speaker["name"],
@@ -146,10 +187,11 @@ with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
             outcome = {}
             for _ in range(ITERATIONS - 1):
                 counter = len(history)
+                stage = clock.stage
                 recent = "\n".join(f"{h['speaker']}: {h['msg']}" for h in history[-3:])
                 weights = calc_weights(emps, DIRECTIVE, recent)
                 speaker = choose_next_speaker(emps, history, weights)
-                line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description, counter)
+                line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description, counter, stage)
                 history.append(
                     {
                         "speaker": speaker["name"],
@@ -158,7 +200,12 @@ with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
                         "at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     }
                 )
-                outcome = gen_outcome(history, emp_names)
+                if stage == "DECIDE ON A PRODUCT":
+                    outcome = gen_outcome(history, emp_names)
+                clock.tick()
+                clock.advance_if_needed(history, outcome)
+                if clock.stage == "REFINEMENT" and clock.elapsed >= 40:
+                    break
                 if conversation_complete(outcome):
                     break
             results.append(

@@ -60,6 +60,8 @@ client = AzureOpenAI(
     api_version="2023-07-01-preview",
     azure_endpoint=sc.get_secret("AIEndpoint").value,
     api_key=sc.get_secret("AIKey").value,
+    timeout=120,
+    max_retries=6,
 )
 deployment = sc.get_secret("AIDeploymentMini").value
 
@@ -181,26 +183,27 @@ with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
                     "speaker": speaker["name"],
                     "msg": line,
                     "weights": weights,
+                    "stage": clock.stage,
                     "at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 }
             )
             outcome = {}
             for _ in range(ITERATIONS - 1):
                 counter = len(history)
-                stage = clock.stage
                 recent = "\n".join(f"{h['speaker']}: {h['msg']}" for h in history[-3:])
                 weights = calc_weights(emps, DIRECTIVE, recent)
                 speaker = choose_next_speaker(emps, history, weights)
-                line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description, counter, stage)
+                line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description, counter, clock.stage)
                 history.append(
                     {
                         "speaker": speaker["name"],
                         "msg": line,
                         "weights": weights,
+                        "stage": clock.stage,
                         "at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     }
                 )
-                if stage == "DECIDE ON A PRODUCT":
+                if clock.stage == "DECIDE ON A PRODUCT":
                     outcome = gen_outcome(history, emp_names)
                 clock.tick()
                 clock.advance_if_needed(history, outcome)

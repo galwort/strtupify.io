@@ -94,12 +94,15 @@ def gen_agent_line(agent, history, directive, company, company_description, coun
     return content.strip()
 
 
-def gen_outcome(history):
+def gen_outcome(history, emp_names):
     sys = (
         "You are an impartial meeting observer. "
         "If the conversation shows that all participants have clearly agreed on a single, specific product or service idea, "
         "return a JSON object with keys 'product' and 'description' describing that idea. "
         "If no consensus exists, return {\"product\":\"\", \"description\":\"\"}."
+        f"This meeting has {len(emps)} participants: "
+        f"{', '.join(emp_names)}. "
+        "Each of these people have to agree on the product or service idea. "
     )
     msgs = [
         {"role": "system", "content": sys},
@@ -127,6 +130,7 @@ with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
             company = c["company"]["name"]
             company_description = c["company"]["description"]
             emps = c["employees"]
+            emp_names = [e["name"] for e in emps]
             history = []
             weights = calc_weights(emps, DIRECTIVE, "")
             speaker = pick_first_speaker(emps, weights)
@@ -154,7 +158,7 @@ with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
                         "at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     }
                 )
-                outcome = gen_outcome(history)
+                outcome = gen_outcome(history, emp_names)
                 if conversation_complete(outcome):
                     break
             results.append(

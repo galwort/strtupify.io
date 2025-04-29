@@ -24,16 +24,19 @@ client = AzureOpenAI(
 deployment = sc.get_secret("AIDeploymentMini").value
 
 
-def calc_weights(emps, directive):
+def calc_weights(emps, directive, recent_lines):
     sys = (
-        "Assign each participant a unique confidence weight between 0 and 1 "
-        "based on their title, personality, and the meeting goal. "
-        "Output JSON where keys are names and values are floats. "
-        "Weights must vary: at least one ≥ 0.75 and one ≤ 0.25."
+        "Re-evaluate each participant’s confidence weight (0-1) for the *next* turn.\n"
+        "• Start from their previous weight if given.\n"
+        "• **Increase** if their most recent comment advanced the meeting goal.\n"
+        "• **Decrease** if they sounded uncertain, repetitive, or off-topic.\n"
+        "Return JSON: {name: weight}.  At least one ≥0.75 and one ≤0.25."
     )
+
     user = json.dumps(
         {
             "directive": directive,
+            "recent_dialogue": recent_lines,
             "participants": [
                 {"name": e["name"], "title": e["title"], "personality": e["personality"]}
                 for e in emps
@@ -45,17 +48,14 @@ def calc_weights(emps, directive):
         response_format={"type": "json_object"},
         messages=[{"role": "system", "content": sys}, {"role": "user", "content": user}],
     )
+
     raw = json.loads(rsp.choices[0].message.content)
-    w = {}
-    for k, v in raw.items():
-        try:
-            w[k] = max(0, min(1, float(v)))
-        except:
-            continue
+    w = {k: max(0, min(1, float(v))) for k, v in raw.items() if isinstance(v, (int, float, str))}
     if len(set(w.values())) <= 1:
         for e in emps:
             w[e["name"]] = max(0, min(1, gauss(0.5, 0.15)))
     return w
+
 
 
 def pick_first_speaker(emps, weights):
@@ -124,7 +124,7 @@ with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
         for _ in range(RUNS_PER_COMPANY):
             emps = c["employees"]
             history = []
-            weights = calc_weights(emps, DIRECTIVE)
+            weights = calc_weights(emps, DIRECTIVE, "")
             speaker = pick_first_speaker(emps, weights)
             line = gen_agent_line(speaker, history, DIRECTIVE)
             history.append(
@@ -137,7 +137,8 @@ with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
             )
             outcome = {}
             for _ in range(ITERATIONS - 1):
-                weights = calc_weights(emps, DIRECTIVE)
+                recent = "\n".join(f"{h['speaker']}: {h['msg']}" for h in history[-3:])
+                weights = calc_weights(emps, DIRECTIVE, recent)
                 speaker = choose_next_speaker(emps, history, weights)
                 line = gen_agent_line(speaker, history, DIRECTIVE)
                 history.append(

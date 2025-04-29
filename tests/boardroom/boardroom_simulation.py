@@ -99,12 +99,10 @@ def gen_outcome(history, emp_names):
         "You are an impartial meeting observer. "
         "If the conversation shows that all participants have clearly agreed on a single, specific product or service idea, "
         "return a JSON object with keys 'product' and 'description' describing that idea. "
-        "Return {\"product\":\"\",\"description\":\"\"} unless EVERY participant "
-        "has clearly and explicitly agreed (e.g. said “I agree” or “Yes, let’s do X”) "
-        "on one single, specific product/service. "
-        f"This meeting has {len(emps)} participants: "
-        f"{', '.join(emp_names)}. "
-        "Each of these people have to agree on the product or service idea. "
+        f"This meeting, in total, has {len(emps)} participants: {', '.join(emp_names)}. "
+        "At least two thirds of the participants must have clearly expressed support—e.g. phrases like "
+        "\"I agree\", \"Yes, that works\", \"Let's build X\", \"Sounds good to me\". "
+        "Otherwise return {\"product\":\"\", \"description\":\"\"}. "
     )
     msgs = [
         {"role": "system", "content": sys},

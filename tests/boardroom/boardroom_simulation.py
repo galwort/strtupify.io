@@ -73,9 +73,10 @@ def choose_next_speaker(emps, history, weights):
     )
 
 
-def gen_agent_line(agent, history, directive):
+def gen_agent_line(agent, history, directive, company, company_description):
     sys = (
         f"You are {agent['name']}, a {agent['title']} at a new startup. "
+        f"Company: {company}. Company description: {company_description}. "
         f"Personality: {agent['personality']}. Meeting goal: {directive} "
         f"You should respond naturally as if you are in a real meeting. "
         f"Sometimes you may question, disagree, or express doubts about what was said before you. "
@@ -122,11 +123,13 @@ total_runs = len(companies) * RUNS_PER_COMPANY
 with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
     for c in companies:
         for _ in range(RUNS_PER_COMPANY):
+            company = c["company"]["name"]
+            company_description = c["company"]["description"]
             emps = c["employees"]
             history = []
             weights = calc_weights(emps, DIRECTIVE, "")
             speaker = pick_first_speaker(emps, weights)
-            line = gen_agent_line(speaker, history, DIRECTIVE)
+            line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description)
             history.append(
                 {
                     "speaker": speaker["name"],
@@ -140,7 +143,7 @@ with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
                 recent = "\n".join(f"{h['speaker']}: {h['msg']}" for h in history[-3:])
                 weights = calc_weights(emps, DIRECTIVE, recent)
                 speaker = choose_next_speaker(emps, history, weights)
-                line = gen_agent_line(speaker, history, DIRECTIVE)
+                line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description)
                 history.append(
                     {
                         "speaker": speaker["name"],

@@ -73,7 +73,7 @@ def choose_next_speaker(emps, history, weights):
     )
 
 
-def gen_agent_line(agent, history, directive, company, company_description):
+def gen_agent_line(agent, history, directive, company, company_description, counter):
     sys = (
         f"You are {agent['name']}, a {agent['title']} at a new startup. "
         f"Company: {company}. Company description: {company_description}. "
@@ -82,6 +82,7 @@ def gen_agent_line(agent, history, directive, company, company_description):
         f"Sometimes you may question, disagree, or express doubts about what was said before you. "
         f"Your response should still feel collaborative but not always perfectly aligned. "
         f"Respond with a single natural-sounding line of dialogue."
+        f"So far, {counter} minutes have passed in the meeting. "
     )
     msgs = [{"role": "system", "content": sys}]
     if history:
@@ -129,7 +130,7 @@ with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
             history = []
             weights = calc_weights(emps, DIRECTIVE, "")
             speaker = pick_first_speaker(emps, weights)
-            line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description)
+            line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description, 0)
             history.append(
                 {
                     "speaker": speaker["name"],
@@ -140,10 +141,11 @@ with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
             )
             outcome = {}
             for _ in range(ITERATIONS - 1):
+                counter = len(history)
                 recent = "\n".join(f"{h['speaker']}: {h['msg']}" for h in history[-3:])
                 weights = calc_weights(emps, DIRECTIVE, recent)
                 speaker = choose_next_speaker(emps, history, weights)
-                line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description)
+                line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description, counter)
                 history.append(
                     {
                         "speaker": speaker["name"],

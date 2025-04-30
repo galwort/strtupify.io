@@ -13,6 +13,43 @@ DIRECTIVE = (
     "so they don't know each other yet. "
 )
 
+STAGES = [
+    {"name": "INTRODUCTIONS",      "minutes": 10, "goal": "everyone_spoke"},
+    {"name": "BRAINSTORMING",      "minutes": 15, "goal": "idea_from_each"},
+    {"name": "DECIDE ON A PRODUCT","minutes": 5,  "goal": "consensus"},
+    {"name": "REFINEMENT",         "minutes": 10, "goal": "time_only"},
+]
+
+class StageClock:
+    def __init__(self, idx=0, elapsed=0):
+        self.idx = idx
+        self.elapsed = elapsed
+
+    @property
+    def stage(self):
+        return STAGES[self.idx]["name"]
+
+    def tick(self):
+        self.elapsed += 2
+
+    def goal_met(self, hist, outcome, emp_names):
+        goal = STAGES[self.idx]["goal"]
+        if goal == "everyone_spoke":
+            return len({h["speaker"] for h in hist}) >= len(emp_names)
+        if goal == "idea_from_each":
+            return all("idea" in h["msg"].lower() for h in hist if h["speaker"] in emp_names)
+        if goal == "consensus":
+            return bool(outcome.get("product"))
+        return False
+
+    def advance(self, hist, outcome, emp_names):
+        need_next = self.elapsed >= STAGES[self.idx]["minutes"] or \
+                    self.goal_met(hist, outcome, emp_names)
+        if need_next and self.idx < len(STAGES)-1:
+            self.idx += 1
+            self.elapsed = 0
+
+
 vault = "https://kv-strtupifyio.vault.azure.net/"
 sc = SecretClient(vault_url=vault, credential=DefaultAzureCredential())
 endpoint = sc.get_secret("AIEndpoint").value
@@ -170,6 +207,7 @@ def conversation_complete(state):
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
+    clock = StageClock(idx=STAGES.index(next(s for s in STAGES if s["name"]==doc.get("stage","INTRODUCTIONS"))), elapsed=doc.get("elapsed",0))
     body = req.get_json()
     company = body["company"]
     company_description = load_company_description(company)
@@ -190,10 +228,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     weights = calc_weights(emps, directive, recent_lines)
     speaker = choose_next_speaker(emps, history, weights)
     line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description, counter, stage, emp_names)
-    append_line(ref, speaker["name"], line, weights, stage)
-    history.append({"speaker": speaker["name"], "msg": line})
     outcome = gen_outcome(history)
-    ref.update(outcome)
+    clock.tick()
+    clock.advance(history, outcome, emp_names)
+    append_line(ref, speaker["name"], line, weights, clock.stage)
+    ref.update({"elapsed": clock.elapsed, **outcome})
     done = conversation_complete(outcome)
     return func.HttpResponse(
         json.dumps(
@@ -202,7 +241,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 "line": line,
                 "outcome": outcome,
                 "done": done,
-                "stage": stage,
+                "stage": clock.stage,
             }
         ),
         mimetype="application/json",

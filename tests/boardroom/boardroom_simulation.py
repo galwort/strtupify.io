@@ -128,7 +128,7 @@ def gen_agent_line(agent, history, directive, company, company_description, coun
     )
     msgs = [{"role": "system", "content": sys}]
     if history:
-        for h in history[-10:]:
+        for h in history:
             msgs.append({"role": "assistant", "content": f"{h['speaker']}: {h['msg']}"})
     msgs.append({"role": "user", "content": f"{agent['name']}:"})
     rsp = client.chat.completions.create(model=deployment, messages=msgs)
@@ -148,7 +148,7 @@ def gen_outcome(history, emp_names):
     )
     msgs = [
         {"role": "system", "content": sys},
-        {"role": "user", "content": "\n".join(f"{h['speaker']}: {h['msg']}" for h in history[-20:])},
+        {"role": "user", "content": "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)},
     ]
     rsp = client.chat.completions.create(
         model=deployment, response_format={"type": "json_object"}, messages=msgs
@@ -190,7 +190,7 @@ with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
             outcome = {}
             for _ in range(ITERATIONS - 1):
                 counter = len(history)
-                recent = "\n".join(f"{h['speaker']}: {h['msg']}" for h in history[-3:])
+                recent = "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)
                 weights = calc_weights(emps, DIRECTIVE, recent)
                 speaker = choose_next_speaker(emps, history, weights)
                 line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description, counter, clock.stage)

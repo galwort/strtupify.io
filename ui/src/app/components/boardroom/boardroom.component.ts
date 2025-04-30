@@ -13,13 +13,14 @@ export class BoardroomComponent implements OnInit {
   productId = '';
   transcript: { speaker: string; line: string }[] = [];
   outcome = { name: '', description: '' };
+  stage = 'INTRODUCTION';
   busy = false;
   finished = false;
 
   constructor(private api: BoardroomService) {}
 
   ngOnInit() {
-    this.api.start(this.companyId).subscribe((r) => {
+    this.api.start(this.companyId).subscribe(r => {
       this.productId = r.productId;
       this.transcript.push({ speaker: r.speaker, line: r.line });
     });
@@ -28,11 +29,14 @@ export class BoardroomComponent implements OnInit {
   next() {
     if (this.busy || this.finished) return;
     this.busy = true;
-    this.api.step(this.companyId, this.productId).subscribe((r) => {
-      this.transcript.push({ speaker: r.speaker, line: r.line });
-      this.outcome = { name: r.outcome.product, description: r.outcome.description };
-      this.finished = r.done;
-      this.busy = false;
-    });
+    this.api
+      .step(this.companyId, this.productId, this.stage, this.transcript.length)
+      .subscribe(r => {
+        this.transcript.push({ speaker: r.speaker, line: r.line });
+        this.outcome = { name: r.outcome.product, description: r.outcome.description };
+        this.stage = r.stage;
+        this.finished = r.done;
+        this.busy = false;
+      });
   }
 }

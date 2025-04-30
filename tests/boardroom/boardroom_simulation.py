@@ -135,6 +135,10 @@ def gen_agent_line(agent, history, directive, company, company_description, coun
     msgs.append({"role": "user", "content": f"{agent['name']}:"})
     rsp = client.chat.completions.create(model=deployment, messages=msgs)
     content = rsp.choices[0].message.content or ""
+    if content.startswith(agent["name"]):
+        content = content[len(agent["name"]) + 1 :]
+    if content.startswith(agent["name"].split()[0]):
+        content = content[len(agent["name"].split()[0]) + 1 :]
     return content.strip()
 
 

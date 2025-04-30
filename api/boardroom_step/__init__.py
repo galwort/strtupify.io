@@ -205,23 +205,24 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     company = body["company"]
     product = body["product"]
     ref, doc, emps = load_state(company, product)
+    if doc is None:
+        return func.HttpResponse(json.dumps({"error": "product not found"}), status_code=404)
+    if not emps:
+        return func.HttpResponse(json.dumps({"error": "no employees"}), status_code=404)
+
     emp_names = [e["name"] for e in emps]
     raw_stage = doc.get("stage", "INTRODUCTIONS")
     if isinstance(raw_stage, int):
         raw_stage = STAGES[min(raw_stage, len(STAGES) - 1)]["name"]
     if raw_stage not in {s["name"] for s in STAGES}:
         raw_stage = "INTRODUCTIONS"
+
     clock = StageClock(
         idx=next(i for i, s in enumerate(STAGES) if s["name"] == raw_stage),
         elapsed=doc.get("elapsed", 0),
     )
-    if not emps:
-        return func.HttpResponse(json.dumps({"error": "No employees found."}), status_code=404)
-    clock = StageClock(
-        idx=next(i for i, s in enumerate(STAGES) if s["name"] == doc.get("stage", "INTRODUCTIONS")),
-        elapsed=doc.get("elapsed", 0),
-    )
-    history = doc["boardroom"]
+
+    history = doc.get("boardroom", [])
     recent = "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)
     weights = calc_weights(emps, DIRECTIVE, recent)
     speaker = choose_next_speaker(emps, history, weights)

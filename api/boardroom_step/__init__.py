@@ -43,11 +43,10 @@ class StageClock:
         return False
 
     def advance(self, hist, outcome, emp_names):
-        need_next = self.elapsed >= STAGES[self.idx]["minutes"] or \
-                    self.goal_met(hist, outcome, emp_names)
-        if need_next and self.idx < len(STAGES)-1:
-            self.idx += 1
-            self.elapsed = 0
+        if self.elapsed >= STAGES[self.idx]["minutes"] or self.goal_met(hist, outcome, emp_names):
+            if self.idx < len(STAGES) - 1:
+                self.idx += 1
+                self.elapsed = 0
 
 
 vault = "https://kv-strtupifyio.vault.azure.net/"
@@ -78,12 +77,8 @@ def load_state(company, product):
 
 
 def load_company_description(company):
-    ref = db.collection("companies").document(company)
-    doc = ref.get().to_dict()
-    if not doc:
-        return None
-    return doc.get("description") or ""
-
+    doc = db.collection("companies").document(company).get().to_dict() or {}
+    return doc.get("description", "")
 
 def calc_weights(emps, directive, recent_lines):
     sys = (
@@ -144,9 +139,8 @@ def gen_agent_line(agent, history, directive, company, company_description, coun
         f"which means you are in the {stage} stage of the meeting. "
     )
     msgs = [{"role": "system", "content": sys}]
-    if history:
-        for h in history:
-            msgs.append({"role": "assistant", "content": f"{h['speaker']}: {h['msg']}"})
+    for h in history:
+        msgs.append({"role": "assistant", "content": f"{h['speaker']}: {h['msg']}"})
     msgs.append({"role": "user", "content": f"{agent['name']}:"})
     rsp = client.chat.completions.create(model=deployment, messages=msgs)
     content = rsp.choices[0].message.content or ""
@@ -207,40 +201,44 @@ def conversation_complete(state):
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
-    clock = StageClock(idx=STAGES.index(next(s for s in STAGES if s["name"]==doc.get("stage","INTRODUCTIONS"))), elapsed=doc.get("elapsed",0))
     body = req.get_json()
     company = body["company"]
-    company_description = load_company_description(company)
     product = body["product"]
-    directive = body.get("directive", DIRECTIVE)
-    stage = body.get("stage")
-    counter = body.get("counter", 0)
     ref, doc, emps = load_state(company, product)
     emp_names = [e["name"] for e in emps]
     if not emps:
-        return func.HttpResponse(
-            json.dumps({"error": "No employees found for this company."}), status_code=404
-        )
-    if stage is None:
-        stage = doc.get("stage", "INTRODUCTION")
+        return func.HttpResponse(json.dumps({"error": "No employees found."}), status_code=404)
+    clock = StageClock(
+        idx=next(i for i, s in enumerate(STAGES) if s["name"] == doc.get("stage", "INTRODUCTIONS")),
+        elapsed=doc.get("elapsed", 0),
+    )
     history = doc["boardroom"]
-    recent_lines = "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)
-    weights = calc_weights(emps, directive, recent_lines)
+    recent = "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)
+    weights = calc_weights(emps, DIRECTIVE, recent)
     speaker = choose_next_speaker(emps, history, weights)
-    line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description, counter, stage, emp_names)
-    outcome = gen_outcome(history)
+    line = gen_agent_line(
+        speaker,
+        history,
+        DIRECTIVE,
+        company,
+        load_company_description(company),
+        len(history),
+        clock.stage,
+        emp_names,
+    )
+    history.append({"speaker": speaker["name"], "msg": line})
+    outcome = gen_outcome(history, emp_names)
     clock.tick()
     clock.advance(history, outcome, emp_names)
     append_line(ref, speaker["name"], line, weights, clock.stage)
     ref.update({"elapsed": clock.elapsed, **outcome})
-    done = conversation_complete(outcome)
     return func.HttpResponse(
         json.dumps(
             {
                 "speaker": speaker["name"],
                 "line": line,
                 "outcome": outcome,
-                "done": done,
+                "done": conversation_complete(outcome),
                 "stage": clock.stage,
             }
         ),

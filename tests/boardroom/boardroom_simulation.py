@@ -114,7 +114,7 @@ def choose_next_speaker(emps, history, weights):
     )
 
 
-def gen_agent_line(agent, history, directive, company, company_description, counter, stage):
+def gen_agent_line(agent, history, directive, company, company_description, counter, stage, emp_names):
     sys = (
         f"You are {agent['name']}, a {agent['title']} at a new startup. "
         f"Company: {company}. Company description: {company_description}. "
@@ -135,10 +135,15 @@ def gen_agent_line(agent, history, directive, company, company_description, coun
     msgs.append({"role": "user", "content": f"{agent['name']}:"})
     rsp = client.chat.completions.create(model=deployment, messages=msgs)
     content = rsp.choices[0].message.content or ""
-    if content.startswith(agent["name"]):
-        content = content[len(agent["name"]) + 1 :]
-    if content.startswith(agent["name"].split()[0]):
-        content = content[len(agent["name"].split()[0]) + 1 :]
+    for name in emp_names:
+        low = name.lower()
+        first = name.split()[0].lower()
+        if content.lower().startswith(low):
+            content = content[len(name):].lstrip(":,.- ").strip()
+            break
+        if content.lower().startswith(first):
+            content = content[len(first):].lstrip(":,.- ").strip()
+            break
     return content.strip()
 
 
@@ -183,7 +188,7 @@ with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
             history = []
             weights = calc_weights(emps, DIRECTIVE, "")
             speaker = pick_first_speaker(emps, weights)
-            line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description, 0, clock.stage)
+            line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description, 0, clock.stage, emp_names)
             history.append(
                 {
                     "speaker": speaker["name"],
@@ -199,7 +204,7 @@ with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
                 recent = "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)
                 weights = calc_weights(emps, DIRECTIVE, recent)
                 speaker = choose_next_speaker(emps, history, weights)
-                line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description, counter, clock.stage)
+                line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description, counter, clock.stage, emp_names)
                 history.append(
                     {
                         "speaker": speaker["name"],

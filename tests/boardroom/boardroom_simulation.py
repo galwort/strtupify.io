@@ -120,6 +120,8 @@ def gen_agent_line(agent, history, directive, company, company_description, coun
         f"Company: {company}. Company description: {company_description}. "
         f"Personality: {agent['personality']}. Meeting goal: {directive} "
         f"You should respond naturally as if you are in a real meeting. "
+        f"When replying to someone, AVOID mentioning them by name. "
+        f"Your responses should be more natural which means you can use filler words, pauses, and other natural speech patterns. "
         f"Sometimes you may question, disagree, or express doubts about what was said before you. "
         f"Your response should still feel collaborative but not always perfectly aligned. "
         f"Respond with a single natural-sounding line of dialogue."

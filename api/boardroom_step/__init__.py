@@ -6,7 +6,7 @@ import firebase_admin as fb, json, datetime
 from openai import AzureOpenAI
 from random import gauss
 
-MEETING_DIRECTIVE = (
+DIRECTIVE = (
     "This is the first meeting of a new startup. "
     "The goal is to come up with the first product or service that the company will offer. "
     "Reminder that this is the first meeting between the employees, "
@@ -40,11 +40,27 @@ def load_state(company, product):
     return ref, doc, emps
 
 
-def calc_weights(emps, directive):
-    sys = "Assign each participant a confidence weight 0-1 based on title, personality, and meeting directive. Return JSON."
+def load_company_description(company):
+    ref = db.collection("companies").document(company)
+    doc = ref.get().to_dict()
+    if not doc:
+        return None
+    return doc.get("description") or ""
+
+
+def calc_weights(emps, directive, recent_lines):
+    sys = (
+        "Re-evaluate each participant’s confidence weight (0-1) for the *next* turn.\n"
+        "• Start from their previous weight if given.\n"
+        "• **Increase** if their most recent comment advanced the meeting goal.\n"
+        "• **Decrease** if they sounded uncertain, repetitive, or off-topic.\n"
+        "Return JSON: {name: weight}.  At least one ≥0.75 and one ≤0.25."
+    )
+
     user = json.dumps(
         {
             "directive": directive,
+            "recent_dialogue": recent_lines,
             "participants": [
                 {"name": e["name"], "title": e["title"], "personality": e["personality"]}
                 for e in emps
@@ -56,16 +72,12 @@ def calc_weights(emps, directive):
         response_format={"type": "json_object"},
         messages=[{"role": "system", "content": sys}, {"role": "user", "content": user}],
     )
+
     raw = json.loads(rsp.choices[0].message.content)
-    weights = {}
-    for k, v in raw.items():
-        try:
-            weights[k] = max(0, min(1, float(v)))
-        except (ValueError, TypeError):
-            continue
-    if not weights:
+    weights = {k: max(0, min(1, float(v))) for k, v in raw.items() if isinstance(v, (int, float, str))}
+    if len(set(weights.values())) <= 1:
         for e in emps:
-            weights[e["name"]] = 0.5
+            weights[e["name"]] = max(0, min(1, gauss(0.5, 0.15)))
     return weights
 
 
@@ -75,42 +87,65 @@ def choose_next_speaker(emps, history, weights):
         spoken[h["speaker"]] = spoken.get(h["speaker"], 0) + 1
     return max(
         emps,
-        key=lambda e: (weights.get(e["name"], 0.4) / (1 + spoken.get(e["name"], 0))) + gauss(0, 0.05),
+        key=lambda e: (weights.get(e["name"], 0.4) / (1 + spoken.get(e["name"], 0)))
+        + gauss(0, 0.05),
     )
 
 
-def gen_agent_line(agent, history, directive):
+def gen_agent_line(agent, history, directive, company, company_description, counter, stage, emp_names):
     sys = (
-        f"You are {agent['name']}, a {agent['title']} at a brand-new startup. Personality: {agent['personality']}. "
-        f"Keep your sentences concise. Meeting goal: {directive}. Begin EXACTLY one sentence."
+        f"You are {agent['name']}, a {agent['title']} at a new startup. "
+        f"Company: {company}. Company description: {company_description}. "
+        f"Personality: {agent['personality']}. Meeting goal: {directive} "
+        f"You should respond naturally as if you are in a real meeting. "
+        f"When replying to someone, AVOID mentioning them by name. "
+        f"Your responses should be more natural which means you can use filler words, pauses, and other natural speech patterns. "
+        f"Sometimes you may question, disagree, or express doubts about what was said before you. "
+        f"Your response should still feel collaborative but not always perfectly aligned. "
+        f"Respond with a single natural-sounding line of dialogue."
+        f"So far, {counter*2} minutes have passed in the meeting, "
+        f"which means you are in the {stage} stage of the meeting. "
     )
     msgs = [{"role": "system", "content": sys}]
-    for h in history[-6:]:
-        msgs.append({"role": "assistant", "content": f"{h['speaker']}: {h['msg']}"})
-    msgs.append({"role": "assistant", "content": f"{agent['name']}:"})
+    if history:
+        for h in history:
+            msgs.append({"role": "assistant", "content": f"{h['speaker']}: {h['msg']}"})
+    msgs.append({"role": "user", "content": f"{agent['name']}:"})
     rsp = client.chat.completions.create(model=deployment, messages=msgs)
-    return rsp.choices[0].message.content.strip()
+    content = rsp.choices[0].message.content or ""
+    for name in emp_names:
+        low = name.lower()
+        first = name.split()[0].lower()
+        if content.lower().startswith(low):
+            content = content[len(name):].lstrip(":,.- ").strip()
+            break
+        if content.lower().startswith(first):
+            content = content[len(first):].lstrip(":,.- ").strip()
+            break
+    return content.strip()
 
 
-def gen_outcome(history):
+def gen_outcome(history, emp_names):
     sys = (
         "You are an impartial meeting observer. "
         "If the conversation shows that all participants have clearly agreed on a single, specific product or service idea, "
         "return a JSON object with keys 'product' and 'description' describing that idea. "
-        "If no consensus exists, return {\"product\":\"\", \"description\":\"\"}."
+        f"This meeting, in total, has {len(emp_names)} participants: {', '.join(emp_names)}. "
+        "At least two thirds of the participants must have clearly expressed support—e.g. phrases like "
+        "\"I agree\", \"Yes, that works\", \"Let's build X\", \"Sounds good to me\". "
+        "Otherwise return {\"product\":\"\", \"description\":\"\"}. "
     )
     msgs = [
         {"role": "system", "content": sys},
-        {"role": "user", "content": "\n".join(f"{h['speaker']}: {h['msg']}" for h in history[-20:])},
+        {"role": "user", "content": "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)},
     ]
     rsp = client.chat.completions.create(
         model=deployment, response_format={"type": "json_object"}, messages=msgs
     )
-    data = json.loads(rsp.choices[0].message.content)
-    return {"product": data.get("product", ""), "description": data.get("description", "")}
+    return json.loads(rsp.choices[0].message.content)
 
 
-def append_line(ref, speaker, msg, weights):
+def append_line(ref, speaker, msg, weights, stage):
     ref.update(
         {
             "boardroom": firestore.ArrayUnion(
@@ -119,10 +154,12 @@ def append_line(ref, speaker, msg, weights):
                         "speaker": speaker,
                         "msg": msg,
                         "weights": weights,
+                        "stage": stage,
                         "at": datetime.datetime.utcnow().isoformat(),
                     }
                 ]
             ),
+            "stage": stage,
             "updated": firestore.SERVER_TIMESTAMP,
         }
     )
@@ -135,19 +172,38 @@ def conversation_complete(state):
 def main(req: func.HttpRequest) -> func.HttpResponse:
     body = req.get_json()
     company = body["company"]
+    company_description = load_company_description(company)
     product = body["product"]
-    directive = body.get("directive", MEETING_DIRECTIVE)
+    directive = body.get("directive", DIRECTIVE)
+    stage = body.get("stage")
+    counter = body.get("counter", 0)
     ref, doc, emps = load_state(company, product)
+    emp_names = [e["name"] for e in emps]
+    if not emps:
+        return func.HttpResponse(
+            json.dumps({"error": "No employees found for this company."}), status_code=404
+        )
+    if stage is None:
+        stage = doc.get("stage", "INTRODUCTION")
     history = doc["boardroom"]
-    weights = calc_weights(emps, directive)
+    recent_lines = "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)
+    weights = calc_weights(emps, directive, recent_lines)
     speaker = choose_next_speaker(emps, history, weights)
-    line = gen_agent_line(speaker, history, directive)
-    append_line(ref, speaker["name"], line, weights)
+    line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description, counter, stage, emp_names)
+    append_line(ref, speaker["name"], line, weights, stage)
     history.append({"speaker": speaker["name"], "msg": line})
     outcome = gen_outcome(history)
     ref.update(outcome)
     done = conversation_complete(outcome)
     return func.HttpResponse(
-        json.dumps({"speaker": speaker["name"], "line": line, "outcome": outcome, "done": done}),
+        json.dumps(
+            {
+                "speaker": speaker["name"],
+                "line": line,
+                "outcome": outcome,
+                "done": done,
+                "stage": stage,
+            }
+        ),
         mimetype="application/json",
     )

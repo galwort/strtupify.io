@@ -23,6 +23,7 @@ export class BoardroomComponent implements OnInit {
     this.api.start(this.companyId).subscribe(r => {
       this.productId = r.productId;
       this.transcript.push({ speaker: r.speaker, line: r.line });
+      this.next();
     });
   }
 
@@ -37,6 +38,9 @@ export class BoardroomComponent implements OnInit {
         this.stage = r.stage;
         this.finished = r.done;
         this.busy = false;
+        if (!this.finished) {
+          setTimeout(() => this.next());
+        }
       });
   }
 }

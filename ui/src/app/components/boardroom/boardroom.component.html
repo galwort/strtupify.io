@@ -11,12 +11,6 @@
     </div>
   </div>
 
-  <div class="button-container">
-    <button expand="block" ion-button (click)="next()" [disabled]="busy || finished">
-      {{ finished ? 'Conversation complete' : 'Next' }}
-    </button>
-  </div>
-
   <div class="bottom-container" *ngIf="outcome.name || outcome.description">
     <div class="bottom-bar">
       <h2>Proposed product</h2>

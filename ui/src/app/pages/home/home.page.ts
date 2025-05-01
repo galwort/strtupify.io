@@ -19,22 +19,24 @@ export class HomePage implements OnInit {
 
   async ngOnInit() {
     const companiesSnapshot = await getDocs(collection(db, 'companies'));
-    this.companies = companiesSnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    this.companies = companiesSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
   }
 
   async onDelete(event: Event, companyId: string) {
     event.stopPropagation();
-    const subcollections = ['products', 'employees', 'roles'];
-    for (const sub of subcollections) {
-      const subCol = collection(db, 'companies', companyId, sub);
-      const subSnap = await getDocs(subCol);
-      for (const docItem of subSnap.docs) {
-        await deleteDoc(docItem.ref);
-      }
+
+    for (const top of ['products', 'roles']) {
+      const snap = await getDocs(collection(db, 'companies', companyId, top));
+      for (const d of snap.docs) await deleteDoc(d.ref);
     }
+
+    const employeesSnap = await getDocs(collection(db, 'companies', companyId, 'employees'));
+    for (const emp of employeesSnap.docs) {
+      const skillsSnap = await getDocs(collection(emp.ref, 'skills'));
+      for (const skill of skillsSnap.docs) await deleteDoc(skill.ref);
+      await deleteDoc(emp.ref);
+    }
+
     await deleteDoc(doc(db, 'companies', companyId));
     this.companies = this.companies.filter(c => c.id !== companyId);
   }

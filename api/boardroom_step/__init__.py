@@ -137,6 +137,12 @@ def gen_agent_line(agent, history, directive, company, company_description, coun
         f"So far, {counter*2} minutes have passed in the meeting, "
         f"which means you are in the {stage} stage of the meeting. "
     )
+    if stage == "DECIDE ON A PRODUCT":
+        sys += (
+            " The team must now converge on ONE concrete product or service. "
+            "In addition to deciding on a product, you should also come up with a name for it. "
+        )
+
     msgs = [{"role": "system", "content": sys}]
     for h in history:
         msgs.append({"role": "assistant", "content": f"{h['speaker']}: {h['msg']}"})
@@ -155,24 +161,48 @@ def gen_agent_line(agent, history, directive, company, company_description, coun
     return content.strip()
 
 
-def gen_outcome(history, emp_names):
+def detect_product_name(history):
     sys = (
-        "You are an impartial meeting observer. "
-        "If the conversation shows that all participants have clearly agreed on a single, specific product or service idea, "
-        "return a JSON object with keys 'product' and 'description' describing that idea. "
-        f"This meeting, in total, has {len(emp_names)} participants: {', '.join(emp_names)}. "
-        "At least two thirds of the participants must have clearly expressed support—e.g. phrases like "
-        "\"I agree\", \"Yes, that works\", \"Let's build X\", \"Sounds good to me\". "
-        "Otherwise return {\"product\":\"\", \"description\":\"\"}. "
+        "You are an impartial meeting observer.\n"
+        "Return JSON {\"name\":\"\"} unless a single, specific product or service NAME "
+        "was literally spoken in the transcript.\n"
+        "Return {\"name\":\"<exact literal name taken from the transcript>\"}.\n"
+        "Under NO circumstances invent or reformulate the name yourself."
     )
     msgs = [
         {"role": "system", "content": sys},
-        {"role": "user", "content": "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)},
+        {"role": "user",   "content": "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)},
     ]
     rsp = client.chat.completions.create(
         model=deployment, response_format={"type": "json_object"}, messages=msgs
     )
     return json.loads(rsp.choices[0].message.content)
+
+
+def describe_product(history, product_name):
+    sys = (
+        f"You are an impartial meeting observer.\n"
+        f"Write a concise description of '{product_name}', "
+        "as mentioned in the transcript, "
+        "using ONLY details that appear in the transcript. "
+        "Do NOT add any new capabilities or marketing spin."
+    )
+    msgs = [
+        {"role": "system", "content": sys},
+        {"role": "user",   "content": "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)},
+    ]
+    rsp = client.chat.completions.create(model=deployment, messages=msgs)
+    return rsp.choices[0].message.content.strip()
+
+
+def gen_outcome(history, emp_names):
+    candidate = detect_product_name(history, emp_names)
+    name = candidate.get("name", "").strip()
+    if not name:
+        return {"product": "", "description": ""}
+
+    description = describe_product(history, name)
+    return {"product": name, "description": description}
 
 
 def append_line(ref, speaker, msg, weights, stage):
@@ -237,8 +267,15 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         emp_names,
     )
     history.append({"speaker": speaker["name"], "msg": line})
-    if clock.stage == "DECIDE ON A PRODUCT":
-        outcome = gen_outcome(history, emp_names)
+    if clock.stage == "DECIDE ON A PRODUCT" or clock.stage == "REFINEMENT":
+        name_check = detect_product_name(history, emp_names)
+        outcome = {"product": "", "description": ""}
+        if name_check.get("name"):
+            outcome = {
+                "product": name_check["name"],
+                "description": describe_product(history, name_check["name"]),
+            }
+
     clock.tick()
     clock.advance(history, outcome, emp_names)
     append_line(ref, speaker["name"], line, weights, clock.stage)

@@ -195,16 +195,6 @@ def describe_product(history, product_name):
     return rsp.choices[0].message.content.strip()
 
 
-def gen_outcome(history, emp_names):
-    candidate = detect_product_name(history, emp_names)
-    name = candidate.get("name", "").strip()
-    if not name:
-        return {"product": "", "description": ""}
-
-    description = describe_product(history, name)
-    return {"product": name, "description": description}
-
-
 def append_line(ref, speaker, msg, weights, stage):
     ref.update(
         {
@@ -252,7 +242,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     )
 
     history = doc.get("boardroom", [])
-    outcome = {}
     recent = "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)
     weights = calc_weights(emps, DIRECTIVE, recent)
     speaker = choose_next_speaker(emps, history, weights)
@@ -267,14 +256,16 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         emp_names,
     )
     history.append({"speaker": speaker["name"], "msg": line})
-    if clock.stage == "DECIDE ON A PRODUCT" or clock.stage == "REFINEMENT":
-        name_check = detect_product_name(history, emp_names)
-        outcome = {"product": "", "description": ""}
+
+    outcome = {}
+    if clock.stage in {"DECIDE ON A PRODUCT", "REFINEMENT"}:
+        name_check = detect_product_name(history)
         if name_check.get("name"):
             outcome = {
                 "product": name_check["name"],
                 "description": describe_product(history, name_check["name"]),
             }
+            ref.update(outcome)
 
     clock.tick()
     clock.advance(history, outcome, emp_names)

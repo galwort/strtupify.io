@@ -111,8 +111,6 @@ def gen_agent_line(agent, directive, company, company_description, emp_names):
 def main(req: func.HttpRequest) -> func.HttpResponse:
     body = req.get_json()
     company = body["company"]
-    directive = body.get("directive", "Come up with the company’s first product")
-    stage = body.get("stage", 0)
     emps = load_employees(company)
     emp_names = [e["name"] for e in emps]
     if not emps:
@@ -134,13 +132,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                     "speaker": speaker["name"],
                     "msg": line,
                     "weights": weights,
-                    "stage": stage,
+                    "stage": "INTRODUCTION",
                     "at": datetime.datetime.utcnow().isoformat(),
                 }
             ],
             "product": "",
             "description": "",
-            "stage": stage,
             "created": firestore.SERVER_TIMESTAMP,
             "updated": firestore.SERVER_TIMESTAMP,
         }

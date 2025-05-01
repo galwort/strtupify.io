@@ -46,7 +46,6 @@ class StageClock:
         if self.elapsed >= STAGES[self.idx]["minutes"] or self.goal_met(hist, outcome, emp_names):
             if self.idx < len(STAGES) - 1:
                 self.idx += 1
-                self.elapsed = 0
 
 
 vault = "https://kv-strtupifyio.vault.azure.net/"
@@ -223,6 +222,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     )
 
     history = doc.get("boardroom", [])
+    outcome = {}
     recent = "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)
     weights = calc_weights(emps, DIRECTIVE, recent)
     speaker = choose_next_speaker(emps, history, weights)
@@ -237,7 +237,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         emp_names,
     )
     history.append({"speaker": speaker["name"], "msg": line})
-    outcome = gen_outcome(history, emp_names)
+    if clock.stage == "DECIDE ON A PRODUCT":
+        outcome = gen_outcome(history, emp_names)
     clock.tick()
     clock.advance(history, outcome, emp_names)
     append_line(ref, speaker["name"], line, weights, clock.stage)

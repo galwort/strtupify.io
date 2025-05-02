@@ -152,11 +152,15 @@ def gen_agent_line(agent, history, directive, company, company_description, coun
     for name in emp_names:
         low = name.lower()
         first = name.split()[0].lower()
+        last = name.split()[-1].lower()
         if content.lower().startswith(low):
             content = content[len(name):].lstrip(":,.- ").strip()
             break
         if content.lower().startswith(first):
             content = content[len(first):].lstrip(":,.- ").strip()
+            break
+        if content.lower().startswith(last):
+            content = content[len(last):].lstrip(":,.- ").strip()
             break
     return content.strip()
 

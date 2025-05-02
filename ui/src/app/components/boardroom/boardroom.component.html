@@ -3,7 +3,7 @@
     <div class="title">Boardroom Transcript</div>
   </div>
 
-  <div class="transcript-container">
+  <div class="transcript-container" #scrollBox>
     <div class="transcript">
       <div class="line" *ngFor="let t of transcript">
         <b>{{ t.speaker }}:</b> {{ t.line }}

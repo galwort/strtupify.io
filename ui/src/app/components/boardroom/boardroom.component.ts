@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BoardroomService } from '../../services/boardroom.service';
 
@@ -8,8 +8,10 @@ import { BoardroomService } from '../../services/boardroom.service';
   styleUrls: ['./boardroom.component.scss'],
   imports: [CommonModule]
 })
-export class BoardroomComponent implements OnInit {
+export class BoardroomComponent implements OnInit, AfterViewInit {
   @Input() companyId = '';
+  @ViewChild('scrollBox') private scrollBox!: ElementRef<HTMLDivElement>;
+
   productId = '';
   transcript: { speaker: string; line: string }[] = [];
   outcome = { name: '', description: '' };
@@ -23,8 +25,13 @@ export class BoardroomComponent implements OnInit {
     this.api.start(this.companyId).subscribe(r => {
       this.productId = r.productId;
       this.transcript.push({ speaker: r.speaker, line: r.line });
+      setTimeout(() => this.scrollToBottom());
       this.next();
     });
+  }
+
+  ngAfterViewInit() {
+    this.scrollToBottom();
   }
 
   next() {
@@ -38,9 +45,15 @@ export class BoardroomComponent implements OnInit {
         this.stage = r.stage;
         this.finished = r.done;
         this.busy = false;
+        setTimeout(() => this.scrollToBottom());
         if (!this.finished) {
           setTimeout(() => this.next());
         }
       });
+  }
+
+  private scrollToBottom(): void {
+    const box = this.scrollBox.nativeElement;
+    box.scrollTop = box.scrollHeight;
   }
 }

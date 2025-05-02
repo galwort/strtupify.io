@@ -43,6 +43,15 @@ class StageClock:
         return False
 
     def advance(self, hist, outcome, emp_names):
+        goal_hit   = self.goal_met(hist, outcome, emp_names)
+        time_up    = self.elapsed >= STAGES[self.idx]["minutes"]
+
+        if self.stage == "DECIDE ON A PRODUCT" and not outcome.get("product"):
+            return
+        
+        if (goal_hit or time_up) and self.idx < len(STAGES) - 1:
+            self.idx += 1
+
         if self.elapsed >= STAGES[self.idx]["minutes"] or self.goal_met(hist, outcome, emp_names):
             if self.idx < len(STAGES) - 1:
                 self.idx += 1
@@ -139,10 +148,13 @@ def gen_agent_line(agent, history, directive, company, company_description, coun
         f"So far, {counter*2} minutes have passed in the meeting, "
         f"which means you are in the {stage} stage of the meeting. "
     )
-    if stage == "DECIDE ON A PRODUCT":
+    if stage in {"DECIDE ON A PRODUCT", "REFINEMENT"}:
         sys += (
-            " The team must now converge on ONE concrete product or service. "
-            "In addition to deciding on a product, you should also come up with a name for it. "
+            "The team **must** agree on ONE specific product or service **name** "
+            "(two or three words max). "
+            "If no name has been chosen yet, propose one now in quotes—"
+            "e.g. Let's call it 'PulsePath'. "
+            "After a name is chosen, stop proposing new ones and focus on refining details."
         )
 
     msgs = [{"role": "system", "content": sys}]

@@ -113,11 +113,13 @@ def calc_weights(emps, directive, recent_lines):
 
 
 def choose_next_speaker(emps, history, weights):
+    last_speaker = history[-1]["speaker"] if history else None
+    candidates = [e for e in emps if e["name"] != last_speaker]
     spoken = {}
     for h in history:
         spoken[h["speaker"]] = spoken.get(h["speaker"], 0) + 1
     return max(
-        emps,
+        candidates,
         key=lambda e: (weights.get(e["name"], 0.4) / (1 + spoken.get(e["name"], 0)))
         + gauss(0, 0.05),
     )

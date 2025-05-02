@@ -64,14 +64,14 @@
       margin-right: 8px;
     }
 
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    button:hover:not(:disabled) {
+    button:hover {
       border: 1.5px solid var(--theme-accent);
       box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .accept-button {
+      background: var(--theme-accent);
+      border: 1.5px solid var(--theme-accent);
     }
   }
 
@@ -83,7 +83,7 @@
     width: 100%;
 
     .bottom-bar {
-      width: fit-content;
+      width: 100%;
       color: white;
       border: 1.5px solid var(--theme-primary);
       border-radius: 4px;

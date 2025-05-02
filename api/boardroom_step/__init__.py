@@ -186,6 +186,9 @@ def describe_product(history, product_name):
         "as mentioned in the transcript, "
         "using ONLY details that appear in the transcript. "
         "Do NOT add any new capabilities or marketing spin."
+        "The description should be one or two sentences long, "
+        "and should not refer to the meeting or the participants. "
+        "It should also not repeat the name of the product. "
     )
     msgs = [
         {"role": "system", "content": sys},

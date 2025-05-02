@@ -18,6 +18,7 @@ STAGES = [
     {"name": "BRAINSTORMING",      "minutes": 15, "goal": "idea_from_each"},
     {"name": "DECIDE ON A PRODUCT","minutes": 5,  "goal": "consensus"},
     {"name": "REFINEMENT",         "minutes": 10, "goal": "time_only"},
+    {"name": "CONCLUSION",         "minutes": 5,  "goal": "everyone_spoke"},
 ]
 
 class StageClock:
@@ -129,8 +130,7 @@ def choose_next_speaker(emps, history, weights):
         spoken[h["speaker"]] = spoken.get(h["speaker"], 0) + 1
     return max(
         candidates,
-        key=lambda e: (weights.get(e["name"], 0.4) / (1 + spoken.get(e["name"], 0)))
-        + gauss(0, 0.05),
+        key=lambda e: (weights.get(e["name"], 0.4) / (1 + spoken.get(e["name"], 0))) + gauss(0, 0.05),
     )
 
 
@@ -156,7 +156,8 @@ def gen_agent_line(agent, history, directive, company, company_description, coun
             "e.g. Let's call it 'PulsePath'. "
             "After a name is chosen, stop proposing new ones and focus on refining details."
         )
-
+    if stage == "CONCLUSION":
+        sys += "The meeting is wrapping up. Offer a brief closing remark or next step."
     msgs = [{"role": "system", "content": sys}]
     for h in history:
         msgs.append({"role": "assistant", "content": f"{h['speaker']}: {h['msg']}"})
@@ -235,11 +236,6 @@ def append_line(ref, speaker, msg, weights, stage):
         }
     )
 
-
-def conversation_complete(state):
-    return bool(state.get("product") and state.get("description"))
-
-
 def main(req: func.HttpRequest) -> func.HttpResponse:
     body = req.get_json()
     company = body["company"]
@@ -292,13 +288,16 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     clock.advance(history, outcome, emp_names)
     append_line(ref, speaker["name"], line, weights, clock.stage)
     ref.update({"elapsed": clock.elapsed, **outcome})
+    final_product = outcome.get("product") or doc.get("product")
+    final_description = outcome.get("description") or doc.get("description")
+    done = bool(clock.stage == "CONCLUSION" and final_product and final_description)
     return func.HttpResponse(
         json.dumps(
             {
                 "speaker": speaker["name"],
                 "line": line,
                 "outcome": outcome,
-                "done": conversation_complete(outcome),
+                "done": done,
                 "stage": clock.stage,
             }
         ),

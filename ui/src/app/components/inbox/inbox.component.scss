@@ -7,6 +7,8 @@
   color: var(--theme-text);
   height: calc(100vh - 40px);
   position: relative;
+  margin-left: -20px;
+  width: 100%;
     
   .header {
     display: flex;
@@ -14,7 +16,6 @@
     align-items: left;
     justify-content: flex-start;
     margin-bottom: 20px;
-    margin-left: -20px;
     width: 120%;
     border-bottom: 1px solid #e0e0e0;
 
@@ -27,8 +28,10 @@
   }
 
   .filter-container {
-    margin-bottom: 10px;
+    border-bottom: 1px solid #e0e0e0;
+    width: 120%;
   }
+
   .inbox-body {
     display: flex;
     flex: 1;

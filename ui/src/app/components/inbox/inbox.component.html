@@ -1,3 +1,22 @@
-<p>
-  inbox works!
-</p>
+<div class="content-container">
+  <div class="header">
+    <div class="title">Inbox</div>
+  </div>
+  <div class="filter-container"></div>
+  <div class="inbox-body">
+    <div class="email-list">
+      <div class="email-item" *ngFor="let email of inbox"
+           [class.selected]="email === selectedEmail"
+           (click)="selectEmail(email)">
+        <div class="sender">{{email.sender}}</div>
+        <div class="subject">{{email.subject}}</div>
+        <div class="preview-text">{{email.preview}}</div>
+      </div>
+    </div>
+    <div class="email-preview" *ngIf="selectedEmail">
+      <h2>{{selectedEmail.subject}}</h2>
+      <h4>From: {{selectedEmail.sender}}</h4>
+      <pre>{{selectedEmail.body}}</pre>
+    </div>
+  </div>
+</div>

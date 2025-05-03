@@ -22,9 +22,10 @@ STAGES = [
 ]
 
 class StageClock:
-    def __init__(self, idx=0, elapsed=0):
+    def __init__(self, idx=0, elapsed=0, turns=0):
         self.idx = idx
         self.elapsed = elapsed
+        self.turns = turns
 
     @property
     def stage(self):
@@ -32,8 +33,11 @@ class StageClock:
 
     def tick(self):
         self.elapsed += 2
+        self.turns += 1
 
     def goal_met(self, hist, outcome, emp_names):
+        if self.stage == "CONCLUSION":
+            return self.turns >= len(emp_names)
         goal = STAGES[self.idx]["goal"]
         if goal == "everyone_spoke":
             return len({h["speaker"] for h in hist}) >= len(emp_names)
@@ -47,16 +51,11 @@ class StageClock:
         goal_hit   = self.goal_met(hist, outcome, emp_names)
         time_up    = self.elapsed >= STAGES[self.idx]["minutes"]
 
-        if self.stage == "DECIDE ON A PRODUCT" and not outcome.get("product"):
+        if self.stage in ("DECIDE ON A PRODUCT", "REFINEMENT") and not outcome.get("product"):
             return
-        
         if (goal_hit or time_up) and self.idx < len(STAGES) - 1:
             self.idx += 1
-
-        if self.elapsed >= STAGES[self.idx]["minutes"] or self.goal_met(hist, outcome, emp_names):
-            if self.idx < len(STAGES) - 1:
-                self.idx += 1
-
+            self.turns = 0
 
 vault = "https://kv-strtupifyio.vault.azure.net/"
 sc = SecretClient(vault_url=vault, credential=DefaultAzureCredential())
@@ -76,11 +75,7 @@ def load_state(company, product):
     doc = ref.get().to_dict()
     emps = [
         d.to_dict() | {"id": d.id}
-        for d in db.collection("companies")
-        .document(company)
-        .collection("employees")
-        .where("hired", "==", True)
-        .stream()
+        for d in db.collection("companies").document(company).collection("employees").where("hired", "==", True).stream()
     ]
     return ref, doc, emps
 
@@ -103,8 +98,7 @@ def calc_weights(emps, directive, recent_lines):
             "directive": directive,
             "recent_dialogue": recent_lines,
             "participants": [
-                {"name": e["name"], "title": e["title"], "personality": e["personality"]}
-                for e in emps
+                {"name": e["name"], "title": e["title"], "personality": e["personality"]} for e in emps
             ],
         }
     )
@@ -157,7 +151,12 @@ def gen_agent_line(agent, history, directive, company, company_description, coun
             "After a name is chosen, stop proposing new ones and focus on refining details."
         )
     if stage == "CONCLUSION":
-        sys += "The meeting is wrapping up. Offer a brief closing remark or next step."
+        sys = (
+            "This meeting is wrapping up. "
+            "You can offer some closing remarks, "
+            "but do not summarize the meeting or repeat what was said. "
+            "No need to continue the conversation in any way. "
+        )
     msgs = [{"role": "system", "content": sys}]
     for h in history:
         msgs.append({"role": "assistant", "content": f"{h['speaker']}: {h['msg']}"})
@@ -256,6 +255,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     clock = StageClock(
         idx=next(i for i, s in enumerate(STAGES) if s["name"] == raw_stage),
         elapsed=doc.get("elapsed", 0),
+        turns=doc.get("turns", 0),
     )
 
     history = doc.get("boardroom", [])
@@ -287,10 +287,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     clock.tick()
     clock.advance(history, outcome, emp_names)
     append_line(ref, speaker["name"], line, weights, clock.stage)
-    ref.update({"elapsed": clock.elapsed, **outcome})
+    ref.update({"elapsed": clock.elapsed, "turns": clock.turns, **outcome})
     final_product = outcome.get("product") or doc.get("product")
     final_description = outcome.get("description") or doc.get("description")
-    done = bool(clock.stage == "CONCLUSION" and final_product and final_description)
+    done = bool(
+        clock.stage == "CONCLUSION" and clock.turns >= len(emp_names) and final_product and final_description
+    )
     return func.HttpResponse(
         json.dumps(
             {

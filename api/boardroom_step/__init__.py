@@ -48,9 +48,8 @@ class StageClock:
         return False
 
     def advance(self, hist, outcome, emp_names):
-        goal_hit   = self.goal_met(hist, outcome, emp_names)
-        time_up    = self.elapsed >= STAGES[self.idx]["minutes"]
-
+        goal_hit = self.goal_met(hist, outcome, emp_names)
+        time_up = self.elapsed >= STAGES[self.idx]["minutes"]
         if self.stage in ("DECIDE ON A PRODUCT", "REFINEMENT") and not outcome.get("product"):
             return
         if (goal_hit or time_up) and self.idx < len(STAGES) - 1:
@@ -274,8 +273,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     )
     history.append({"speaker": speaker["name"], "msg": line})
 
+    product_existing = doc.get("product")
+    description_existing = doc.get("description")
+
     outcome = {}
-    if clock.stage in {"DECIDE ON A PRODUCT", "REFINEMENT"}:
+    if not product_existing and clock.stage in {"DECIDE ON A PRODUCT", "REFINEMENT"}:
         name_check = detect_product_name(history)
         if name_check.get("name"):
             outcome = {
@@ -284,12 +286,15 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             }
             ref.update(outcome)
 
+    merged_outcome = {"product": product_existing, "description": description_existing} | outcome
+
     clock.tick()
-    clock.advance(history, outcome, emp_names)
+    clock.advance(history, merged_outcome, emp_names)
     append_line(ref, speaker["name"], line, weights, clock.stage)
     ref.update({"elapsed": clock.elapsed, "turns": clock.turns, **outcome})
-    final_product = outcome.get("product") or doc.get("product")
-    final_description = outcome.get("description") or doc.get("description")
+
+    final_product = merged_outcome.get("product")
+    final_description = merged_outcome.get("description")
     done = bool(
         clock.stage == "CONCLUSION" and clock.turns >= len(emp_names) and final_product and final_description
     )

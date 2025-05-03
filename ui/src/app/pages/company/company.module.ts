@@ -12,6 +12,7 @@ import { RolesComponent } from 'src/app/components/roles/roles.component';
 import { LoadingComponent } from 'src/app/components/loading/loading.component';
 import { ResumesComponent } from 'src/app/components/resumes/resumes.component';
 import { BoardroomComponent } from 'src/app/components/boardroom/boardroom.component';
+import { InboxComponent } from 'src/app/components/inbox/inbox.component';
 
 @NgModule({
   imports: [
@@ -23,6 +24,7 @@ import { BoardroomComponent } from 'src/app/components/boardroom/boardroom.compo
     LoadingComponent,
     ResumesComponent,
     BoardroomComponent,
+    InboxComponent,
   ],
   declarations: [CompanyPage],
 })

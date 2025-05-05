@@ -9,6 +9,9 @@
         <b>{{ t.speaker }}:</b> {{ t.line }}
       </div>
     </div>
+    <div class="typing-indicator" *ngIf="typing">
+      <span>.</span><span>.</span><span>.</span>
+    </div>
   </div>
 
   <div class="bottom-container" *ngIf="outcome.name || outcome.description">

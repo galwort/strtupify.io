@@ -18,6 +18,7 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
   stage = 'INTRODUCTION';
   busy = false;
   finished = false;
+  typing = false;
 
   constructor(private api: BoardroomService) {}
 
@@ -37,19 +38,24 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
   next() {
     if (this.busy || this.finished) return;
     this.busy = true;
-    this.api
-      .step(this.companyId, this.productId, this.stage, this.transcript.length)
-      .subscribe(r => {
-        this.transcript.push({ speaker: r.speaker, line: r.line });
-        this.outcome = { name: r.outcome.product, description: r.outcome.description };
-        this.stage = r.stage;
-        this.finished = r.done;
-        this.busy = false;
-        setTimeout(() => this.scrollToBottom());
-        if (!this.finished) {
-          setTimeout(() => this.next());
-        }
-      });
+    this.typing = true;
+
+    setTimeout(() => {
+      this.api
+        .step(this.companyId, this.productId, this.stage, this.transcript.length)
+        .subscribe(r => {
+          this.typing = false;
+          this.transcript.push({ speaker: r.speaker, line: r.line });
+          this.outcome = { name: r.outcome.product, description: r.outcome.description };
+          this.stage = r.stage;
+          this.finished = r.done;
+          this.busy = false;
+          setTimeout(() => this.scrollToBottom());
+          if (!this.finished) {
+            setTimeout(() => this.next(), 1000);
+          }
+        });
+    }, 1000);
   }
 
   private scrollToBottom(): void {

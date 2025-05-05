@@ -14,11 +14,11 @@ DIRECTIVE = (
 )
 
 STAGES = [
-    {"name": "INTRODUCTIONS",      "minutes": 10, "goal": "everyone_spoke"},
-    {"name": "BRAINSTORMING",      "minutes": 15, "goal": "idea_from_each"},
-    {"name": "DECIDE ON A PRODUCT","minutes": 5,  "goal": "consensus"},
-    {"name": "REFINEMENT",         "minutes": 10, "goal": "time_only"},
-    {"name": "CONCLUSION",         "minutes": 5,  "goal": "everyone_spoke"},
+    {"name": "INTRODUCTIONS", "minutes": 10, "goal": "everyone_spoke"},
+    {"name": "BRAINSTORMING", "minutes": 15, "goal": "idea_from_each"},
+    {"name": "DECIDE ON A PRODUCT", "minutes": 5, "goal": "consensus"},
+    {"name": "REFINEMENT", "minutes": 10, "goal": "time_only"},
+    {"name": "CONCLUSION", "minutes": 5, "goal": "everyone_spoke"},
 ]
 
 class StageClock:
@@ -188,7 +188,7 @@ def detect_product_name(history):
     )
     msgs = [
         {"role": "system", "content": sys},
-        {"role": "user",   "content": "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)},
+        {"role": "user", "content": "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)},
     ]
     rsp = client.chat.completions.create(
         model=deployment, response_format={"type": "json_object"}, messages=msgs
@@ -209,7 +209,7 @@ def describe_product(history, product_name):
     )
     msgs = [
         {"role": "system", "content": sys},
-        {"role": "user",   "content": "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)},
+        {"role": "user", "content": "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)},
     ]
     rsp = client.chat.completions.create(model=deployment, messages=msgs)
     return rsp.choices[0].message.content.strip()
@@ -303,7 +303,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             {
                 "speaker": speaker["name"],
                 "line": line,
-                "outcome": outcome,
+                "outcome": merged_outcome,
                 "done": done,
                 "stage": clock.stage,
             }

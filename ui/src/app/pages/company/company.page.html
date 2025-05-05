@@ -18,11 +18,12 @@
     ></app-resumes>
 
     <app-boardroom
-      *ngIf="1 < 0"
+      *ngIf="showBoardroom"
       [companyId]="companyId"
     ></app-boardroom>
 
     <app-inbox
+      *ngIf="1 < 0"
     ></app-inbox>
   </div>
 </ion-content>

@@ -60,6 +60,22 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
     }, 1000);
   }
 
+  restart() {
+    this.transcript = [];
+    this.outcome = { name: '', description: '' };
+    this.stage = 'INTRODUCTION';
+    this.busy = false;
+    this.finished = false;
+    this.typing = false;
+
+    this.api.start(this.companyId).subscribe(r => {
+      this.productId = r.productId;
+      this.transcript.push({ speaker: r.speaker, line: r.line });
+      setTimeout(() => this.scrollToBottom());
+      this.next();
+    });
+  }
+
   private scrollToBottom(): void {
     const box = this.scrollBox.nativeElement;
     box.scrollTop = box.scrollHeight;

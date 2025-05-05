@@ -79,19 +79,17 @@ export class ResumesComponent implements OnInit {
         collection(db, `companies/${this.companyId}/employees/${e.id}/skills`)
       );
       e.skills = sSnap.docs
-        .map((s) => {
-          const sd = s.data() as Omit<Skill, 'id'>;
-          return { ...sd, id: s.id } as Skill;
-        })
+        .map((s) => ({ ...(s.data() as Omit<Skill, 'id'>), id: s.id }))
         .sort((a, b) => a.skill.localeCompare(b.skill));
     }
 
     this.employees = temp.filter((x) => !x.hired);
+    this.applyRoleFilters();
     this.checkComplete();
   }
 
   get rolesWithOpenings() {
-    return this.roles.filter((r) => typeof r.openings === 'number' && r.openings > 0);
+    return this.roles.filter((r) => r.openings > 0);
   }
 
   get currentEmployee() {
@@ -122,10 +120,9 @@ export class ResumesComponent implements OnInit {
     );
 
     this.employees.splice(this.currentIndex, 1);
+    this.applyRoleFilters();
     if (this.currentIndex >= this.employees.length)
       this.currentIndex = this.employees.length - 1;
-
-    console.log('openings left:', this.roles.map(r => `${r.title}:${r.openings}`));
     this.checkComplete();
   }
 
@@ -137,11 +134,20 @@ export class ResumesComponent implements OnInit {
     if (this.currentIndex > 0) this.currentIndex--;
   }
 
-  private checkComplete() {
-    const stillNeeded = this.roles.filter(
-      (r) => typeof r.openings === 'number' && r.openings > 0
+  private applyRoleFilters() {
+    const openTitles = new Set(
+      this.roles.filter((r) => r.openings > 0).map((r) => r.title)
     );
-    if (!this.doneEmitted && stillNeeded.length === 0) {
+    this.employees = this.employees.filter(
+      (e) => openTitles.has(e.title) && !e.hired
+    );
+    if (this.currentIndex < 0) this.currentIndex = 0;
+    if (this.employees.length === 0) this.currentIndex = 0;
+  }
+
+  private checkComplete() {
+    const stillNeeded = this.roles.some((r) => r.openings > 0);
+    if (!stillNeeded && !this.doneEmitted) {
       this.doneEmitted = true;
       this.hiringFinished.emit();
     }

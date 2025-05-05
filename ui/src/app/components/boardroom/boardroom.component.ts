@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, Input, OnInit, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BoardroomService } from '../../services/boardroom.service';
 
@@ -20,7 +20,7 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
   finished = false;
   typing = false;
 
-  constructor(private api: BoardroomService) {}
+  constructor(private api: BoardroomService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
     this.api.start(this.companyId).subscribe(r => {
@@ -39,6 +39,8 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
     if (this.busy || this.finished) return;
     this.busy = true;
     this.typing = true;
+    this.cdr.detectChanges();
+    this.scrollToBottom();
 
     setTimeout(() => {
       this.api

@@ -1,7 +1,13 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, getDocs } from 'firebase/firestore';
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  query,
+  where,
+} from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 
 export const app = initializeApp(environment.firebase);
@@ -17,6 +23,7 @@ export class CompanyPage implements OnInit {
   showLoading = true;
   showResumes = false;
   showBoardroom = false;
+  showInbox = false;
   totalTasks = 0;
   completedTasks = 0;
   companyId = '';
@@ -31,13 +38,24 @@ export class CompanyPage implements OnInit {
       return;
     }
 
+    const acceptedSnap = await getDocs(
+      query(
+        collection(db, `companies/${this.companyId}/products`),
+        where('accepted', '==', true)
+      )
+    );
+    if (!acceptedSnap.empty) {
+      this.showInbox = true;
+      this.showLoading = false;
+      return;
+    }
+
     const rolesSnap = await getDocs(
       collection(db, `companies/${this.companyId}/roles`)
     );
     const allFilled = rolesSnap.docs.every(
       (d) => (d.data() as any).openings === 0
     );
-
     if (allFilled) {
       this.showBoardroom = true;
       this.showLoading = false;
@@ -47,7 +65,6 @@ export class CompanyPage implements OnInit {
     const employeesSnap = await getDocs(
       collection(db, `companies/${this.companyId}/employees`)
     );
-
     if (!employeesSnap.empty) this.showResumes = true;
     this.showLoading = false;
   }
@@ -65,9 +82,13 @@ export class CompanyPage implements OnInit {
   }
 
   openBoardroom() {
-    console.log('openBoardroom called');
     this.showLoading = false;
     this.showResumes = false;
     this.showBoardroom = true;
+  }
+
+  openInbox() {
+    this.showBoardroom = false;
+    this.showInbox = true;
   }
 }

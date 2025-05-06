@@ -2,7 +2,7 @@
   <div class="page-container">
     <app-roles
       (loadingStateChange)="handleLoadingState($event)"
-      [hidden]="showLoading || showResumes || showBoardroom"
+      [hidden]="showLoading || showResumes || showBoardroom || showInbox"
     ></app-roles>
 
     <app-loading
@@ -13,17 +13,18 @@
     ></app-loading>
 
     <app-resumes
-      *ngIf="!showLoading && showResumes"
+      *ngIf="!showLoading && showResumes && !showInbox"
       (hiringFinished)="openBoardroom()"
     ></app-resumes>
 
     <app-boardroom
       *ngIf="showBoardroom"
       [companyId]="companyId"
+      (acceptedProduct)="openInbox()"
     ></app-boardroom>
 
     <app-inbox
-      *ngIf="1 < 0"
+      *ngIf="showInbox"
     ></app-inbox>
   </div>
 </ion-content>

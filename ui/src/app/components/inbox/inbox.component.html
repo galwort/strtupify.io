@@ -2,7 +2,23 @@
   <div class="header">
     <div class="title">Inbox</div>
   </div>
-  <div class="filter-container"></div>
+  <div class="filter-container">
+    <button class="filter-btn">
+      <span class="material-symbols-outlined">add</span>
+      <span class="label">NEW EMAIL</span>
+    </button>
+    <button class="filter-btn">
+      <span class="material-symbols-outlined">reply</span>
+      <span class="label">REPLY</span>
+    </button>
+    <button class="filter-btn">
+      <span class="material-symbols-outlined">delete</span>
+      <span class="label">DELETE</span>
+    </button>
+    <button class="filter-btn">
+      <span class="material-symbols-outlined">archive</span>
+    </button>
+  </div>
   <div class="inbox-body">
     <div class="email-list">
       <div class="email-item" *ngFor="let email of inbox"

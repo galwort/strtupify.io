@@ -15,7 +15,6 @@
     flex-direction: column;
     align-items: left;
     justify-content: flex-start;
-    margin-bottom: 20px;
     width: 120%;
     border-bottom: 1px solid #e0e0e0;
 
@@ -28,8 +27,32 @@
   }
 
   .filter-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 20px;
     border-bottom: 1px solid #e0e0e0;
     width: 120%;
+
+    .filter-btn {
+      display: flex;
+      align-items: center;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--theme-text);
+      font-weight: 600;
+      font-size: 20px;
+      gap: 12px;
+
+      .material-icons {
+        font-size: 20px;
+      }
+
+      &:hover {
+        opacity: 0.8;
+      }
+    }
   }
 
   .inbox-body {

@@ -1,5 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
+import { InboxService, Email } from '../../services/inbox.service';
 
 @Component({
   selector: 'app-inbox',
@@ -7,25 +9,37 @@ import { CommonModule } from '@angular/common';
   styleUrls: ['./inbox.component.scss'],
   imports: [CommonModule]
 })
-export class InboxComponent  implements OnInit {
+export class InboxComponent implements OnInit {
+  @Input() companyId = '';
 
-  constructor() { }
+  inbox: Email[] = [];
+  selectedEmail: Email | null = null;
 
-  // Dummy emails for inbox preview
-  inbox = [
-    { id: 1, sender: 'alice@company.com', subject: 'Quarterly Report', preview: 'The quarterly report is attached...', body: 'Hi team,\n\nPlease find the quarterly report attached. Let me know if you have any questions.\n\nBest,\nAlice' },
-    { id: 2, sender: 'bob@company.com', subject: 'Team Meeting', preview: 'Reminder: team meeting at 3 PM today...', body: 'Hello everyone,\n\nThis is a reminder that our weekly team meeting is scheduled for today at 3 PM in the main conference room.\n\nThanks,\nBob' },
-    { id: 3, sender: 'hr@company.com', subject: 'Policy Update', preview: 'Please review the updated policy on remote work...', body: 'Dear all,\n\nWe have updated our remote work policy. Please review the attached document and acknowledge receipt.\n\nRegards,\nHR' }
-  ];
+  constructor(private route: ActivatedRoute, private inboxService: InboxService) {}
 
-  selectedEmail: any = null;
+  ngOnInit(): void {
+    if (!this.companyId) {
+      console.error('companyId is empty');
+      return;
+    }
 
-  ngOnInit() {
-    this.selectedEmail = this.inbox[0];
+    this.inboxService.ensureWelcomeEmail(this.companyId).finally(() => {
+      this.inboxService.getInbox(this.companyId).subscribe(emails => {
+        this.inbox = emails;
+        if (!this.selectedEmail && emails.length) this.selectedEmail = emails[0];
+      });
+    });
   }
 
-  selectEmail(email: any) {
+
+  selectEmail(email: Email): void {
     this.selectedEmail = email;
   }
 
+  deleteSelected(): void {
+    if (this.selectedEmail) {
+      this.inboxService.deleteEmail(this.companyId, this.selectedEmail.id);
+      this.selectedEmail = null;
+    }
+  }
 }

@@ -14,6 +14,7 @@ export interface Email {
   body: string;
   preview: string;
   deleted: boolean;
+  banner: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -44,7 +45,8 @@ strtupify.io`;
         from: 'vlad@strtupify.io',
         subject: 'How to email',
         message,
-        deleted: false
+        deleted: false,
+        banner: false
       });
     });
   }
@@ -62,7 +64,8 @@ strtupify.io`;
               subject: data.subject,
               body: data.message,
               preview: (data.message || '').substring(0, 60) + '...',
-              deleted: data.deleted
+              deleted: data.deleted,
+              banner: data.banner
             };
           })
           .filter(e => !e.deleted);

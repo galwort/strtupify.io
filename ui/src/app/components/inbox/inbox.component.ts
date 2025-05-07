@@ -87,7 +87,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   archiveEmails(): void {
     this.showDeleted = !this.showDeleted;
     this.inboxService.getInbox(this.companyId, this.showDeleted).subscribe((emails) => {
-      this.inbox = emails;
+      this.inbox = emails.filter(email => email.deleted === this.showDeleted);
       this.selectedEmail = null;
     });
   }

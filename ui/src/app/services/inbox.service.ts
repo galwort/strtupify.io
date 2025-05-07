@@ -53,7 +53,7 @@ strtupify.io`;
     });
   }
 
-  getInbox(companyId: string): Observable<Email[]> {
+  getInbox(companyId: string, includeDeleted: boolean = false): Observable<Email[]> {
     return new Observable<Email[]>(subscriber => {
       const inboxRef = collection(db, `companies/${companyId}/inbox`);
       const unsub = onSnapshot(inboxRef, (snap: QuerySnapshot<DocumentData>) => {
@@ -70,7 +70,7 @@ strtupify.io`;
               banner: data.banner
             };
           })
-          .filter(e => !e.deleted);
+          .filter(e => includeDeleted || !e.deleted);
         subscriber.next(emails);
       });
       return () => unsub();

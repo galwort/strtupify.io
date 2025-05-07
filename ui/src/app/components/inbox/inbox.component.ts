@@ -41,6 +41,8 @@ export class InboxComponent implements OnInit, OnDestroy {
   private elapsedSinceSave = 0;
   private intervalId: any;
 
+  showDeleted = false;
+
   constructor(
     private route: ActivatedRoute,
     private inboxService: InboxService
@@ -70,8 +72,18 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   deleteSelected(): void {
     if (!this.selectedEmail) return;
-    this.inboxService.deleteEmail(this.companyId, this.selectedEmail.id);
-    this.selectedEmail = null;
+    this.inboxService.deleteEmail(this.companyId, this.selectedEmail.id).then(() => {
+      this.inbox = this.inbox.filter(email => email.id !== this.selectedEmail?.id);
+      this.selectedEmail = null;
+    });
+  }
+
+  archiveEmails(): void {
+    this.showDeleted = !this.showDeleted;
+    this.inboxService.getInbox(this.companyId, this.showDeleted).subscribe((emails) => {
+      this.inbox = emails;
+      this.selectedEmail = null;
+    });
   }
 
   private async loadClockState(): Promise<void> {

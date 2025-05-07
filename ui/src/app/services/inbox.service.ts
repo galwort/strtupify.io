@@ -21,8 +21,10 @@ export interface Email {
 export class InboxService {
   ensureWelcomeEmail(companyId: string): Promise<void> {
     const welcomeRef = doc(db, `companies/${companyId}/inbox/welcome-vlad`);
-    return getDoc(welcomeRef).then(s => {
-      if (s.exists()) return;
+    return getDoc(welcomeRef).then(snapshot => {
+      if (snapshot.exists()) {
+        return;
+      }
       const message = `Hello End User,
 
 This is Vlad from IT Support at startupify.io. I've been asked to reach out to you to explain how to use your new inbox application. If you've used a computer, you should know how to email, but in case you don't, let me walk you through it...

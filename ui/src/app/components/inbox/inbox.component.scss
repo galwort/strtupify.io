@@ -122,12 +122,12 @@
   position: fixed;
   bottom: 20px;
   right: 20px;
-  background: rgba(0, 0, 0, 0.7);
-  color: #fff;
-  padding: 4px 10px;
+  background: #fff;
+  color: var(--theme-text);
+  border: 1.5px solid var(--theme-primary);
   border-radius: 4px;
-  font-size: 14px;
-  font-family: monospace;
+  padding: 4px 10px;
+  font-size: 16px;
   z-index: 1000;
   pointer-events: none;
 }

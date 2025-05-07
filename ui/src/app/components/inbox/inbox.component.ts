@@ -115,9 +115,8 @@ export class InboxComponent implements OnInit, OnDestroy {
   private updateDisplay(): void {
     this.displayDate = this.simDate.toLocaleDateString();
     this.displayTime = this.simDate.toLocaleTimeString('en-US', {
-      hour: '2-digit',
+      hour: 'numeric',
       minute: '2-digit',
-      second: '2-digit'
     });
   }
 }

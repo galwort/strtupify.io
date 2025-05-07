@@ -34,8 +34,10 @@ export class InboxComponent implements OnInit, OnDestroy {
   private speed = 1;
   private readonly maxSpeed = 240;
   private readonly tickMs = 250;
-  private readonly accelPerTick = 0.5;
+  private readonly accelPerTick = 0.1;
+  private readonly realPhaseMs = 5 * 60_000;
   private readonly saveEveryMs = 5000;
+  private elapsedSinceStart = 0;
   private elapsedSinceSave = 0;
   private intervalId: any;
 
@@ -90,9 +92,11 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   private startClock(): void {
     const ref = doc(db, `companies/${this.companyId}`);
+
     this.intervalId = setInterval(async () => {
       this.simDate = new Date(this.simDate.getTime() + this.speed * this.tickMs);
-      if (this.speed < this.maxSpeed) {
+      this.elapsedSinceStart += this.tickMs;
+      if (this.elapsedSinceStart >= this.realPhaseMs && this.speed < this.maxSpeed) {
         this.speed = Math.min(this.speed + this.accelPerTick, this.maxSpeed);
       }
       this.updateDisplay();

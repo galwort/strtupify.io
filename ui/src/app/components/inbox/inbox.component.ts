@@ -174,6 +174,8 @@ export class InboxComponent implements OnInit, OnDestroy {
     if (!this.snacks.length) return;
 
     const snack = this.snacks[Math.floor(Math.random() * this.snacks.length)];
+    const quantity = Math.floor(Math.random() * 4) + 2;
+    const totalPrice = (parseFloat(snack.price) * quantity).toFixed(2);
     const day = this.simDate.toLocaleString('en-US', { weekday: 'long' });
     const hour = this.simDate.getHours();
     const timeOfDay =
@@ -188,17 +190,17 @@ export class InboxComponent implements OnInit, OnDestroy {
     const message = `Thank you for ordering with Super Eats!
 
 Order summary
-${snack.name}: $${snack.price}
+${snack.name} (x${quantity}): $${snack.price} each
 
-Subtotal: $${snack.price}
-Total: $${snack.price}
+Subtotal: $${totalPrice}
+Total: $${totalPrice}
 
 We hope you enjoy your meal!
 
 Super Eats`;
     const emailId = `supereats-${Date.now()}`;
     setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
-      from: 'orders@supereats.io',
+      from: 'noreply@supereats.com',
       subject,
       message,
       deleted: false,

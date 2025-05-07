@@ -1,105 +1,101 @@
-Fried pickles
-Mozzarella sticks
-Boneless wings
-Potato skins
-Stuffed mushrooms
-Calamari
-Buffalo chicken dip
-Bruschetta
-Buffalo wings
-Devilled eggs
-
-Chocolate ice cream
-Vanilla ice cream
-Pistachio ice cream
-Rocky road ice cream
-Strawberry ice cream
-Butter pecan ice cream
-Cookie dough ice cream
-Neapolitan ice cream
-Cookies and cream ice cream
-Peanut butter ice cream
-Birthday cake ice cream
-
-Chocolate milkshakes
-Vanilla milkshakes
-Pistachio milkshakes
-Rocky road milkshakes
-Strawberry milkshakes
-Butter pecan milkshakes
-Cookie dough milkshakes
-Neapolitan milkshakes
-Cookies and cream milkshakes
-Peanut butter milkshakes
-Birthday cake milkshakes
-
-Cookie dough
-Ice cream sandwhiches
-Baklava
-Brownies
-Doughnuts
-Cheesecake
-Carrot cake
-
-Chocolate chip cookies
-Snickerdoodles
-Peanut butter cookies
-Oreos
-Macarons
-Macaroons
-Gingersnaps
-Oatmeal raisin cookies
-Sugar cookies
-Pepperoni pizza
-Cheese pizza
-Hawaiian pizza
-Margherita pizza
-Meat lovers pizza
-Barbeque chicken pizza
-Buffalo chicken pizza
-Veggie pizza
-Chocolate pie
-Apple pie
-Cherry pie
-German chocolate pie
-Banana cream pie
-Pumpkin pie
-Lemon meringue pie
-Pecan pie
-Blueberry pie
-General tso's chicken
-Orange chicken
-Butter chicken
-Chicken tikka masala
-Biryani
-Tandoori chicken
-Samosas
-Crab rangoons
-Egg rolls
-Sesame chicken
-Kung pao chicken
-Cheeseburgers
-Tacos
-Double cheeseburgers
-Pad thai
-Salt and vinegar chips
-Dill pickle chips
-Sour cream and onion chips
-Barbeque chips
-Maui onion chips
-Cheddar and sour cream chips
-Kettle cooked chips
-Cheetos
-Fritos
-Snickers bars
-3 musketeer bars
-Kit kats
-Twix bars
-Almond joys
-Hershey bars
-Milky way bars
-Paydays
-Baby ruths
-Crunch bars
-Toblerones
-Take 5s
+Fried pickles, 7.99
+Mozzarella sticks, 7.99
+Boneless wings, 7.99
+Potato skins, 7.99
+Stuffed mushrooms, 7.99
+Calamari, 7.99
+Buffalo chicken dip, 7.99
+Bruschetta, 7.99
+Buffalo wings, 7.99
+Devilled eggs, 7.99
+Chocolate ice cream, 2.99
+Vanilla ice cream, 2.99
+Pistachio ice cream, 2.99
+Rocky road ice cream, 2.99
+Strawberry ice cream, 2.99
+Butter pecan ice cream, 2.99
+Cookie dough ice cream, 2.99
+Neapolitan ice cream, 2.99
+Cookies and cream ice cream, 2.99
+Peanut butter ice cream, 2.99
+Birthday cake ice cream, 2.99
+Chocolate milkshakes, 4.99
+Vanilla milkshakes, 4.99
+Pistachio milkshakes, 4.99
+Rocky road milkshakes, 4.99
+Strawberry milkshakes, 4.99
+Butter pecan milkshakes, 4.99
+Cookie dough milkshakes, 4.99
+Neapolitan milkshakes, 4.99
+Cookies and cream milkshakes, 4.99
+Peanut butter milkshakes, 4.99
+Birthday cake milkshakes, 4.99
+Cookie dough, 5.49
+Ice cream sandwhiches, 2.99
+Baklava, 5.49
+Brownies, 5.49
+Doughnuts, 5.49
+Cheesecake, 5.49
+Carrot cake, 5.49
+Chocolate chip cookies, 1.99
+Snickerdoodles, 3.99
+Peanut butter cookies, 1.99
+Oreos, 3.99
+Macarons, 3.99
+Macaroons, 3.99
+Gingersnaps, 3.99
+Oatmeal raisin cookies, 1.99
+Sugar cookies, 1.99
+Pepperoni pizza, 12.99
+Cheese pizza, 12.99
+Hawaiian pizza, 12.99
+Margherita pizza, 12.99
+Meat lovers pizza, 12.99
+Barbeque chicken pizza, 12.99
+Buffalo chicken pizza, 12.99
+Veggie pizza, 12.99
+Chocolate pie, 4.99
+Apple pie, 4.99
+Cherry pie, 4.99
+German chocolate pie, 4.99
+Banana cream pie, 4.99
+Pumpkin pie, 4.99
+Lemon meringue pie, 4.99
+Pecan pie, 4.99
+Blueberry pie, 4.99
+General tso's chicken, 11.99
+Orange chicken, 11.99
+Butter chicken, 11.99
+Chicken tikka masala, 11.99
+Biryani, 11.99
+Tandoori chicken, 11.99
+Samosas, 7.99
+Crab rangoons, 7.99
+Egg rolls, 7.99
+Sesame chicken, 11.99
+Kung pao chicken, 11.99
+Cheeseburgers, 11.99
+Tacos, 11.99
+Double cheeseburgers, 11.99
+Pad thai, 11.99
+Salt and vinegar chips, 1.99
+Dill pickle chips, 1.99
+Sour cream and onion chips, 1.99
+Barbeque chips, 1.99
+Maui onion chips, 1.99
+Cheddar and sour cream chips, 1.99
+Kettle cooked chips, 1.99
+Cheetos, 3.99
+Fritos, 3.99
+Snickers bars, 1.49
+3 musketeer bars, 1.49
+Kit kats, 3.99
+Twix bars, 1.49
+Almond joys, 3.99
+Hershey bars, 1.49
+Milky way bars, 1.49
+Paydays, 3.99
+Baby ruths, 3.99
+Crunch bars, 1.49
+Toblerones, 1.49
+Take 5s, 1.49

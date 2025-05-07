@@ -22,7 +22,7 @@
   <div class="inbox-body">
     <div class="email-list">
       <div class="email-item" *ngFor="let email of inbox"
-           [class.selected]="email === selectedEmail"
+        [class.selected]="email === selectedEmail"
            (click)="selectEmail(email)">
         <div class="sender">{{email.sender}}</div>
         <div class="subject">{{email.subject}}</div>
@@ -36,3 +36,4 @@
     </div>
   </div>
 </div>
+<div class="clock">{{ displayDate }}  {{ displayTime }}</div>

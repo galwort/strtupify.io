@@ -46,7 +46,7 @@ Thank you!
 Vlad
 IT Support
 strtupify.io`;
-      const timestamp = new Date().toISOString(); // Use current time as default
+      const timestamp = new Date().toISOString();
       return setDoc(welcomeRef, {
         from: 'vlad@strtupify.io',
         subject: 'How to email',

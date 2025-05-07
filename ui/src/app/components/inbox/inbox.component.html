@@ -11,12 +11,12 @@
       <span class="material-symbols-outlined">reply</span>
       <span class="label">REPLY</span>
     </button>
-    <button class="filter-btn" (click)="deleteSelected()">
-      <span class="material-symbols-outlined">delete</span>
-      <span class="label">DELETE</span>
+    <button class="filter-btn" (click)="toggleDelete()">
+      <span class="material-symbols-outlined">{{ showDeleted ? 'restore' : 'delete' }}</span>
+      <span class="label">{{ showDeleted ? 'UNDELETE' : 'DELETE' }}</span>
     </button>
     <button class="filter-btn" (click)="archiveEmails()">
-      <span class="material-symbols-outlined">archive</span>
+      <span class="material-symbols-outlined">{{ showDeleted ? 'inbox' : 'archive' }}</span>
     </button>
   </div>
   <div class="inbox-body">

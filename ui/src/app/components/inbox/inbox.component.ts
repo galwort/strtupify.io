@@ -86,6 +86,22 @@ export class InboxComponent implements OnInit, OnDestroy {
     });
   }
 
+  toggleDelete(): void {
+    if (!this.selectedEmail) return;
+    const newDeletedState = !this.showDeleted;
+    const updateMethod = newDeletedState
+      ? this.inboxService.deleteEmail
+      : this.inboxService.undeleteEmail;
+
+    updateMethod.call(this.inboxService, this.companyId, this.selectedEmail.id).then(() => {
+      if (this.selectedEmail) {
+        this.selectedEmail.deleted = newDeletedState;
+      }
+      this.inbox = this.inbox.filter(email => email.deleted === this.showDeleted);
+      this.selectedEmail = null;
+    });
+  }
+
   private async loadClockState(): Promise<void> {
     const ref = doc(db, `companies/${this.companyId}`);
     const snap = await getDoc(ref);

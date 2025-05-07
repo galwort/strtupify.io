@@ -84,4 +84,12 @@ strtupify.io`;
       { merge: true }
     );
   }
+
+  undeleteEmail(companyId: string, emailId: string): Promise<void> {
+    return setDoc(
+      doc(db, `companies/${companyId}/inbox/${emailId}`),
+      { deleted: false },
+      { merge: true }
+    );
+  }
 }

@@ -15,6 +15,7 @@ export interface Email {
   preview: string;
   deleted: boolean;
   banner: boolean;
+  timestamp: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -45,12 +46,14 @@ Thank you!
 Vlad
 IT Support
 strtupify.io`;
+      const timestamp = new Date().toISOString(); // Use current time as default
       return setDoc(welcomeRef, {
         from: 'vlad@strtupify.io',
         subject: 'How to email',
         message,
         deleted: false,
-        banner: false
+        banner: false,
+        timestamp
       });
     });
   }
@@ -69,7 +72,8 @@ strtupify.io`;
               body: data.message,
               preview: (data.message || '').substring(0, 60) + '...',
               deleted: data.deleted,
-              banner: data.banner
+              banner: data.banner,
+              timestamp: data.timestamp || ''
             };
           })
           .filter(e => includeDeleted || !e.deleted);

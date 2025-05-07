@@ -27,11 +27,13 @@
         <div class="sender">{{email.sender}}</div>
         <div class="subject">{{email.subject}}</div>
         <div class="preview-text">{{email.preview}}</div>
+        <div class="timestamp">{{email.timestamp | date:'short'}}</div>
       </div>
     </div>
     <div class="email-preview" *ngIf="selectedEmail">
       <h2>{{selectedEmail.subject}}</h2>
       <h4>From: {{selectedEmail.sender}}</h4>
+      <h4>{{selectedEmail.timestamp | date:'short'}}</h4>
       <pre>{{selectedEmail.body}}</pre>
     </div>
   </div>

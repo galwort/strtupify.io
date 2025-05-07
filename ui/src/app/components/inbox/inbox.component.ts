@@ -1,15 +1,10 @@
 import { Component, OnInit, OnDestroy, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
 import { InboxService, Email } from '../../services/inbox.service';
 import { initializeApp, getApps } from 'firebase/app';
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc
-} from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 
 const fbApp = getApps().length ? getApps()[0] : initializeApp(environment.firebase);
@@ -19,7 +14,7 @@ const db = getFirestore(fbApp);
   selector: 'app-inbox',
   templateUrl: './inbox.component.html',
   styleUrls: ['./inbox.component.scss'],
-  imports: [CommonModule]
+  imports: [CommonModule, HttpClientModule]
 })
 export class InboxComponent implements OnInit, OnDestroy {
   @Input() companyId = '';
@@ -41,11 +36,16 @@ export class InboxComponent implements OnInit, OnDestroy {
   private elapsedSinceSave = 0;
   private intervalId: any;
 
+  private snacks: { name: string; price: string }[] = [];
+  private superEatsSendTime: number | null = null;
+  private superEatsCreated = false;
+
   showDeleted = false;
 
   constructor(
     private route: ActivatedRoute,
-    private inboxService: InboxService
+    private inboxService: InboxService,
+    private http: HttpClient
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -53,13 +53,19 @@ export class InboxComponent implements OnInit, OnDestroy {
 
     await this.loadClockState();
     this.startClock();
+    this.loadSnacks();
 
-    this.inboxService.ensureWelcomeEmail(this.companyId).finally(() => {
-      this.inboxService.getInbox(this.companyId).subscribe((emails) => {
-        this.inbox = emails;
-        if (!this.selectedEmail && emails.length) this.selectedEmail = emails[0];
+    this.inboxService
+      .ensureWelcomeEmail(this.companyId)
+      .then(() => {
+        this.superEatsSendTime = this.simDate.getTime() + 5 * 60_000;
+      })
+      .finally(() => {
+        this.inboxService.getInbox(this.companyId).subscribe((emails) => {
+          this.inbox = emails;
+          if (!this.selectedEmail && emails.length) this.selectedEmail = emails[0];
+        });
       });
-    });
   }
 
   ngOnDestroy(): void {
@@ -73,7 +79,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   deleteSelected(): void {
     if (!this.selectedEmail) return;
     this.inboxService.deleteEmail(this.companyId, this.selectedEmail.id).then(() => {
-      this.inbox = this.inbox.filter(email => email.id !== this.selectedEmail?.id);
+      this.inbox = this.inbox.filter((email) => email.id !== this.selectedEmail?.id);
       this.selectedEmail = null;
     });
   }
@@ -89,15 +95,13 @@ export class InboxComponent implements OnInit, OnDestroy {
   toggleDelete(): void {
     if (!this.selectedEmail) return;
     const newDeletedState = !this.showDeleted;
-    const updateMethod = newDeletedState
-      ? this.inboxService.deleteEmail
-      : this.inboxService.undeleteEmail;
+    const updateMethod = newDeletedState ? this.inboxService.deleteEmail : this.inboxService.undeleteEmail;
 
     updateMethod.call(this.inboxService, this.companyId, this.selectedEmail.id).then(() => {
       if (this.selectedEmail) {
         this.selectedEmail.deleted = newDeletedState;
       }
-      this.inbox = this.inbox.filter(email => email.deleted === this.showDeleted);
+      this.inbox = this.inbox.filter((email) => email.deleted === this.showDeleted);
       this.selectedEmail = null;
     });
   }
@@ -128,6 +132,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         this.speed = Math.min(this.speed + this.accelPerTick, this.maxSpeed);
       }
       this.updateDisplay();
+      this.checkSuperEatsEmail();
 
       this.elapsedSinceSave += this.tickMs;
       if (this.elapsedSinceSave >= this.saveEveryMs) {
@@ -144,7 +149,63 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.displayDate = this.simDate.toLocaleDateString();
     this.displayTime = this.simDate.toLocaleTimeString('en-US', {
       hour: 'numeric',
-      minute: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  private loadSnacks(): void {
+    this.http
+      .get('assets/snacks.txt', { responseType: 'text' })
+      .subscribe((text) => {
+        this.snacks = text
+          .split('\n')
+          .map((line) => {
+            const [name, price] = line.trim().split(',');
+            return { name: name.trim(), price: price.trim() };
+          })
+          .filter((s) => s.name && s.price);
+      });
+  }
+
+  private checkSuperEatsEmail(): void {
+    if (this.superEatsCreated) return;
+    if (!this.superEatsSendTime) return;
+    if (this.simDate.getTime() < this.superEatsSendTime) return;
+    if (!this.snacks.length) return;
+
+    const snack = this.snacks[Math.floor(Math.random() * this.snacks.length)];
+    const day = this.simDate.toLocaleString('en-US', { weekday: 'long' });
+    const hour = this.simDate.getHours();
+    const timeOfDay =
+      hour >= 5 && hour < 12
+        ? 'morning'
+        : hour >= 12 && hour < 17
+        ? 'afternoon'
+        : hour >= 17 && hour < 21
+        ? 'evening'
+        : 'night';
+    const subject = `Your ${day} ${timeOfDay} order from Super Eats`;
+    const message = `Thank you for ordering with Super Eats!
+
+Order summary
+${snack.name}: $${snack.price}
+
+Subtotal: $${snack.price}
+Total: $${snack.price}
+
+We hope you enjoy your meal!
+
+Super Eats`;
+    const emailId = `supereats-${Date.now()}`;
+    setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+      from: 'orders@supereats.io',
+      subject,
+      message,
+      deleted: false,
+      banner: true,
+      timestamp: this.simDate.toISOString()
+    }).then(() => {
+      this.superEatsCreated = true;
     });
   }
 }

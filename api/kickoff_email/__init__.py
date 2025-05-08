@@ -6,10 +6,6 @@ from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from firebase_admin import credentials, initialize_app, firestore
 from openai import AzureOpenAI
-from pydantic import BaseModel
-
-class SenderModel(BaseModel):
-    name: str
 
 vault_url = "https://kv-strtupifyio.vault.azure.net/"
 credential = DefaultAzureCredential()

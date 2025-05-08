@@ -137,29 +137,34 @@ def gen_kickoff_email(company_name, company_description, product_name, product_d
         }
         return email_message
 
+def main(req: func.HttpRequest) -> func.HttpResponse:
+    req_body = req.get_json("company")
+    company = req_body["name"]
+    company_info = pull_company_info(company)
+    company_name = company_info["company_name"]
+    company_description = company_info["company_description"]
+    product_name = company_info["product_name"]
+    product_description = company_info["product_description"]
+    employee_json = company_info["employees"]
 
-company = "groundfloor"
-company_info = pull_company_info(company)
-company_name = company_info["company_name"]
-company_description = company_info["company_description"]
-product_name = company_info["product_name"]
-product_description = company_info["product_description"]
-employee_json = company_info["employees"]
+    job_title_json = {
+        employee["name"]: employee["title"]
+        for employee in employee_json
+    }
+    job_title_json = dumps(job_title_json)
+    sender_name, sender_title = pick_sender(job_title_json)
 
-job_title_json = {
-    employee["name"]: employee["title"]
-    for employee in employee_json
-}
-job_title_json = dumps(job_title_json)
-sender_name, sender_title = pick_sender(job_title_json)
+    kickoff_email = gen_kickoff_email(
+        company_name,
+        company_description,
+        product_name,
+        product_description,
+        employee_json,
+        sender_name,
+        sender_title
+    )
 
-kickoff_email = gen_kickoff_email(
-    company_name,
-    company_description,
-    product_name,
-    product_description,
-    employee_json,
-    sender_name,
-    sender_title
-)
-print(kickoff_email)
+    if "error" in kickoff_email:
+        return func.HttpResponse(dumps({"error": kickoff_email["error"]}), mimetype="application/json")
+    else:
+        return func.HttpResponse(dumps(kickoff_email), mimetype="application/json")

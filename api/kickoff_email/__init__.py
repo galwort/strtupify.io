@@ -93,6 +93,8 @@ def gen_kickoff_email(company_name, company_description, product_name, product_d
     from_domain = company_name.replace(" ", "").lower() + ".com"
     from_address = f"{from_name}@{from_domain}"
 
+    subject = f"Kickoff Email for {company_name} - {product_name}"
+
     system_message = (
         f"Your name is {sender_name}, and you are a {sender_title} at {company_name}. "
         f"Here is a brief description of what the company does: {company_description}. "
@@ -133,6 +135,7 @@ def gen_kickoff_email(company_name, company_description, product_name, product_d
         email_body = email["email"]["body"]
         email_message = {
             "from": from_address,
+            "subject": subject,
             "body": email_body
         }
         return email_message

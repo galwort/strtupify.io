@@ -89,6 +89,10 @@ def pick_sender(job_title_json):
     return sender_name, sender_title
 
 def gen_kickoff_email(company_name, company_description, product_name, product_description, employee_json, sender_name, sender_title):
+    from_name = sender_name.replace(" ", ".").lower()
+    from_domain = company_name.replace(" ", "").lower() + ".com"
+    from_address = f"{from_name}@{from_domain}"
+
     system_message = (
         f"Your name is {sender_name}, and you are a {sender_title} at {company_name}. "
         f"Here is a brief description of what the company does: {company_description}. "
@@ -122,9 +126,16 @@ def gen_kickoff_email(company_name, company_description, product_name, product_d
     )
 
     email = loads(response.choices[0].message.content)
-    email_message = email["email"]["body"]
 
-    return email_message
+    if "error" in email:
+        return email["error"]
+    else:
+        email_body = email["email"]["body"]
+        email_message = {
+            "from": from_address,
+            "body": email_body
+        }
+        return email_message
 
 
 company = "groundfloor"

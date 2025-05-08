@@ -1,0 +1,153 @@
+import azure.functions as func
+import firebase_admin
+
+from json import dumps, loads
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
+from firebase_admin import credentials, initialize_app, firestore
+from openai import AzureOpenAI
+
+vault_url = "https://kv-strtupifyio.vault.azure.net/"
+credential = DefaultAzureCredential()
+secret_client = SecretClient(vault_url=vault_url, credential=credential)
+
+endpoint = secret_client.get_secret("AIEndpoint").value
+api_key = secret_client.get_secret("AIKey").value
+deployment = secret_client.get_secret("AIDeployment").value
+client = AzureOpenAI(
+    api_version="2023-07-01-preview", azure_endpoint=endpoint, api_key=api_key
+)
+
+firestore_sdk = secret_client.get_secret("FirebaseSDK").value
+cred = credentials.Certificate(loads(firestore_sdk))
+if not firebase_admin._apps:
+    initialize_app(cred)
+db = firestore.client()
+
+
+def pull_company_info(company):
+    company_ref = db.collection("companies").document(company)
+    company_info = company_ref.get()
+    company_name = company_info.get("company_name")
+    company_description = company_info.get("description")
+
+    product_ref = company_ref.collection("products")
+    product_info = product_ref.get()
+    for product in product_info:
+        if product.get("accepted") == True:
+            accepted_product = product
+            break
+    product_name = accepted_product.get("product")
+    product_description = accepted_product.get("description")
+
+    employee_ref = company_ref.collection("employees")
+    employee_info = employee_ref.get()
+    employee_json = []
+    for doc in employee_info:
+        if doc.get("hired") == True:
+            employee = doc.to_dict()
+            employee.pop("created", None)
+            employee.pop("updated", None)
+            employee.pop("hired", None)
+            skills_ref = doc.reference.collection("skills")
+            skills_info = skills_ref.get()
+            skills = [doc.to_dict() for doc in skills_info]
+            for skill in skills:
+                skill.pop("updated", None)
+            employee["skills"] = skills
+            employee_json.append(employee)
+
+    return {
+        "company_name": company_name,
+        "company_description": company_description,
+        "product_name": product_name,
+        "product_description": product_description,
+        "employees": employee_json
+    }
+
+def pick_sender(job_title_json):
+    system_message = (
+        "Given a JSON object with the name and job title of an employee, "
+        "your task is to reply with the same JSON, only with an additional key of 'sender'. "
+        "The value should be True for one of the employees, and False for the rest. "
+        "The sender should be the person who would be most likely to send the email, "
+        "on behalf of the company. "
+    )
+    
+    response = client.chat.completions.create(
+        model=deployment,
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": job_title_json}
+        ],
+    )
+
+    return loads(response.choices[0].message.content)
+
+def gen_kickoff_email(company_name, company_description, product_name, product_description, employee_json, sender_name, sender_title):
+    system_message = (
+        f"Your name is {sender_name}, and you are a {sender_title} at {company_name}. "
+        f"Here is a brief description of what the company does: {company_description}. "
+        f"Here is some JSON with information on the employees at the company: \n\n{employee_json}\n\n"
+        "In an earlier meeting, you and the rest of the employees came up with the first product. "
+        f"\n\n{product_name}: {product_description}.\n\n"
+    )
+
+    user_message = (
+        "You need to come up with the body of a kickoff email to the company's founder. "
+        "Your email should describe the project that was come up with, "
+        "followed by assignments for what each of the employees are going to be working on, "
+        "followed by a sign-off note asking for approval on plan."
+        "Reply in JSON format with an overall key of 'email', and then within that object, "
+        "There should me a key value pair of 'body' with the text of the email, "
+        "and a key value of error, if there was any kind of issue processing the request. "
+        "The value of the error key should be and empty string if there is no error."
+    )
+
+    messages = [
+        {"role": "system", "content": system_message},
+        {"role": "user", "content": user_message}
+    ]
+
+    response = client.chat.completions.create(
+        model=deployment,
+        response_format={"type": "json_object"},
+        messages=messages,
+    )
+
+    email = loads(response.choices[0].message.content)
+    email_message = email["email"]["body"]
+
+    return email_message
+
+
+company = "groundfloor"
+company_info = pull_company_info(company)
+company_name = company_info["company_name"]
+company_description = company_info["company_description"]
+product_name = company_info["product_name"]
+product_description = company_info["product_description"]
+employee_json = company_info["employees"]
+
+job_title_json = {
+    employee["name"]: employee["title"]
+    for employee in employee_json
+}
+job_title_json = dumps(job_title_json)
+sender_json = pick_sender(job_title_json)
+print(sender_json)
+
+sender_name = next((name for name, details in sender_json.items() if details.get("sender") == True), None)
+sender_title = sender_json[sender_name]["title"] if sender_name else None
+
+kickoff_email = gen_kickoff_email(
+    company_name,
+    company_description,
+    product_name,
+    product_description,
+    employee_json,
+    sender_name,
+    sender_title
+)
+print(kickoff_email)

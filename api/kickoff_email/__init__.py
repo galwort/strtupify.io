@@ -6,6 +6,10 @@ from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from firebase_admin import credentials, initialize_app, firestore
 from openai import AzureOpenAI
+from pydantic import BaseModel
+
+class SenderModel(BaseModel):
+    name: str
 
 vault_url = "https://kv-strtupifyio.vault.azure.net/"
 credential = DefaultAzureCredential()
@@ -16,7 +20,7 @@ api_key = secret_client.get_secret("AIKey").value
 deployment = secret_client.get_secret("AIDeployment").value
 client = AzureOpenAI(
     api_version="2023-07-01-preview", azure_endpoint=endpoint, api_key=api_key
-)
+)   
 
 firestore_sdk = secret_client.get_secret("FirebaseSDK").value
 cred = credentials.Certificate(loads(firestore_sdk))
@@ -67,13 +71,12 @@ def pull_company_info(company):
 
 def pick_sender(job_title_json):
     system_message = (
-        "Given a JSON object with the name and job title of an employee, "
-        "your task is to reply with the same JSON, only with an additional key of 'sender'. "
-        "The value should be True for one of the employees, and False for the rest. "
-        "The sender should be the person who would be most likely to send the email, "
-        "on behalf of the company. "
+        "Given a JSON object with the name and job title of employees, "
+        "your task is to reply with a JSON object containing only the name and title "
+        "of the employee who would be most likely to send the email on behalf of the company. "
+        "The output should be in the format: {\"name\": \"<name>\", \"title\": \"<title>\"}."
     )
-    
+
     response = client.chat.completions.create(
         model=deployment,
         response_format={"type": "json_object"},
@@ -83,7 +86,11 @@ def pick_sender(job_title_json):
         ],
     )
 
-    return loads(response.choices[0].message.content)
+    sender_data = loads(response.choices[0].message.content)
+    sender_name = sender_data["name"]
+    sender_title = sender_data["title"]
+
+    return sender_name, sender_title
 
 def gen_kickoff_email(company_name, company_description, product_name, product_description, employee_json, sender_name, sender_title):
     system_message = (
@@ -135,11 +142,7 @@ job_title_json = {
     for employee in employee_json
 }
 job_title_json = dumps(job_title_json)
-sender_json = pick_sender(job_title_json)
-print(sender_json)
-
-sender_name = next((name for name, details in sender_json.items() if details.get("sender") == True), None)
-sender_title = sender_json[sender_name]["title"] if sender_name else None
+sender_name, sender_title = pick_sender(job_title_json)
 
 kickoff_email = gen_kickoff_email(
     company_name,

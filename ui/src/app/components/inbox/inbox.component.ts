@@ -9,6 +9,7 @@ import { environment } from 'src/environments/environment';
 
 const fbApp = getApps().length ? getApps()[0] : initializeApp(environment.firebase);
 const db = getFirestore(fbApp);
+const kickoffUrl = 'https://strtupifyio-functions.azurewebsites.net/api/kickoff_email';
 
 @Component({
   selector: 'app-inbox',
@@ -40,6 +41,9 @@ export class InboxComponent implements OnInit, OnDestroy {
   private superEatsSendTime: number | null = null;
   private superEatsCreated = false;
 
+  private kickoffSendTime: number | null = null;
+  private kickoffCreated = false;
+
   showDeleted = false;
 
   constructor(
@@ -58,7 +62,8 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.inboxService
       .ensureWelcomeEmail(this.companyId)
       .then(() => {
-        this.superEatsSendTime = this.simDate.getTime() + 5 * 60_000;
+        this.superEatsSendTime = this.simDate.getTime() + 10 * 60_000;
+        this.kickoffSendTime = this.simDate.getTime() + 5 * 60_000;
       })
       .finally(() => {
         this.inboxService.getInbox(this.companyId).subscribe((emails) => {
@@ -133,6 +138,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       }
       this.updateDisplay();
       this.checkSuperEatsEmail();
+      this.checkKickoffEmail();
 
       this.elapsedSinceSave += this.tickMs;
       if (this.elapsedSinceSave >= this.saveEveryMs) {
@@ -208,6 +214,26 @@ Super Eats`;
       timestamp: this.simDate.toISOString()
     }).then(() => {
       this.superEatsCreated = true;
+    });
+  }
+
+  private checkKickoffEmail(): void {
+    if (this.kickoffCreated) return;
+    if (!this.kickoffSendTime) return;
+    if (this.simDate.getTime() < this.kickoffSendTime) return;
+
+    this.http.post<any>(kickoffUrl, { name: this.companyId }).subscribe((email) => {
+      const emailId = `kickoff-${Date.now()}`;
+      setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+        from: email.from,
+        subject: email.subject,
+        message: email.body,
+        deleted: false,
+        banner: false,
+        timestamp: this.simDate.toISOString()
+      }).then(() => {
+        this.kickoffCreated = true;
+      });
     });
   }
 }

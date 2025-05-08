@@ -103,6 +103,8 @@ def gen_kickoff_email(company_name, company_description, product_name, product_d
 
     user_message = (
         "You need to come up with the body of a kickoff email to the company's founder. "
+        "You don't know the founder's name, so just avoid using it. "
+        "Do not use any kind of template like 'Dear [Name]' or 'To whom it may concern'. "
         "Your email should describe the project that was come up with, "
         "followed by assignments for what each of the employees are going to be working on, "
         "followed by a sign-off note asking for approval on plan."

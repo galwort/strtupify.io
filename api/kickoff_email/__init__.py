@@ -148,7 +148,7 @@ def gen_kickoff_email(
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
-    req_body = req.get_json("company")
+    req_body = req.get_json()
     company = req_body["name"]
     company_info = pull_company_info(company)
     company_name = company_info["company_name"]

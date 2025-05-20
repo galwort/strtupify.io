@@ -250,20 +250,27 @@ Super Eats`;
     if (!this.kickoffSendTime) return;
     if (this.simDate.getTime() < this.kickoffSendTime) return;
 
+    this.kickoffCreated = true;
+
     this.http
       .post<any>(kickoffUrl, { name: this.companyId })
-      .subscribe((email) => {
-        const emailId = `kickoff-${Date.now()}`;
-        setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
-          from: email.from,
-          subject: email.subject,
-          message: email.body,
-          deleted: false,
-          banner: false,
-          timestamp: this.simDate.toISOString(),
-        }).then(() => {
-          this.kickoffCreated = true;
-        });
+      .subscribe({
+        next: (email) => {
+          const emailId = `kickoff-${Date.now()}`;
+          setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+            from: email.from,
+            subject: email.subject,
+            message: email.body,
+            deleted: false,
+            banner: false,
+            timestamp: this.simDate.toISOString(),
+          }).catch(() => {
+            this.kickoffCreated = false;
+          });
+        },
+        error: () => {
+          this.kickoffCreated = false;
+        },
       });
   }
 }

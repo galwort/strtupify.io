@@ -40,7 +40,7 @@ def gen_order(company_description):
             model=deployment,
             response_format={"type": "json_object"},
             messages=messages,
-            temperature=1.5
+            temperature=1.5,
         )
 
         order = loads(response.choices[0].message.content)
@@ -60,13 +60,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         response = gen_order(company_description)
 
         return func.HttpResponse(
-            dumps(response),
-            status_code=200,
-            mimetype="application/json"
+            dumps(response), status_code=200, mimetype="application/json"
         )
     except Exception as e:
-        return func.HttpResponse(
-            str(e),
-            status_code=500
-        )
-
+        return func.HttpResponse(str(e), status_code=500)

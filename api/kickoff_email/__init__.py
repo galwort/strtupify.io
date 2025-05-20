@@ -16,7 +16,7 @@ api_key = secret_client.get_secret("AIKey").value
 deployment = secret_client.get_secret("AIDeployment").value
 client = AzureOpenAI(
     api_version="2023-07-01-preview", azure_endpoint=endpoint, api_key=api_key
-)   
+)
 
 firestore_sdk = secret_client.get_secret("FirebaseSDK").value
 cred = credentials.Certificate(loads(firestore_sdk))
@@ -62,15 +62,16 @@ def pull_company_info(company):
         "company_description": company_description,
         "product_name": product_name,
         "product_description": product_description,
-        "employees": employee_json
+        "employees": employee_json,
     }
+
 
 def pick_sender(job_title_json):
     system_message = (
         "Given a JSON object with the name and job title of employees, "
         "your task is to reply with a JSON object containing only the name and title "
         "of the employee who would be most likely to send the email on behalf of the company. "
-        "The output should be in the format: {\"name\": \"<name>\", \"title\": \"<title>\"}."
+        'The output should be in the format: {"name": "<name>", "title": "<title>"}.'
     )
 
     response = client.chat.completions.create(
@@ -78,7 +79,7 @@ def pick_sender(job_title_json):
         response_format={"type": "json_object"},
         messages=[
             {"role": "system", "content": system_message},
-            {"role": "user", "content": job_title_json}
+            {"role": "user", "content": job_title_json},
         ],
     )
 
@@ -88,7 +89,16 @@ def pick_sender(job_title_json):
 
     return sender_name, sender_title
 
-def gen_kickoff_email(company_name, company_description, product_name, product_description, employee_json, sender_name, sender_title):
+
+def gen_kickoff_email(
+    company_name,
+    company_description,
+    product_name,
+    product_description,
+    employee_json,
+    sender_name,
+    sender_title,
+):
     from_name = sender_name.replace(" ", ".").lower()
     from_domain = company_name.replace(" ", "").lower() + ".com"
     from_address = f"{from_name}@{from_domain}"
@@ -118,7 +128,7 @@ def gen_kickoff_email(company_name, company_description, product_name, product_d
 
     messages = [
         {"role": "system", "content": system_message},
-        {"role": "user", "content": user_message}
+        {"role": "user", "content": user_message},
     ]
 
     response = client.chat.completions.create(
@@ -133,12 +143,9 @@ def gen_kickoff_email(company_name, company_description, product_name, product_d
         return email["error"]
     else:
         email_body = email["email"]["body"]
-        email_message = {
-            "from": from_address,
-            "subject": subject,
-            "body": email_body
-        }
+        email_message = {"from": from_address, "subject": subject, "body": email_body}
         return email_message
+
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     req_body = req.get_json("company")
@@ -150,10 +157,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     product_description = company_info["product_description"]
     employee_json = company_info["employees"]
 
-    job_title_json = {
-        employee["name"]: employee["title"]
-        for employee in employee_json
-    }
+    job_title_json = {employee["name"]: employee["title"] for employee in employee_json}
     job_title_json = dumps(job_title_json)
     sender_name, sender_title = pick_sender(job_title_json)
 
@@ -164,10 +168,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         product_description,
         employee_json,
         sender_name,
-        sender_title
+        sender_title,
     )
 
     if "error" in kickoff_email:
-        return func.HttpResponse(dumps({"error": kickoff_email["error"]}), mimetype="application/json")
+        return func.HttpResponse(
+            dumps({"error": kickoff_email["error"]}), mimetype="application/json"
+        )
     else:
         return func.HttpResponse(dumps(kickoff_email), mimetype="application/json")

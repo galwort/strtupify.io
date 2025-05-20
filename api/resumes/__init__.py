@@ -35,8 +35,29 @@ def pull_name():
         d = r.json()["results"][0]["name"]
         return f"{d['first']} {d['last']}"
     except Exception:
-        first = ["Alex","Jordan","Taylor","Casey","Morgan","Quinn","Jamie","Riley","Cameron"]
-        last  = ["Smith","Johnson","Brown","Jones","Miller","Davis","Garcia","Rodriguez","Martinez","Hernandez"]
+        first = [
+            "Alex",
+            "Jordan",
+            "Taylor",
+            "Casey",
+            "Morgan",
+            "Quinn",
+            "Jamie",
+            "Riley",
+            "Cameron",
+        ]
+        last = [
+            "Smith",
+            "Johnson",
+            "Brown",
+            "Jones",
+            "Miller",
+            "Davis",
+            "Garcia",
+            "Rodriguez",
+            "Martinez",
+            "Hernandez",
+        ]
         return f"{choice(first)} {choice(last)}"
 
 

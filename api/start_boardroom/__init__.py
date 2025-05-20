@@ -18,7 +18,9 @@ sc = SecretClient(vault_url=vault, credential=DefaultAzureCredential())
 endpoint = sc.get_secret("AIEndpoint").value
 key = sc.get_secret("AIKey").value
 deployment = sc.get_secret("AIDeploymentMini").value
-client = AzureOpenAI(api_version="2023-07-01-preview", azure_endpoint=endpoint, api_key=key)
+client = AzureOpenAI(
+    api_version="2023-07-01-preview", azure_endpoint=endpoint, api_key=key
+)
 
 cred = credentials.Certificate(json.loads(sc.get_secret("FirebaseSDK").value))
 if not firebase_admin._apps:
@@ -56,7 +58,11 @@ def calc_weights(emps, directive):
         {
             "directive": directive,
             "participants": [
-                {"name": e["name"], "title": e["title"], "personality": e["personality"]}
+                {
+                    "name": e["name"],
+                    "title": e["title"],
+                    "personality": e["personality"],
+                }
                 for e in emps
             ],
         }
@@ -64,10 +70,17 @@ def calc_weights(emps, directive):
     rsp = client.chat.completions.create(
         model=deployment,
         response_format={"type": "json_object"},
-        messages=[{"role": "system", "content": sys}, {"role": "user", "content": user}],
+        messages=[
+            {"role": "system", "content": sys},
+            {"role": "user", "content": user},
+        ],
     )
     raw = json.loads(rsp.choices[0].message.content)
-    weights = {k: max(0, min(1, float(v))) for k, v in raw.items() if isinstance(v, (int, float, str))}
+    weights = {
+        k: max(0, min(1, float(v)))
+        for k, v in raw.items()
+        if isinstance(v, (int, float, str))
+    }
     if len(set(weights.values())) <= 1:
         for e in emps:
             weights[e["name"]] = max(0, min(1, gauss(0.5, 0.15)))
@@ -100,10 +113,10 @@ def gen_agent_line(agent, directive, company, company_description, emp_names):
         low = name.lower()
         first = name.split()[0].lower()
         if content.lower().startswith(low):
-            content = content[len(name):].lstrip(":,.- ").strip()
+            content = content[len(name) :].lstrip(":,.- ").strip()
             break
         if content.lower().startswith(first):
-            content = content[len(first):].lstrip(":,.- ").strip()
+            content = content[len(first) :].lstrip(":,.- ").strip()
             break
     return content.strip()
 

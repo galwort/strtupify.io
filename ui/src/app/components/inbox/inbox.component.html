@@ -12,11 +12,15 @@
       <span class="label">REPLY</span>
     </button>
     <button class="filter-btn" (click)="toggleDelete()">
-      <span class="material-symbols-outlined">{{ showDeleted ? 'restore' : 'delete' }}</span>
-      <span class="label">{{ showDeleted ? 'UNDELETE' : 'DELETE' }}</span>
+      <span class="material-symbols-outlined">{{
+        showDeleted ? "restore" : "delete"
+      }}</span>
+      <span class="label">{{ showDeleted ? "UNDELETE" : "DELETE" }}</span>
     </button>
     <button class="filter-btn" (click)="archiveEmails()">
-      <span class="material-symbols-outlined">{{ showDeleted ? 'inbox' : 'archive' }}</span>
+      <span class="material-symbols-outlined">{{
+        showDeleted ? "inbox" : "archive"
+      }}</span>
     </button>
   </div>
   <div class="inbox-body">
@@ -30,14 +34,20 @@
         <div class="sender">{{ email.sender }}</div>
         <div class="subject">{{ email.subject }}</div>
         <div class="preview-text">{{ email.preview }}</div>
-        <div class="timestamp">{{ email.timestamp | date: 'short' }}</div>
+        <div class="timestamp">{{ email.timestamp | date : "short" }}</div>
       </div>
     </div>
     <div class="email-preview" *ngIf="selectedEmail">
       <h2>{{ selectedEmail.subject }}</h2>
       <h4>From: {{ selectedEmail.sender }}</h4>
-      <div class="timestamp">{{ selectedEmail.timestamp | date: 'short' }}</div>
-      <img *ngIf="selectedEmail.banner" src="assets/notubereats.png" class="banner-img" />
+      <div class="timestamp">
+        {{ selectedEmail.timestamp | date : "short" }}
+      </div>
+      <img
+        *ngIf="selectedEmail.banner"
+        src="assets/notubereats.png"
+        class="banner-img"
+      />
       <pre>{{ selectedEmail.body }}</pre>
     </div>
   </div>

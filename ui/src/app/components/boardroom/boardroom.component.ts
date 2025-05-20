@@ -12,11 +12,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { BoardroomService } from '../../services/boardroom.service';
 import { initializeApp } from 'firebase/app';
-import {
-  getFirestore,
-  doc,
-  updateDoc,
-} from 'firebase/firestore';
+import { getFirestore, doc, updateDoc } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 
 const fbApp = initializeApp(environment.firebase);

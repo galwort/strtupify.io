@@ -1,6 +1,15 @@
 import { Injectable } from '@angular/core';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, QuerySnapshot, DocumentData } from 'firebase/firestore';
+import {
+  getFirestore,
+  collection,
+  doc,
+  setDoc,
+  getDoc,
+  onSnapshot,
+  QuerySnapshot,
+  DocumentData,
+} from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 import { Observable } from 'rxjs';
 
@@ -22,7 +31,7 @@ export interface Email {
 export class InboxService {
   ensureWelcomeEmail(companyId: string): Promise<void> {
     const welcomeRef = doc(db, `companies/${companyId}/inbox/welcome-vlad`);
-    return getDoc(welcomeRef).then(snapshot => {
+    return getDoc(welcomeRef).then((snapshot) => {
       if (snapshot.exists()) {
         return;
       }
@@ -53,32 +62,38 @@ strtupify.io`;
         message,
         deleted: false,
         banner: false,
-        timestamp
+        timestamp,
       });
     });
   }
 
-  getInbox(companyId: string, includeDeleted: boolean = false): Observable<Email[]> {
-    return new Observable<Email[]>(subscriber => {
+  getInbox(
+    companyId: string,
+    includeDeleted: boolean = false
+  ): Observable<Email[]> {
+    return new Observable<Email[]>((subscriber) => {
       const inboxRef = collection(db, `companies/${companyId}/inbox`);
-      const unsub = onSnapshot(inboxRef, (snap: QuerySnapshot<DocumentData>) => {
-        const emails: Email[] = snap.docs
-          .map(d => {
-            const data = d.data() as any;
-            return {
-              id: d.id,
-              sender: data.from,
-              subject: data.subject,
-              body: data.message,
-              preview: (data.message || '').substring(0, 60) + '...',
-              deleted: data.deleted,
-              banner: data.banner,
-              timestamp: data.timestamp || ''
-            };
-          })
-          .filter(e => includeDeleted || !e.deleted);
-        subscriber.next(emails);
-      });
+      const unsub = onSnapshot(
+        inboxRef,
+        (snap: QuerySnapshot<DocumentData>) => {
+          const emails: Email[] = snap.docs
+            .map((d) => {
+              const data = d.data() as any;
+              return {
+                id: d.id,
+                sender: data.from,
+                subject: data.subject,
+                body: data.message,
+                preview: (data.message || '').substring(0, 60) + '...',
+                deleted: data.deleted,
+                banner: data.banner,
+                timestamp: data.timestamp || '',
+              };
+            })
+            .filter((e) => includeDeleted || !e.deleted);
+          subscriber.next(emails);
+        }
+      );
       return () => unsub();
     });
   }

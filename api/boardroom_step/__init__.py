@@ -21,6 +21,7 @@ STAGES = [
     {"name": "CONCLUSION", "minutes": 5, "goal": "everyone_spoke"},
 ]
 
+
 class StageClock:
     def __init__(self, idx=0, elapsed=0, turns=0):
         self.idx = idx
@@ -42,7 +43,9 @@ class StageClock:
         if goal == "everyone_spoke":
             return len({h["speaker"] for h in hist}) >= len(emp_names)
         if goal == "idea_from_each":
-            return all("idea" in h["msg"].lower() for h in hist if h["speaker"] in emp_names)
+            return all(
+                "idea" in h["msg"].lower() for h in hist if h["speaker"] in emp_names
+            )
         if goal == "consensus":
             return bool(outcome.get("product"))
         return False
@@ -50,18 +53,23 @@ class StageClock:
     def advance(self, hist, outcome, emp_names):
         goal_hit = self.goal_met(hist, outcome, emp_names)
         time_up = self.elapsed >= STAGES[self.idx]["minutes"]
-        if self.stage in ("DECIDE ON A PRODUCT", "REFINEMENT") and not outcome.get("product"):
+        if self.stage in ("DECIDE ON A PRODUCT", "REFINEMENT") and not outcome.get(
+            "product"
+        ):
             return
         if (goal_hit or time_up) and self.idx < len(STAGES) - 1:
             self.idx += 1
             self.turns = 0
+
 
 vault = "https://kv-strtupifyio.vault.azure.net/"
 sc = SecretClient(vault_url=vault, credential=DefaultAzureCredential())
 endpoint = sc.get_secret("AIEndpoint").value
 key = sc.get_secret("AIKey").value
 deployment = sc.get_secret("AIDeploymentMini").value
-client = AzureOpenAI(api_version="2023-07-01-preview", azure_endpoint=endpoint, api_key=key)
+client = AzureOpenAI(
+    api_version="2023-07-01-preview", azure_endpoint=endpoint, api_key=key
+)
 
 cred = credentials.Certificate(json.loads(sc.get_secret("FirebaseSDK").value))
 if not fb._apps:
@@ -70,11 +78,20 @@ db = firestore.client()
 
 
 def load_state(company, product):
-    ref = db.collection("companies").document(company).collection("products").document(product)
+    ref = (
+        db.collection("companies")
+        .document(company)
+        .collection("products")
+        .document(product)
+    )
     doc = ref.get().to_dict()
     emps = [
         d.to_dict() | {"id": d.id}
-        for d in db.collection("companies").document(company).collection("employees").where("hired", "==", True).stream()
+        for d in db.collection("companies")
+        .document(company)
+        .collection("employees")
+        .where("hired", "==", True)
+        .stream()
     ]
     return ref, doc, emps
 
@@ -82,6 +99,7 @@ def load_state(company, product):
 def load_company_description(company):
     doc = db.collection("companies").document(company).get().to_dict() or {}
     return doc.get("description", "")
+
 
 def calc_weights(emps, directive, recent_lines):
     sys = (
@@ -97,18 +115,30 @@ def calc_weights(emps, directive, recent_lines):
             "directive": directive,
             "recent_dialogue": recent_lines,
             "participants": [
-                {"name": e["name"], "title": e["title"], "personality": e["personality"]} for e in emps
+                {
+                    "name": e["name"],
+                    "title": e["title"],
+                    "personality": e["personality"],
+                }
+                for e in emps
             ],
         }
     )
     rsp = client.chat.completions.create(
         model=deployment,
         response_format={"type": "json_object"},
-        messages=[{"role": "system", "content": sys}, {"role": "user", "content": user}],
+        messages=[
+            {"role": "system", "content": sys},
+            {"role": "user", "content": user},
+        ],
     )
 
     raw = json.loads(rsp.choices[0].message.content)
-    weights = {k: max(0, min(1, float(v))) for k, v in raw.items() if isinstance(v, (int, float, str))}
+    weights = {
+        k: max(0, min(1, float(v)))
+        for k, v in raw.items()
+        if isinstance(v, (int, float, str))
+    }
     if len(set(weights.values())) <= 1:
         for e in emps:
             weights[e["name"]] = max(0, min(1, gauss(0.5, 0.15)))
@@ -123,11 +153,14 @@ def choose_next_speaker(emps, history, weights):
         spoken[h["speaker"]] = spoken.get(h["speaker"], 0) + 1
     return max(
         candidates,
-        key=lambda e: (weights.get(e["name"], 0.4) / (1 + spoken.get(e["name"], 0))) + gauss(0, 0.05),
+        key=lambda e: (weights.get(e["name"], 0.4) / (1 + spoken.get(e["name"], 0)))
+        + gauss(0, 0.05),
     )
 
 
-def gen_agent_line(agent, history, directive, company, company_description, counter, stage, emp_names):
+def gen_agent_line(
+    agent, history, directive, company, company_description, counter, stage, emp_names
+):
     sys = (
         f"You are {agent['name']}, a {agent['title']} at a new startup. "
         f"Company: {company}. Company description: {company_description}. "
@@ -167,13 +200,13 @@ def gen_agent_line(agent, history, directive, company, company_description, coun
         first = name.split()[0].lower()
         last = name.split()[-1].lower()
         if content.lower().startswith(low):
-            content = content[len(name):].lstrip(":,.- ").strip()
+            content = content[len(name) :].lstrip(":,.- ").strip()
             break
         if content.lower().startswith(first):
-            content = content[len(first):].lstrip(":,.- ").strip()
+            content = content[len(first) :].lstrip(":,.- ").strip()
             break
         if content.lower().startswith(last):
-            content = content[len(last):].lstrip(":,.- ").strip()
+            content = content[len(last) :].lstrip(":,.- ").strip()
             break
     return content.strip()
 
@@ -181,14 +214,17 @@ def gen_agent_line(agent, history, directive, company, company_description, coun
 def detect_product_name(history):
     sys = (
         "You are an impartial meeting observer.\n"
-        "Return JSON {\"name\":\"\"} unless a single, specific product or service NAME "
+        'Return JSON {"name":""} unless a single, specific product or service NAME '
         "was literally spoken in the transcript.\n"
-        "Return {\"name\":\"<exact literal name taken from the transcript>\"}.\n"
+        'Return {"name":"<exact literal name taken from the transcript>"}.\n'
         "Under NO circumstances invent or reformulate the name yourself."
     )
     msgs = [
         {"role": "system", "content": sys},
-        {"role": "user", "content": "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)},
+        {
+            "role": "user",
+            "content": "\n".join(f"{h['speaker']}: {h['msg']}" for h in history),
+        },
     ]
     rsp = client.chat.completions.create(
         model=deployment, response_format={"type": "json_object"}, messages=msgs
@@ -209,7 +245,10 @@ def describe_product(history, product_name):
     )
     msgs = [
         {"role": "system", "content": sys},
-        {"role": "user", "content": "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)},
+        {
+            "role": "user",
+            "content": "\n".join(f"{h['speaker']}: {h['msg']}" for h in history),
+        },
     ]
     rsp = client.chat.completions.create(model=deployment, messages=msgs)
     return rsp.choices[0].message.content.strip()
@@ -234,13 +273,16 @@ def append_line(ref, speaker, msg, weights, stage):
         }
     )
 
+
 def main(req: func.HttpRequest) -> func.HttpResponse:
     body = req.get_json()
     company = body["company"]
     product = body["product"]
     ref, doc, emps = load_state(company, product)
     if doc is None:
-        return func.HttpResponse(json.dumps({"error": "product not found"}), status_code=404)
+        return func.HttpResponse(
+            json.dumps({"error": "product not found"}), status_code=404
+        )
     if not emps:
         return func.HttpResponse(json.dumps({"error": "no employees"}), status_code=404)
 
@@ -286,7 +328,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             }
             ref.update(outcome)
 
-    merged_outcome = {"product": product_existing, "description": description_existing} | outcome
+    merged_outcome = {
+        "product": product_existing,
+        "description": description_existing,
+    } | outcome
 
     clock.tick()
     clock.advance(history, merged_outcome, emp_names)
@@ -296,7 +341,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     final_product = merged_outcome.get("product")
     final_description = merged_outcome.get("description")
     done = bool(
-        clock.stage == "CONCLUSION" and clock.turns >= len(emp_names) and final_product and final_description
+        clock.stage == "CONCLUSION"
+        and clock.turns >= len(emp_names)
+        and final_product
+        and final_description
     )
     return func.HttpResponse(
         json.dumps(

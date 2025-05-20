@@ -14,11 +14,12 @@ DIRECTIVE = (
     "so they don't know each other yet. "
 )
 STAGES = [
-    {"name": "INTRODUCTIONS",     "minutes": 10, "goal": "everyone_spoke"},
-    {"name": "BRAINSTORMING",     "minutes": 15, "goal": "idea_from_each"},
-    {"name": "DECIDE ON A PRODUCT","minutes": 5,  "goal": "consensus"},
-    {"name": "REFINEMENT",        "minutes": 10, "goal": "time_only"},
+    {"name": "INTRODUCTIONS", "minutes": 10, "goal": "everyone_spoke"},
+    {"name": "BRAINSTORMING", "minutes": 15, "goal": "idea_from_each"},
+    {"name": "DECIDE ON A PRODUCT", "minutes": 5, "goal": "consensus"},
+    {"name": "REFINEMENT", "minutes": 10, "goal": "time_only"},
 ]
+
 
 class StageClock:
     def __init__(self, emp_names):
@@ -26,7 +27,7 @@ class StageClock:
         self.elapsed = 0
         self.msgs_in_stage = 0
         self.emp_names = emp_names
-        self.idea_owners = set() 
+        self.idea_owners = set()
 
     @property
     def stage(self):
@@ -41,14 +42,17 @@ class StageClock:
         if goal == "everyone_spoke":
             return len({h["speaker"] for h in history}) >= len(emp_names)
         if goal == "idea_from_each":
-            return all("idea" in h["msg"].lower() for h in history if h["speaker"] in emp_names)
+            return all(
+                "idea" in h["msg"].lower() for h in history if h["speaker"] in emp_names
+            )
         if goal == "consensus":
             return bool(outcome.get("product"))
         return False
 
     def advance_if_needed(self, history, outcome):
-        if (self.elapsed >= sum(s["minutes"] for s in STAGES[:self.idx+1])
-            or self.goal_met(history, outcome)):
+        if self.elapsed >= sum(
+            s["minutes"] for s in STAGES[: self.idx + 1]
+        ) or self.goal_met(history, outcome):
             if self.idx < len(STAGES) - 1:
                 self.idx += 1
                 self.msgs_in_stage = 0
@@ -80,7 +84,11 @@ def calc_weights(emps, directive, recent_lines):
             "directive": directive,
             "recent_dialogue": recent_lines,
             "participants": [
-                {"name": e["name"], "title": e["title"], "personality": e["personality"]}
+                {
+                    "name": e["name"],
+                    "title": e["title"],
+                    "personality": e["personality"],
+                }
                 for e in emps
             ],
         }
@@ -88,11 +96,18 @@ def calc_weights(emps, directive, recent_lines):
     rsp = client.chat.completions.create(
         model=deployment,
         response_format={"type": "json_object"},
-        messages=[{"role": "system", "content": sys}, {"role": "user", "content": user}],
+        messages=[
+            {"role": "system", "content": sys},
+            {"role": "user", "content": user},
+        ],
     )
 
     raw = json.loads(rsp.choices[0].message.content)
-    w = {k: max(0, min(1, float(v))) for k, v in raw.items() if isinstance(v, (int, float, str))}
+    w = {
+        k: max(0, min(1, float(v)))
+        for k, v in raw.items()
+        if isinstance(v, (int, float, str))
+    }
     if len(set(w.values())) <= 1:
         for e in emps:
             w[e["name"]] = max(0, min(1, gauss(0.5, 0.15)))
@@ -114,7 +129,9 @@ def choose_next_speaker(emps, history, weights):
     )
 
 
-def gen_agent_line(agent, history, directive, company, company_description, counter, stage, emp_names):
+def gen_agent_line(
+    agent, history, directive, company, company_description, counter, stage, emp_names
+):
     sys = (
         f"You are {agent['name']}, a {agent['title']} at a new startup. "
         f"Company: {company}. Company description: {company_description}. "
@@ -139,10 +156,10 @@ def gen_agent_line(agent, history, directive, company, company_description, coun
         low = name.lower()
         first = name.split()[0].lower()
         if content.lower().startswith(low):
-            content = content[len(name):].lstrip(":,.- ").strip()
+            content = content[len(name) :].lstrip(":,.- ").strip()
             break
         if content.lower().startswith(first):
-            content = content[len(first):].lstrip(":,.- ").strip()
+            content = content[len(first) :].lstrip(":,.- ").strip()
             break
     return content.strip()
 
@@ -154,12 +171,15 @@ def gen_outcome(history, emp_names):
         "return a JSON object with keys 'product' and 'description' describing that idea. "
         f"This meeting, in total, has {len(emp_names)} participants: {', '.join(emp_names)}. "
         "At least two thirds of the participants must have clearly expressed support—e.g. phrases like "
-        "\"I agree\", \"Yes, that works\", \"Let's build X\", \"Sounds good to me\". "
-        "Otherwise return {\"product\":\"\", \"description\":\"\"}. "
+        '"I agree", "Yes, that works", "Let\'s build X", "Sounds good to me". '
+        'Otherwise return {"product":"", "description":""}. '
     )
     msgs = [
         {"role": "system", "content": sys},
-        {"role": "user", "content": "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)},
+        {
+            "role": "user",
+            "content": "\n".join(f"{h['speaker']}: {h['msg']}" for h in history),
+        },
     ]
     rsp = client.chat.completions.create(
         model=deployment, response_format={"type": "json_object"}, messages=msgs
@@ -188,7 +208,16 @@ with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
             history = []
             weights = calc_weights(emps, DIRECTIVE, "")
             speaker = pick_first_speaker(emps, weights)
-            line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description, 0, clock.stage, emp_names)
+            line = gen_agent_line(
+                speaker,
+                history,
+                DIRECTIVE,
+                company,
+                company_description,
+                0,
+                clock.stage,
+                emp_names,
+            )
             history.append(
                 {
                     "speaker": speaker["name"],
@@ -204,7 +233,16 @@ with tqdm(total=total_runs, desc="Boardroom sims") as pbar:
                 recent = "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)
                 weights = calc_weights(emps, DIRECTIVE, recent)
                 speaker = choose_next_speaker(emps, history, weights)
-                line = gen_agent_line(speaker, history, DIRECTIVE, company, company_description, counter, clock.stage, emp_names)
+                line = gen_agent_line(
+                    speaker,
+                    history,
+                    DIRECTIVE,
+                    company,
+                    company_description,
+                    counter,
+                    clock.stage,
+                    emp_names,
+                )
                 history.append(
                     {
                         "speaker": speaker["name"],

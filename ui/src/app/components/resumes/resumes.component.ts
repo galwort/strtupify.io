@@ -61,9 +61,7 @@ export class ResumesComponent implements OnInit {
     const rolesSnap = await getDocs(
       collection(db, `companies/${this.companyId}/roles`)
     );
-    this.roles = rolesSnap.docs.map(
-      (d) => ({ id: d.id, ...d.data() } as Role)
-    );
+    this.roles = rolesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Role));
 
     const empSnap = await getDocs(
       collection(db, `companies/${this.companyId}/employees`)
@@ -103,19 +101,22 @@ export class ResumesComponent implements OnInit {
   async hireEmployee() {
     if (!this.currentEmployee) return;
 
-    const role = this.roles.find(
-      (r) => r.title === this.currentEmployee.title
-    );
+    const role = this.roles.find((r) => r.title === this.currentEmployee.title);
     if (role && role.openings > 0) {
       role.openings -= 1;
-      await updateDoc(
-        doc(db, 'companies', this.companyId, 'roles', role.id),
-        { openings: role.openings }
-      );
+      await updateDoc(doc(db, 'companies', this.companyId, 'roles', role.id), {
+        openings: role.openings,
+      });
     }
 
     await updateDoc(
-      doc(db, 'companies', this.companyId, 'employees', this.currentEmployee.id),
+      doc(
+        db,
+        'companies',
+        this.companyId,
+        'employees',
+        this.currentEmployee.id
+      ),
       { hired: true }
     );
 

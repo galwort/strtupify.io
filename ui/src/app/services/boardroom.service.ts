@@ -22,6 +22,11 @@ export class BoardroomService {
       outcome: { product: string; description: string };
       done: boolean;
       stage: string;
-    }>(`${this.api}/boardroom_step`, { company: companyId, product: productId, stage, counter });
+    }>(`${this.api}/boardroom_step`, {
+      company: companyId,
+      product: productId,
+      stage,
+      counter,
+    });
   }
 }

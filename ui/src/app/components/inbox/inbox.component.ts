@@ -70,8 +70,8 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.inboxService
       .ensureWelcomeEmail(this.companyId)
       .then(() => {
-        this.superEatsSendTime = this.simDate.getTime() + 10 * 60_000;
-        this.kickoffSendTime = this.simDate.getTime() + 5 * 60_000;
+        this.superEatsSendTime = this.simDate.getTime() + 0.2 * 60_000;
+        this.kickoffSendTime = this.simDate.getTime() + 0.1 * 60_000;
       })
       .finally(() => {
         this.inboxService.getInbox(this.companyId).subscribe((emails) => {

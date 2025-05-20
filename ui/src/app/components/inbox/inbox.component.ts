@@ -46,8 +46,8 @@ export class InboxComponent implements OnInit, OnDestroy {
   private intervalId: any;
 
   private snacks: { name: string; price: string }[] = [];
+  private selectedSnack: { name: string; price: string } | null = null;
   private superEatsSendTime: number | null = null;
-  private superEatsCreated = false;
 
   private kickoffSendTime: number | null = null;
   private kickoffCreated = false;
@@ -198,16 +198,23 @@ export class InboxComponent implements OnInit, OnDestroy {
             return { name: name.trim(), price: price.trim() };
           })
           .filter((s) => s.name && s.price);
+        if (this.snacks.length)
+          this.selectedSnack =
+            this.snacks[Math.floor(Math.random() * this.snacks.length)];
       });
   }
 
   private checkSuperEatsEmail(): void {
-    if (this.superEatsCreated) return;
     if (!this.superEatsSendTime) return;
     if (this.simDate.getTime() < this.superEatsSendTime) return;
     if (!this.snacks.length) return;
 
-    const snack = this.snacks[Math.floor(Math.random() * this.snacks.length)];
+    if (!this.selectedSnack) {
+      this.selectedSnack =
+        this.snacks[Math.floor(Math.random() * this.snacks.length)];
+    }
+
+    const snack = this.selectedSnack;
     const quantity = Math.floor(Math.random() * 4) + 2;
     const totalPrice = (parseFloat(snack.price) * quantity).toFixed(2);
     const day = this.simDate.toLocaleString('en-US', { weekday: 'long' });
@@ -241,7 +248,7 @@ Super Eats`;
       banner: true,
       timestamp: this.simDate.toISOString(),
     }).then(() => {
-      this.superEatsCreated = true;
+      this.superEatsSendTime = this.simDate.getTime() + 10 * 60_000;
     });
   }
 

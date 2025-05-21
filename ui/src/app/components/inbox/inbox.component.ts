@@ -75,9 +75,9 @@ export class InboxComponent implements OnInit, OnDestroy {
       })
       .finally(() => {
         this.inboxService.getInbox(this.companyId).subscribe((emails) => {
-          this.inbox = emails;
-          if (!this.selectedEmail && emails.length)
-            this.selectedEmail = emails[0];
+          this.inbox = this.sortEmails(emails);
+          if (!this.selectedEmail && this.inbox.length)
+            this.selectedEmail = this.inbox[0];
         });
       });
   }
@@ -107,8 +107,8 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.inboxService
       .getInbox(this.companyId, this.showDeleted)
       .subscribe((emails) => {
-        this.inbox = emails.filter(
-          (email) => email.deleted === this.showDeleted
+        this.inbox = this.sortEmails(
+          emails.filter((email) => email.deleted === this.showDeleted)
         );
         this.selectedEmail = null;
       });
@@ -127,11 +127,20 @@ export class InboxComponent implements OnInit, OnDestroy {
         if (this.selectedEmail) {
           this.selectedEmail.deleted = newDeletedState;
         }
-        this.inbox = this.inbox.filter(
-          (email) => email.deleted === this.showDeleted
+        this.inbox = this.sortEmails(
+          this.inbox.filter((email) => email.deleted === this.showDeleted)
         );
         this.selectedEmail = null;
       });
+  }
+
+  private sortEmails(emails: Email[]): Email[] {
+    return emails
+      .slice()
+      .sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
   }
 
   private async loadClockState(): Promise<void> {

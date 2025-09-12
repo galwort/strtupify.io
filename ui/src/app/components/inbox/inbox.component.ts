@@ -48,6 +48,9 @@ export class InboxComponent implements OnInit, OnDestroy {
   private snacks: { name: string; price: string }[] = [];
   private selectedSnack: { name: string; price: string } | null = null;
   private superEatsSendTime: number | null = null;
+  private superEatsTemplate:
+    | { from: string; banner: boolean; body: string }
+    | null = null;
 
   private kickoffSendTime: number | null = null;
   private kickoffCreated = false;
@@ -66,6 +69,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     await this.loadClockState();
     this.startClock();
     this.loadSnacks();
+    this.loadSuperEatsTemplate();
 
     this.inboxService
       .ensureWelcomeEmail(this.companyId)
@@ -237,28 +241,88 @@ export class InboxComponent implements OnInit, OnDestroy {
         ? 'evening'
         : 'night';
     const subject = `Your ${day} ${timeOfDay} order from Super Eats`;
-    const message = `Thank you for ordering with Super Eats!
-
-Order summary
-${snack.name} (x${quantity}): $${snack.price} each
-
-Subtotal: $${totalPrice}
-Total: $${totalPrice}
-
-We hope you enjoy your meal!
-
-Super Eats`;
+    let from = 'noreply@supereats.com';
+    let banner = true;
+    let message = '';
+    // If a Markdown template was loaded, use it; else fallback to default
+    if ((this as any).superEatsTemplate) {
+      const tpl = (this as any).superEatsTemplate as {
+        from: string;
+        banner: boolean;
+        body: string;
+      };
+      from = tpl.from || from;
+      banner = tpl.banner;
+      message = tpl.body
+        .replace(/\{SNACK_NAME\}/g, snack.name)
+        .replace(/\{QUANTITY\}/g, String(quantity))
+        .replace(/\{SNACK_PRICE\}/g, snack.price)
+        .replace(/\{TOTAL_PRICE\}/g, totalPrice);
+    } else {
+      message = `Thank you for ordering with Super Eats!\n\nOrder summary\n${snack.name} (x${quantity}): $${snack.price} each\n\nSubtotal: $${totalPrice}\nTotal: $${totalPrice}\n\nWe hope you enjoy your meal!\n\nSuper Eats`;
+    }
     const emailId = `supereats-${Date.now()}`;
     setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
-      from: 'noreply@supereats.com',
+      from,
       subject,
       message,
       deleted: false,
-      banner: true,
+      banner,
       timestamp: this.simDate.toISOString(),
     }).then(() => {
       this.superEatsSendTime = this.simDate.getTime() + 10 * 60_000;
     });
+  }
+
+  private loadSuperEatsTemplate(): void {
+    this.http
+      .get('emails/supereats.md', { responseType: 'text' })
+      .subscribe({
+        next: (text) => {
+          const parsed = this.parseMarkdownEmail(text);
+          this.superEatsTemplate = {
+            from: parsed.from || 'noreply@supereats.com',
+            banner: parsed.banner ?? true,
+            body: parsed.body,
+          };
+        },
+        error: () => {
+          // Ignore; will fall back to default string
+        },
+      });
+  }
+
+  private parseMarkdownEmail(text: string): {
+    from?: string;
+    subject?: string;
+    banner?: boolean;
+    deleted?: boolean;
+    body: string;
+  } {
+    const lines = text.split(/\r?\n/);
+    let i = 0;
+    const meta: any = {};
+    while (i < lines.length) {
+      const line = lines[i].trim();
+      if (!line) {
+        i++;
+        break;
+      }
+      const idx = line.indexOf(':');
+      if (idx > -1) {
+        const key = line.slice(0, idx).trim().toLowerCase();
+        const value = line.slice(idx + 1).trim();
+        if (key === 'from') meta.from = value;
+        else if (key === 'subject') meta.subject = value;
+        else if (key === 'banner') meta.banner = /^true$/i.test(value);
+        else if (key === 'deleted') meta.deleted = /^true$/i.test(value);
+      } else {
+        break;
+      }
+      i++;
+    }
+    const body = lines.slice(i).join('\n').trim();
+    return { ...meta, body };
   }
 
   private checkKickoffEmail(): void {

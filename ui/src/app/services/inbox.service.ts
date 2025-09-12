@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { initializeApp } from 'firebase/app';
 import {
   getFirestore,
@@ -29,40 +30,38 @@ export interface Email {
 
 @Injectable({ providedIn: 'root' })
 export class InboxService {
+  constructor(private http: HttpClient) {}
+
   ensureWelcomeEmail(companyId: string): Promise<void> {
     const welcomeRef = doc(db, `companies/${companyId}/inbox/welcome-vlad`);
     return getDoc(welcomeRef).then((snapshot) => {
       if (snapshot.exists()) {
         return;
       }
-      const message = `Hello End User,
-
-This is Vlad from IT Support at startupify.io. I've been asked to reach out to you to explain how to use your new inbox application. If you've used a computer, you should know how to email, but in case you don't, let me walk you through it...
-
-On the left side of your screen you should see a list of emails... those are your emails. You can click them to see what your email says on the preview pane on the right...
-
-If you want to reply to that email, we have added that feature in as well. You can click the reply icon on the top bar to reply to an email. If you are unsure of what the reply icon looks like, I have added in a feature of REPLY spelled out next to it. This was the most reported issue by end users last year... When you reply to a message, the person that you are replying to will see the email in their own inbox, where they also have the ability to reply if their inbox has that feature built out. You are not able to see other people's inboxes. This was a confusing issue for end users as well...
-
-If you want to delete an email there is a garbage can icon listed next to the reply feature. It also lists out the word DELETE in case that is confusing. When you click the delete icon, it deletes the email...
-
-If you want to see your deleted emails you can click the archive icon, which has the word ARCHIVE spelled out next to it...
-
-Our leadership team at startupify.io wanted to add a clock feature to the application, so that has been added in the bottom right of the screen. If you are using a computer to access this inbox, which would be the only way to access this inbox, you should also see a clock somewhere on your screen. Leadership insisted that we needed a clock to compete with the computer companies. Let me know if you need a walkthrough of how a clock works...
-
-I am very good at programming, so you should not see any errors with anything, like the clock moving faster than it should. But if you experience an error, the standard operating protocol procedure is to send me an email. I am very busy and have a large backlog of features that leadership wants added, so I might not get to your email immediately...
-
-Thank you!
-Vlad
-IT Support
-strtupify.io`;
-      const timestamp = new Date().toISOString();
-      return setDoc(welcomeRef, {
-        from: 'vlad@strtupify.io',
-        subject: 'How to email',
-        message,
-        deleted: false,
-        banner: false,
-        timestamp,
+      // Load from Markdown in /emails (copied from src/app/emails)
+      return new Promise<void>((resolve, reject) => {
+        this.http
+          .get('emails/welcome-vlad.md', { responseType: 'text' })
+          .subscribe({
+            next: async (text) => {
+              const parsed = this.parseMarkdownEmail(text);
+              const timestamp = new Date().toISOString();
+              try {
+                await setDoc(welcomeRef, {
+                  from: parsed.from || 'vlad@strtupify.io',
+                  subject: parsed.subject || 'How to email',
+                  message: parsed.body,
+                  deleted: parsed.deleted ?? false,
+                  banner: parsed.banner ?? false,
+                  timestamp,
+                });
+                resolve();
+              } catch (e) {
+                reject(e);
+              }
+            },
+            error: (err) => reject(err),
+          });
       });
     });
   }
@@ -112,5 +111,40 @@ strtupify.io`;
       { deleted: false },
       { merge: true }
     );
+  }
+
+  private parseMarkdownEmail(text: string): {
+    from?: string;
+    subject?: string;
+    banner?: boolean;
+    deleted?: boolean;
+    body: string;
+  } {
+    const lines = text.split(/\r?\n/);
+    let i = 0;
+    const meta: any = {};
+    // Parse simple header until blank line
+    while (i < lines.length) {
+      const line = lines[i].trim();
+      if (!line) {
+        i++;
+        break;
+      }
+      const idx = line.indexOf(':');
+      if (idx > -1) {
+        const key = line.slice(0, idx).trim().toLowerCase();
+        const value = line.slice(idx + 1).trim();
+        if (key === 'from') meta.from = value;
+        else if (key === 'subject') meta.subject = value;
+        else if (key === 'banner') meta.banner = /^true$/i.test(value);
+        else if (key === 'deleted') meta.deleted = /^true$/i.test(value);
+      } else {
+        // If no colon, treat as start of body
+        break;
+      }
+      i++;
+    }
+    const body = lines.slice(i).join('\n').trim();
+    return { ...meta, body };
   }
 }

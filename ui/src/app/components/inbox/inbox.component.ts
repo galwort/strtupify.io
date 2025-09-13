@@ -74,7 +74,6 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.inboxService
       .ensureWelcomeEmail(this.companyId)
       .then(() => {
-        this.superEatsSendTime = this.simDate.getTime() + 10 * 60_000;
         this.kickoffSendTime = this.simDate.getTime() + 5 * 60_000;
       })
       .finally(() => {
@@ -151,13 +150,27 @@ export class InboxComponent implements OnInit, OnDestroy {
     const ref = doc(db, `companies/${this.companyId}`);
     const snap = await getDoc(ref);
     if (snap.exists()) {
-      const data = snap.data() as { simTime?: number; speed?: number };
+      const data = snap.data() as {
+        simTime?: number;
+        speed?: number;
+        superEatsNextAt?: number;
+      };
       if (data.simTime !== undefined) this.simDate = new Date(data.simTime);
       if (data.speed !== undefined) this.speed = data.speed;
+      if (data.superEatsNextAt !== undefined) {
+        this.superEatsSendTime = data.superEatsNextAt;
+      } else {
+        const firstAt = this.computeFirstDaySuperEats(this.simDate);
+        this.superEatsSendTime = firstAt.getTime();
+        await updateDoc(ref, { superEatsNextAt: this.superEatsSendTime });
+      }
     } else {
+      const firstAt = this.computeFirstDaySuperEats(this.simDate);
+      this.superEatsSendTime = firstAt.getTime();
       await setDoc(ref, {
         simTime: this.simDate.getTime(),
         speed: this.speed,
+        superEatsNextAt: this.superEatsSendTime,
       });
     }
     this.updateDisplay();
@@ -269,8 +282,12 @@ export class InboxComponent implements OnInit, OnDestroy {
       deleted: false,
       banner,
       timestamp: this.simDate.toISOString(),
-    }).then(() => {
-      this.superEatsSendTime = this.simDate.getTime() + 10 * 60_000;
+    }).then(async () => {
+      // After sending, schedule the next Super Eats email and persist it
+      const nextAt = this.computeNextSuperEats(this.simDate);
+      this.superEatsSendTime = nextAt.getTime();
+      const ref = doc(db, `companies/${this.companyId}`);
+      await updateDoc(ref, { superEatsNextAt: this.superEatsSendTime });
     });
   }
 
@@ -323,6 +340,81 @@ export class InboxComponent implements OnInit, OnDestroy {
     }
     const body = lines.slice(i).join('\n').trim();
     return { ...meta, body };
+  }
+
+  // --- Super Eats scheduling helpers ---
+  private readonly businessStartHour = 10; // 10:00
+  private readonly businessEndHour = 20; // 20:00 (exclusive)
+  private readonly nextMinDays = 1.5; // min gap 1.5 days
+  private readonly nextMaxDays = 3.5; // max gap 3.5 days
+
+  private startOfDay(d: Date): Date {
+    const x = new Date(d.getTime());
+    x.setHours(0, 0, 0, 0);
+    return x;
+  }
+
+  private randomInt(minInclusive: number, maxInclusive: number): number {
+    return Math.floor(Math.random() * (maxInclusive - minInclusive + 1)) + minInclusive;
+  }
+
+  private computeFirstDaySuperEats(now: Date): Date {
+    // Schedule first send within current sim day business hours.
+    // If after business hours, move to next day window.
+    const d = new Date(now.getTime());
+    const hr = d.getHours();
+    const min = d.getMinutes();
+
+    const windowStart = new Date(this.startOfDay(d).getTime());
+    windowStart.setHours(this.businessStartHour, 0, 0, 0);
+    const windowEnd = new Date(this.startOfDay(d).getTime());
+    windowEnd.setHours(this.businessEndHour, 0, 0, 0);
+
+    const pickRandomInWindow = (baseDay: Date): Date => {
+      const totalMinutes = (this.businessEndHour - this.businessStartHour) * 60 - 1; // inclusive end minute
+      const offset = this.randomInt(0, totalMinutes);
+      const h = this.businessStartHour + Math.floor(offset / 60);
+      const m = offset % 60;
+      const t = new Date(baseDay.getTime());
+      t.setHours(h, m, 0, 0);
+      return t;
+    };
+
+    if (d < windowStart) {
+      return pickRandomInWindow(windowStart);
+    }
+    if (d >= windowEnd) {
+      const nextDay = new Date(windowStart.getTime() + 24 * 60 * 60 * 1000);
+      return pickRandomInWindow(nextDay);
+    }
+    // Within window: pick a random minute later today; if no time left, move to tomorrow
+    const minutesNow = hr * 60 + min;
+    const startMin = this.businessStartHour * 60;
+    const endMin = this.businessEndHour * 60 - 1;
+    if (minutesNow >= endMin) {
+      const nextDay = new Date(windowStart.getTime() + 24 * 60 * 60 * 1000);
+      return pickRandomInWindow(nextDay);
+    }
+    const offsetMin = this.randomInt(Math.max(minutesNow + 1, startMin), endMin) - startMin;
+    const h = this.businessStartHour + Math.floor(offsetMin / 60);
+    const m = offsetMin % 60;
+    const t = new Date(windowStart.getTime());
+    t.setHours(h, m, 0, 0);
+    return t;
+  }
+
+  private computeNextSuperEats(after: Date): Date {
+    // Draw a random gap between 1.5 and 3.5 days
+    const deltaDays = this.nextMinDays + Math.random() * (this.nextMaxDays - this.nextMinDays);
+    const base = new Date(after.getTime() + deltaDays * 24 * 60 * 60 * 1000);
+    // Choose a random time-of-day within business hours
+    const totalMinutes = (this.businessEndHour - this.businessStartHour) * 60 - 1;
+    const offset = this.randomInt(0, totalMinutes);
+    const h = this.businessStartHour + Math.floor(offset / 60);
+    const m = offset % 60;
+    const d = this.startOfDay(base);
+    d.setHours(h, m, 0, 0);
+    return d;
   }
 
   private checkKickoffEmail(): void {

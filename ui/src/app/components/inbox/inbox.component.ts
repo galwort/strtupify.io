@@ -18,6 +18,7 @@ const fbApp = getApps().length
   : initializeApp(environment.firebase);
 const db = getFirestore(fbApp);
 const kickoffUrl = 'https://fa-strtupifyio.azurewebsites.net/api/kickoff_email';
+const momUrl = 'https://fa-strtupifyio.azurewebsites.net/api/mom_email';
 
 @Component({
   selector: 'app-inbox',
@@ -54,6 +55,8 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   private kickoffSendTime: number | null = null;
   private kickoffCreated = false;
+  private momSendTime: number | null = null;
+  private momCreated = false;
 
   showDeleted = false;
 
@@ -154,6 +157,8 @@ export class InboxComponent implements OnInit, OnDestroy {
         simTime?: number;
         speed?: number;
         superEatsNextAt?: number;
+        momEmailAt?: number;
+        momEmailSent?: boolean;
       };
       if (data.simTime !== undefined) this.simDate = new Date(data.simTime);
       if (data.speed !== undefined) this.speed = data.speed;
@@ -164,13 +169,40 @@ export class InboxComponent implements OnInit, OnDestroy {
         this.superEatsSendTime = firstAt.getTime();
         await updateDoc(ref, { superEatsNextAt: this.superEatsSendTime });
       }
+
+      if (data.momEmailSent) {
+        this.momSendTime = null;
+      } else if (data.momEmailAt !== undefined) {
+        this.momSendTime = data.momEmailAt;
+      } else {
+        const { start, end } = this.computeDay2Window(this.simDate);
+        const totalMinutes = (this.businessEndHour - this.businessStartHour) * 60 - 1;
+        const offset = this.randomInt(0, totalMinutes);
+        const h = this.businessStartHour + Math.floor(offset / 60);
+        const m = offset % 60;
+        const at = new Date(start.getTime());
+        at.setHours(h, m, 0, 0);
+        this.momSendTime = at.getTime();
+        await updateDoc(ref, { momEmailAt: this.momSendTime });
+      }
     } else {
       const firstAt = this.computeFirstDaySuperEats(this.simDate);
       this.superEatsSendTime = firstAt.getTime();
+      const { start } = this.computeDay2Window(this.simDate);
+      const totalMinutes = (this.businessEndHour - this.businessStartHour) * 60 - 1;
+      const offset = this.randomInt(0, totalMinutes);
+      const h = this.businessStartHour + Math.floor(offset / 60);
+      const m = offset % 60;
+      const momAt = new Date(start.getTime());
+      momAt.setHours(h, m, 0, 0);
+      this.momSendTime = momAt.getTime();
+
       await setDoc(ref, {
         simTime: this.simDate.getTime(),
         speed: this.speed,
         superEatsNextAt: this.superEatsSendTime,
+        momEmailAt: this.momSendTime,
+        momEmailSent: false,
       });
     }
     this.updateDisplay();
@@ -193,6 +225,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.updateDisplay();
       this.checkSuperEatsEmail();
       this.checkKickoffEmail();
+      this.checkMomEmail();
 
       this.elapsedSinceSave += this.tickMs;
       if (this.elapsedSinceSave >= this.saveEveryMs) {
@@ -282,6 +315,16 @@ export class InboxComponent implements OnInit, OnDestroy {
       const ref = doc(db, `companies/${this.companyId}`);
       await updateDoc(ref, { superEatsNextAt: this.superEatsSendTime });
     });
+  }
+
+  private computeDay2Window(now: Date): { start: Date; end: Date } {
+    const d0 = new Date(now.getTime());
+    d0.setHours(0, 0, 0, 0);
+    const start = new Date(d0.getTime() + 24 * 60 * 60 * 1000);
+    start.setHours(this.businessStartHour, 0, 0, 0);
+    const end = new Date(d0.getTime() + 24 * 60 * 60 * 1000);
+    end.setHours(this.businessEndHour, 0, 0, 0);
+    return { start, end };
   }
 
   private loadSuperEatsTemplate(): void {
@@ -427,6 +470,38 @@ export class InboxComponent implements OnInit, OnDestroy {
         },
         error: () => {
           this.kickoffCreated = false;
+        },
+      });
+  }
+
+  private checkMomEmail(): void {
+    if (this.momCreated) return;
+    if (!this.momSendTime) return;
+    if (this.simDate.getTime() < this.momSendTime) return;
+
+    this.momCreated = true;
+    const snackName = this.selectedSnack?.name || '';
+    this.http
+      .post<any>(momUrl, { name: this.companyId, snack: snackName })
+      .subscribe({
+        next: (email) => {
+          const emailId = `mom-${Date.now()}`;
+          setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+            from: email.from,
+            subject: email.subject,
+            message: email.body,
+            deleted: false,
+            banner: false,
+            timestamp: this.simDate.toISOString(),
+          }).then(async () => {
+            const ref = doc(db, `companies/${this.companyId}`);
+            await updateDoc(ref, { momEmailSent: true });
+          }).catch(() => {
+            this.momCreated = false;
+          });
+        },
+        error: () => {
+          this.momCreated = false;
         },
       });
   }

@@ -61,12 +61,14 @@ def gen_mom_email(
     from_address = "mom@altavista.net"
 
     system_message = (
-        "You are the user's mother writing a brief email to them on day 2 of their new startup. "
-        "Your tone is superficially kind but slightly condescending and 'worried'. "
+        "You are the user's mother writing a brief email to them checking in. "
+        "Your tone is superficially kind and highly condescending and worried,"
+        "though you aren't going to specifically say that you are worried. "
         "Avoid formal salutations like 'Dear [Name]'; write casually. "
-        "Keep it short: 3-6 sentences. "
-        "Mention the startup idea briefly using the provided context. "
-        "Also include a gentle jab about stress eating, referencing the provided snack."
+        "Keep it short: 2-4 sentences. "
+        "Mention the startup idea briefly using the provided context, "
+        "and shortly why it doesn't make sense or work. "
+        "Also include a jab about stress eating, referencing the provided snack."
     )
 
     context = (
@@ -78,7 +80,7 @@ def gen_mom_email(
 
     user_message = (
         "Write an email JSON object of the form: "
-        "{\"email\": {\"subject\": string, \"body\": string}, \"error\": string}. "
+        '{"email": {"subject": string, "body": string}, "error": string}. '
         "Set error to an empty string on success. "
         "The subject should sound like a concerned parent (e.g., 'Just checking in')."
     )
@@ -132,4 +134,3 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         )
     else:
         return func.HttpResponse(dumps(mom_email), mimetype="application/json")
-

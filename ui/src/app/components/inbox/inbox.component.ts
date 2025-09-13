@@ -49,7 +49,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   private selectedSnack: { name: string; price: string } | null = null;
   private superEatsSendTime: number | null = null;
   private superEatsTemplate:
-    | { from: string; banner: boolean; body: string }
+    | { from?: string; banner?: boolean; body: string }
     | null = null;
 
   private kickoffSendTime: number | null = null;
@@ -254,26 +254,20 @@ export class InboxComponent implements OnInit, OnDestroy {
         ? 'evening'
         : 'night';
     const subject = `Your ${day} ${timeOfDay} order from Super Eats`;
-    let from = 'noreply@supereats.com';
-    let banner = true;
-    let message = '';
-    // If a Markdown template was loaded, use it; else fallback to default
-    if ((this as any).superEatsTemplate) {
-      const tpl = (this as any).superEatsTemplate as {
-        from: string;
-        banner: boolean;
-        body: string;
-      };
-      from = tpl.from || from;
-      banner = tpl.banner;
-      message = tpl.body
-        .replace(/\{SNACK_NAME\}/g, snack.name)
-        .replace(/\{QUANTITY\}/g, String(quantity))
-        .replace(/\{SNACK_PRICE\}/g, snack.price)
-        .replace(/\{TOTAL_PRICE\}/g, totalPrice);
-    } else {
-      message = `Thank you for ordering with Super Eats!\n\nOrder summary\n${snack.name} (x${quantity}): $${snack.price} each\n\nSubtotal: $${totalPrice}\nTotal: $${totalPrice}\n\nWe hope you enjoy your meal!\n\nSuper Eats`;
-    }
+    if (!(this as any).superEatsTemplate) return;
+    const tpl = (this as any).superEatsTemplate as {
+      from?: string;
+      banner?: boolean;
+      body: string;
+    };
+    if (!tpl.from || tpl.banner === undefined) return;
+    const from = tpl.from;
+    const banner = tpl.banner;
+    const message = tpl.body
+      .replace(/\{SNACK_NAME\}/g, snack.name)
+      .replace(/\{QUANTITY\}/g, String(quantity))
+      .replace(/\{SNACK_PRICE\}/g, snack.price)
+      .replace(/\{TOTAL_PRICE\}/g, totalPrice);
     const emailId = `supereats-${Date.now()}`;
     setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
       from,
@@ -283,7 +277,6 @@ export class InboxComponent implements OnInit, OnDestroy {
       banner,
       timestamp: this.simDate.toISOString(),
     }).then(async () => {
-      // After sending, schedule the next Super Eats email and persist it
       const nextAt = this.computeNextSuperEats(this.simDate);
       this.superEatsSendTime = nextAt.getTime();
       const ref = doc(db, `companies/${this.companyId}`);
@@ -298,14 +291,12 @@ export class InboxComponent implements OnInit, OnDestroy {
         next: (text) => {
           const parsed = this.parseMarkdownEmail(text);
           this.superEatsTemplate = {
-            from: parsed.from || 'noreply@supereats.com',
-            banner: parsed.banner ?? true,
+            from: parsed.from,
+            banner: parsed.banner,
             body: parsed.body,
           };
         },
-        error: () => {
-          // Ignore; will fall back to default string
-        },
+        error: () => {},
       });
   }
 
@@ -342,11 +333,10 @@ export class InboxComponent implements OnInit, OnDestroy {
     return { ...meta, body };
   }
 
-  // --- Super Eats scheduling helpers ---
-  private readonly businessStartHour = 10; // 10:00
-  private readonly businessEndHour = 20; // 20:00 (exclusive)
-  private readonly nextMinDays = 1.5; // min gap 1.5 days
-  private readonly nextMaxDays = 3.5; // max gap 3.5 days
+  private readonly businessStartHour = 10;
+  private readonly businessEndHour = 20;
+  private readonly nextMinDays = 1.5;
+  private readonly nextMaxDays = 3.5;
 
   private startOfDay(d: Date): Date {
     const x = new Date(d.getTime());
@@ -359,8 +349,6 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   private computeFirstDaySuperEats(now: Date): Date {
-    // Schedule first send within current sim day business hours.
-    // If after business hours, move to next day window.
     const d = new Date(now.getTime());
     const hr = d.getHours();
     const min = d.getMinutes();
@@ -371,7 +359,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     windowEnd.setHours(this.businessEndHour, 0, 0, 0);
 
     const pickRandomInWindow = (baseDay: Date): Date => {
-      const totalMinutes = (this.businessEndHour - this.businessStartHour) * 60 - 1; // inclusive end minute
+      const totalMinutes = (this.businessEndHour - this.businessStartHour) * 60 - 1;
       const offset = this.randomInt(0, totalMinutes);
       const h = this.businessStartHour + Math.floor(offset / 60);
       const m = offset % 60;
@@ -387,7 +375,6 @@ export class InboxComponent implements OnInit, OnDestroy {
       const nextDay = new Date(windowStart.getTime() + 24 * 60 * 60 * 1000);
       return pickRandomInWindow(nextDay);
     }
-    // Within window: pick a random minute later today; if no time left, move to tomorrow
     const minutesNow = hr * 60 + min;
     const startMin = this.businessStartHour * 60;
     const endMin = this.businessEndHour * 60 - 1;
@@ -404,10 +391,8 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   private computeNextSuperEats(after: Date): Date {
-    // Draw a random gap between 1.5 and 3.5 days
     const deltaDays = this.nextMinDays + Math.random() * (this.nextMaxDays - this.nextMinDays);
     const base = new Date(after.getTime() + deltaDays * 24 * 60 * 60 * 1000);
-    // Choose a random time-of-day within business hours
     const totalMinutes = (this.businessEndHour - this.businessStartHour) * 60 - 1;
     const offset = this.randomInt(0, totalMinutes);
     const h = this.businessStartHour + Math.floor(offset / 60);

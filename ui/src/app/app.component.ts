@@ -40,7 +40,6 @@ export class AppComponent {
           return true;
         }
       }
-      // Fallback: first enabled button that is not obviously a secondary action
       const anyBtn = root.querySelector(
         'button:not([disabled]):not(.google-btn):not(.secondary)'
       ) as HTMLElement | null;
@@ -55,7 +54,6 @@ export class AppComponent {
 
     if (form) {
       if (clickButton(form)) return;
-      // Fall back to submitting the form to trigger (ngSubmit)
       event.preventDefault();
       event.stopPropagation();
       const f: any = form as any;
@@ -67,7 +65,6 @@ export class AppComponent {
       return;
     }
 
-    // No form found; try within the active page/content
     const scope = (document.querySelector('.ion-page.ion-page-invisible ~ .ion-page, .ion-page:not(.ion-page-hidden)') ||
       document.querySelector('ion-content') ||
       document.body) as ParentNode | null;

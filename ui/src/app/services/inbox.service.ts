@@ -38,7 +38,6 @@ export class InboxService {
       if (snapshot.exists()) {
         return;
       }
-      // Load from Markdown in /emails (copied from src/app/emails)
       return new Promise<void>((resolve, reject) => {
         this.http
           .get('emails/welcome-vlad.md', { responseType: 'text' })
@@ -48,8 +47,8 @@ export class InboxService {
               const timestamp = new Date().toISOString();
               try {
                 await setDoc(welcomeRef, {
-                  from: parsed.from || 'vlad@strtupify.io',
-                  subject: parsed.subject || 'How to email',
+                  from: parsed.from,
+                  subject: parsed.subject,
                   message: parsed.body,
                   deleted: parsed.deleted ?? false,
                   banner: parsed.banner ?? false,
@@ -123,7 +122,6 @@ export class InboxService {
     const lines = text.split(/\r?\n/);
     let i = 0;
     const meta: any = {};
-    // Parse simple header until blank line
     while (i < lines.length) {
       const line = lines[i].trim();
       if (!line) {
@@ -139,7 +137,6 @@ export class InboxService {
         else if (key === 'banner') meta.banner = /^true$/i.test(value);
         else if (key === 'deleted') meta.deleted = /^true$/i.test(value);
       } else {
-        // If no colon, treat as start of body
         break;
       }
       i++;

@@ -7,6 +7,7 @@
       <div
         *ngFor="let company of companies"
         class="company-card"
+        [class.deleting]="company.id === deletingId"
         [routerLink]="['/company', company.id]"
       >
         <div class="card-grid">
@@ -17,6 +18,7 @@
         </div>
         <ion-icon
           class="delete-icon"
+          [class.spinning]="company.id === deletingId"
           name="close"
           (click)="onDelete($event, company.id)"
         ></ion-icon>
@@ -29,4 +31,9 @@
       <ion-icon name="add"></ion-icon>
     </ion-fab-button>
   </ion-fab>
+
+  <app-loading
+    [totalTasks]="deleteTotal"
+    [completedTasks]="deleteDone"
+  ></app-loading>
 </ion-content>

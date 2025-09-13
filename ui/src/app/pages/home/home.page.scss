@@ -83,6 +83,29 @@
   opacity: 1;
 }
 
+.delete-icon:hover {
+  transform: scale(1.15) rotate(-10deg);
+  transition: transform 0.15s ease;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.delete-icon.spinning {
+  animation: spin 0.9s linear infinite;
+}
+
+.company-card.deleting {
+  outline: 2px dashed var(--theme-primary);
+  outline-offset: 2px;
+}
+
 ion-fab {
   position: fixed;
   bottom: 20px;

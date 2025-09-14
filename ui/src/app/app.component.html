@@ -5,6 +5,24 @@
         <a class="logo" [routerLink]="['/home']" aria-label="Home">
           <img src="assets/favicon.svg" alt="strtupify.io" />
         </a>
+        <button
+          *ngIf="companyProfileEnabled && currentCompanyId && !showCompanyProfile"
+          type="button"
+          class="company-logo"
+          (click)="openCompanyProfile()"
+          aria-label="Company profile"
+        >
+          <span class="material-symbols-outlined"> {{ companyLogo }} </span>
+        </button>
+        <button
+          *ngIf="companyProfileEnabled && currentCompanyId && showCompanyProfile"
+          type="button"
+          class="company-logo"
+          (click)="openInbox()"
+          aria-label="Back to inbox"
+        >
+          <span class="material-symbols-outlined"> mail </span>
+        </button>
       </ion-buttons>
     </ion-toolbar>
   </div>

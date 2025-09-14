@@ -1,5 +1,9 @@
 import { Component, HostListener } from '@angular/core';
 import { Router } from '@angular/router';
+import { initializeApp } from 'firebase/app';
+import { getFirestore, doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { UiStateService } from './services/ui-state.service';
+import { environment } from '../environments/environment';
 
 @Component({
   selector: 'app-root',
@@ -9,12 +13,21 @@ import { Router } from '@angular/router';
 })
 export class AppComponent {
   hideMenu: boolean = false;
+  currentCompanyId: string | null = null;
+  companyLogo: string = '';
+  companyProfileEnabled = false;
+  showCompanyProfile = false;
 
-  constructor(private router: Router) {
+  private fbApp = initializeApp(environment.firebase);
+  private db = getFirestore(this.fbApp);
+
+  constructor(private router: Router, private ui: UiStateService) {
     this.router.events.subscribe(() => {
       this.hideMenu =
         this.router.url === '/login' || this.router.url === '/register';
+      this.updateCompanyContext();
     });
+    this.ui.showCompanyProfile$.subscribe((v) => (this.showCompanyProfile = v));
   }
 
   @HostListener('document:keydown', ['$event'])
@@ -69,5 +82,39 @@ export class AppComponent {
       document.querySelector('ion-content') ||
       document.body) as ParentNode | null;
     clickButton(scope);
+  }
+
+  // Sidebar actions
+  openCompanyProfile() {
+    this.ui.setShowCompanyProfile(true);
+  }
+
+  openInbox() {
+    this.ui.setShowCompanyProfile(false);
+  }
+
+  private async updateCompanyContext() {
+    const m = this.router.url.match(/\/company\/([^\/]+)/);
+    const companyId = m ? m[1] : null;
+    this.currentCompanyId = companyId;
+    this.companyLogo = '';
+    this.companyProfileEnabled = false;
+    if (!companyId) return;
+
+    try {
+      const snap = await getDoc(doc(this.db, 'companies', companyId));
+      const data = snap.data() as any;
+      this.companyLogo = data?.logo || '';
+
+      const prodSnap = await getDocs(
+        query(
+          collection(this.db, `companies/${companyId}/products`),
+          where('accepted', '==', true)
+        )
+      );
+      this.companyProfileEnabled = !prodSnap.empty;
+    } catch (e) {
+      // ignore
+    }
   }
 }

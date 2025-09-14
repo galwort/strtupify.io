@@ -13,6 +13,7 @@ import { LoadingComponent } from 'src/app/components/loading/loading.component';
 import { ResumesComponent } from 'src/app/components/resumes/resumes.component';
 import { BoardroomComponent } from 'src/app/components/boardroom/boardroom.component';
 import { InboxComponent } from 'src/app/components/inbox/inbox.component';
+import { CompanyProfileComponent } from 'src/app/components/company-profile/company-profile.component';
 
 @NgModule({
   imports: [
@@ -25,6 +26,7 @@ import { InboxComponent } from 'src/app/components/inbox/inbox.component';
     ResumesComponent,
     BoardroomComponent,
     InboxComponent,
+    CompanyProfileComponent,
   ],
   declarations: [CompanyPage],
 })

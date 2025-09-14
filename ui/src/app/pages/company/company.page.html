@@ -23,6 +23,13 @@
       (acceptedProduct)="openInbox()"
     ></app-boardroom>
 
-    <app-inbox *ngIf="showInbox" [companyId]="companyId"></app-inbox>
+    <app-company-profile
+      *ngIf="showInbox && showCompanyProfile"
+      [companyId]="companyId"
+    ></app-company-profile>
+    <app-inbox
+      *ngIf="showInbox && !showCompanyProfile"
+      [companyId]="companyId"
+    ></app-inbox>
   </div>
 </ion-content>

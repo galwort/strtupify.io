@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
+import { UiStateService } from 'src/app/services/ui-state.service';
 import { initializeApp } from 'firebase/app';
 import {
   getFirestore,
@@ -27,8 +28,9 @@ export class CompanyPage implements OnInit {
   totalTasks = 0;
   completedTasks = 0;
   companyId = '';
+  showCompanyProfile = false;
 
-  constructor(private router: Router) {}
+  constructor(private router: Router, private ui: UiStateService) {}
 
   async ngOnInit() {
     const segments = this.router.url.split('/');
@@ -37,6 +39,10 @@ export class CompanyPage implements OnInit {
       this.showLoading = false;
       return;
     }
+
+    this.ui.showCompanyProfile$.subscribe((v) => {
+      this.showCompanyProfile = v;
+    });
 
     const acceptedSnap = await getDocs(
       query(

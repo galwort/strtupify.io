@@ -1,0 +1,37 @@
+.profile-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  color: var(--theme-text);
+  background: transparent;
+}
+
+.logo {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border: 1.5px solid var(--theme-primary);
+  border-radius: 8px;
+}
+
+.logo .material-symbols-outlined {
+  font-size: 36px;
+  color: var(--theme-primary);
+}
+
+.name {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.description {
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 0;
+}
+

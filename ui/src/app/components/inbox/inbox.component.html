@@ -73,7 +73,7 @@
           src="assets/notubereats.png"
           class="banner-img"
         />
-        <pre>{{ selectedEmail.body }}</pre>
+        <div class="email-body" [innerHTML]="renderEmailBody(selectedEmail.body)"></div>
       </div>
     </div>
   </div>

@@ -41,6 +41,58 @@ export class InboxComponent implements OnInit, OnDestroy {
     return base.startsWith('Re:') ? base : `Re: ${base}`;
   }
 
+  renderEmailBody(text: string | undefined | null): string {
+    if (!text) return '';
+    return this.simpleMarkdown(text);
+  }
+
+  private simpleMarkdown(src: string): string {
+    const escape = (s: string) =>
+      s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+    const formatInline = (s: string) => {
+      let out = escape(s);
+      // links: [text](https://...)
+      out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+      // bold: **text**
+      out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1<\/strong>');
+      // italics: *text* (do after bold)
+      out = out.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2<\/em>');
+      // inline code: `code`
+      out = out.replace(/`([^`]+)`/g, '<code>$1<\/code>');
+      return out;
+    };
+
+    const lines = src.split(/\r?\n/);
+    let html = '';
+    let inList = false;
+    for (const line of lines) {
+      const listMatch = line.match(/^\s*[-*]\s+(.+)/);
+      if (listMatch) {
+        if (!inList) {
+          html += '<ul>';
+          inList = true;
+        }
+        html += `<li>${formatInline(listMatch[1])}<\/li>`;
+        continue;
+      }
+      if (inList) {
+        html += '<\/ul>';
+        inList = false;
+      }
+      if (line.trim().length === 0) {
+        html += '<br>';
+      } else {
+        html += formatInline(line) + '<br>';
+      }
+    }
+    if (inList) html += '<\/ul>';
+    return html;
+  }
+
   displayDate = '';
   displayTime = '';
 

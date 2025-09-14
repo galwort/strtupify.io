@@ -51,7 +51,7 @@
       padding: 6px 12px;
       border-radius: 8px;
 
-      .material-icons {
+      .material-icons, .material-symbols-outlined {
         font-size: 20px;
       }
 
@@ -187,6 +187,34 @@
           color: #666;
           font-size: 12px;
           text-align: left;
+        }
+      }
+
+      .email-content {
+        .email-body {
+          white-space: normal;
+          font-size: 14px;
+          line-height: 1.6;
+        }
+        ul {
+          margin: 8px 0 8px 24px;
+          padding-left: 16px;
+          list-style-type: disc;
+        }
+        code {
+          background: #f1f5f9;
+          border: 1px solid #e2e8f0;
+          border-radius: 4px;
+          padding: 0 4px;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+          font-size: 0.95em;
+        }
+        a {
+          color: #2563eb;
+          text-decoration: none;
+        }
+        a:hover {
+          text-decoration: underline;
         }
       }
 

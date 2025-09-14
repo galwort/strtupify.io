@@ -36,6 +36,10 @@
       </button>
     </div>
 
+    <div class="no-results" *ngIf="filtered.length === 0">
+      No matching logos
+    </div>
+
     <div class="actions">
       <button type="button" class="primary" (click)="saveIcon()">Save</button>
       <button type="button" class="secondary" (click)="cancelPicker()">Cancel</button>

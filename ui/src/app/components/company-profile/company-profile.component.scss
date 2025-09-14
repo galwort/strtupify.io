@@ -87,6 +87,7 @@
   gap: 12px;
   padding: 12px;
   border-bottom: 1px solid #eee;
+  background: #fff;
 }
 
 .picker-header input {
@@ -94,6 +95,14 @@
   border: 1.5px solid var(--theme-primary);
   border-radius: 6px;
   padding: 6px 10px;
+  background: #fff;
+  color: var(--theme-text);
+  height: 40px;
+  box-sizing: border-box;
+}
+
+.picker-header input::placeholder {
+  color: #888;
 }
 
 .picker-header .preview {
@@ -104,6 +113,11 @@
   justify-content: center;
   border: 1.5px solid var(--theme-primary);
   border-radius: 6px;
+  background: #fff;
+}
+
+.picker-header .preview .material-symbols-outlined {
+  color: var(--theme-primary);
 }
 
 .icon-grid {
@@ -134,6 +148,7 @@
 
 .icon-tile .material-symbols-outlined {
   font-size: 28px;
+  color: var(--theme-primary);
 }
 
 .icon-tile .name {
@@ -163,4 +178,10 @@
   border: 1.5px solid #ccc;
   border-radius: 6px;
   padding: 6px 12px;
+}
+
+.no-results {
+  padding: 12px;
+  text-align: center;
+  color: #666;
 }

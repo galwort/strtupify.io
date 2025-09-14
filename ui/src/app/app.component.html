@@ -1,7 +1,11 @@
 <ion-app>
   <div *ngIf="!hideMenu" class="sidebar">
     <ion-toolbar>
-      <ion-buttons class="buttons"> </ion-buttons>
+      <ion-buttons class="buttons">
+        <a class="logo" [routerLink]="['/home']" aria-label="Home">
+          <img src="assets/favicon.svg" alt="strtupify.io" />
+        </a>
+      </ion-buttons>
     </ion-toolbar>
   </div>
   <ion-content>

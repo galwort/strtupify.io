@@ -20,6 +20,29 @@
       font-size: 30px;
       margin-bottom: 5px;
     }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 50px;
+      height: 50px;
+      margin-bottom: 8px;
+      border-radius: 6px;
+      transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+
+    .logo:hover {
+      background-color: rgba(255, 255, 255, 0.15);
+      transform: scale(1.05);
+    }
+
+    .logo img {
+      width: 28px;
+      height: 28px;
+      display: block;
+      filter: brightness(0) invert(1);
+    }
   }
 
   .devops-logo {

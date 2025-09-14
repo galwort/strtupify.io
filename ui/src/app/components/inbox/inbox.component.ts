@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
 import { InboxService, Email } from '../../services/inbox.service';
@@ -24,13 +25,21 @@ const momUrl = 'https://fa-strtupifyio.azurewebsites.net/api/mom_email';
   selector: 'app-inbox',
   templateUrl: './inbox.component.html',
   styleUrls: ['./inbox.component.scss'],
-  imports: [CommonModule, HttpClientModule],
+  imports: [CommonModule, HttpClientModule, FormsModule],
 })
 export class InboxComponent implements OnInit, OnDestroy {
   @Input() companyId = '';
 
   inbox: Email[] = [];
   selectedEmail: Email | null = null;
+
+  // Reply composer state
+  showReplyBox = false;
+  replyText = '';
+  get replySubject(): string {
+    const base = this.selectedEmail?.subject || '';
+    return base.startsWith('Re:') ? base : `Re: ${base}`;
+  }
 
   displayDate = '';
   displayTime = '';
@@ -94,6 +103,8 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   selectEmail(email: Email): void {
     this.selectedEmail = email;
+    this.showReplyBox = false;
+    this.replyText = '';
   }
 
   deleteSelected(): void {
@@ -309,6 +320,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       deleted: false,
       banner,
       timestamp: this.simDate.toISOString(),
+      threadId: emailId,
     }).then(async () => {
       const nextAt = this.computeNextSuperEats(this.simDate);
       this.superEatsSendTime = nextAt.getTime();
@@ -341,6 +353,33 @@ export class InboxComponent implements OnInit, OnDestroy {
         },
         error: () => {},
       });
+  }
+
+  openReply(): void {
+    if (!this.selectedEmail) return;
+    this.showReplyBox = true;
+    this.replyText = '';
+  }
+
+  async sendReply(): Promise<void> {
+    if (!this.selectedEmail || !this.replyText.trim()) return;
+    const baseSubject = this.selectedEmail.subject || '';
+    const subject = baseSubject.startsWith('Re:') ? baseSubject : `Re: ${baseSubject}`;
+    const threadId = (this.selectedEmail as any).threadId || this.selectedEmail.id;
+    try {
+      await this.inboxService.sendReply(this.companyId, {
+        threadId,
+        subject,
+        message: this.replyText.trim(),
+        parentId: this.selectedEmail.id,
+        from: 'You',
+        timestamp: this.simDate.toISOString(),
+      });
+      this.showReplyBox = false;
+      this.replyText = '';
+    } catch (e) {
+      console.error('Failed to send reply', e);
+    }
   }
 
   private parseMarkdownEmail(text: string): {
@@ -464,6 +503,7 @@ export class InboxComponent implements OnInit, OnDestroy {
             deleted: false,
             banner: false,
             timestamp: this.simDate.toISOString(),
+            threadId: emailId,
           }).catch(() => {
             this.kickoffCreated = false;
           });
@@ -493,6 +533,7 @@ export class InboxComponent implements OnInit, OnDestroy {
             deleted: false,
             banner: false,
             timestamp: this.simDate.toISOString(),
+            threadId: emailId,
           }).then(async () => {
             const ref = doc(db, `companies/${this.companyId}`);
             await updateDoc(ref, { momEmailSent: true });

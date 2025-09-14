@@ -26,6 +26,8 @@ export interface Email {
   deleted: boolean;
   banner: boolean;
   timestamp: string;
+  threadId?: string;
+  parentId?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -53,6 +55,7 @@ export class InboxService {
                   deleted: parsed.deleted ?? false,
                   banner: parsed.banner ?? false,
                   timestamp,
+                  threadId: 'welcome-vlad',
                 });
                 resolve();
               } catch (e) {
@@ -86,6 +89,8 @@ export class InboxService {
                 deleted: data.deleted,
                 banner: data.banner,
                 timestamp: data.timestamp || '',
+                threadId: data.threadId,
+                parentId: data.parentId,
               };
             })
             .filter((e) => includeDeleted || !e.deleted);
@@ -110,6 +115,31 @@ export class InboxService {
       { deleted: false },
       { merge: true }
     );
+  }
+
+  sendReply(
+    companyId: string,
+    opts: {
+      threadId: string;
+      subject: string;
+      message: string;
+      parentId?: string;
+      from?: string;
+      timestamp?: string; // optional override (e.g., simulated clock)
+    }
+  ): Promise<void> {
+    const emailId = `reply-${Date.now()}`;
+    const payload: any = {
+      from: opts.from || 'You',
+      subject: opts.subject,
+      message: opts.message,
+      deleted: false,
+      banner: false,
+      timestamp: opts.timestamp || new Date().toISOString(),
+      threadId: opts.threadId,
+    };
+    if (opts.parentId) payload.parentId = opts.parentId;
+    return setDoc(doc(db, `companies/${companyId}/inbox/${emailId}`), payload);
   }
 
   private parseMarkdownEmail(text: string): {

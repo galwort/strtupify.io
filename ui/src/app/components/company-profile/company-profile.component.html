@@ -1,8 +1,45 @@
 <div class="profile-container">
-  <div class="logo">
-    <span class="material-symbols-outlined"> {{ logo }} </span>
+  <div class="top-row">
+    <div class="logo">
+      <span class="material-symbols-outlined"> {{ logo }} </span>
+    </div>
+    <button class="change-btn" type="button" (click)="openPicker()">
+      <span class="material-symbols-outlined"> edit </span>
+      Change Logo
+    </button>
   </div>
   <h1 class="name">{{ name }}</h1>
   <p class="description">{{ description }}</p>
-</div>
 
+  <div class="picker" *ngIf="picking">
+    <div class="picker-header">
+      <input
+        type="text"
+        placeholder="Search Material icons…"
+        [(ngModel)]="query"
+        (ngModelChange)="onSearchChange($event)"
+      />
+      <div class="preview">
+        <span class="material-symbols-outlined"> {{ selectedIcon || query || 'help' }} </span>
+      </div>
+    </div>
+
+    <div class="icon-grid">
+      <button
+        *ngFor="let icon of filtered"
+        type="button"
+        class="icon-tile"
+        [class.selected]="icon === selectedIcon"
+        (click)="choose(icon)"
+      >
+        <span class="material-symbols-outlined"> {{ icon }} </span>
+        <div class="name">{{ icon }}</div>
+      </button>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="primary" (click)="saveIcon()">Save</button>
+      <button type="button" class="secondary" (click)="cancelPicker()">Cancel</button>
+    </div>
+  </div>
+</div>

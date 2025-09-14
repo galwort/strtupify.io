@@ -18,12 +18,13 @@
     align-items: left;
     justify-content: flex-start;
     width: 120%;
+    background-color: var(--theme-background);
     border-bottom: 1px solid #e0e0e0;
 
     .title {
       font-size: 40px;
       padding: 8px;
-      color: var(--theme-text);
+      background-color: var(--theme-background);
       margin-left: 20px;
     }
   }

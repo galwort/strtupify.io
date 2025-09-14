@@ -101,6 +101,10 @@
       flex: 1;
       padding: 16px;
       overflow-y: auto;
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      -ms-user-select: text;
+      user-select: text;
 
       h2 {
         margin: 0 0 16px 0;
@@ -118,6 +122,10 @@
         font-family: inherit;
         font-size: 14px;
         line-height: 1.6;
+        -webkit-user-select: text;
+        -moz-user-select: text;
+        -ms-user-select: text;
+        user-select: text;
       }
 
       img.banner-img {

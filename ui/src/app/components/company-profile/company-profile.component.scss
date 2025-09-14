@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 20px;
+  padding: 16px;
   color: var(--theme-text);
   background: transparent;
 }
@@ -14,18 +14,19 @@
 }
 
 .logo {
-  width: 64px;
-  height: 64px;
+  width: 120px;
+  height: 120px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: white;
-  border: 1.5px solid var(--theme-primary);
+  border: 1px solid var(--theme-primary);
   border-radius: 8px;
+  position: relative;
 }
 
 .logo .material-symbols-outlined {
-  font-size: 36px;
+  font-size: 96px;
   color: var(--theme-primary);
 }
 
@@ -41,17 +42,36 @@
   margin: 0;
 }
 
-.change-btn {
+.edit-icon {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 10px;
-  background: white;
-  border: 1.5px solid var(--theme-primary);
-  color: var(--theme-text);
-  border-radius: 6px;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--theme-primary);
   cursor: pointer;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 0.15s ease, transform 0.15s ease, color 0.15s ease;
+}
+
+.edit-icon .material-symbols-outlined {
+  font-size: 18px;
+  color: currentColor;
+}
+
+.edit-icon:hover {
+  color: var(--theme-accent);
+}
+
+.logo:hover .edit-icon {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .picker {

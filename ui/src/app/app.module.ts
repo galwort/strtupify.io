@@ -11,6 +11,7 @@ import { AngularFireAuthModule } from '@angular/fire/compat/auth';
 import { AngularFirestoreModule } from '@angular/fire/compat/firestore';
 import { environment } from '../environments/environment';
 import { HttpClientModule } from '@angular/common/http';
+import { setLogLevel } from 'firebase/firestore';
 
 @NgModule({
   declarations: [AppComponent],
@@ -26,4 +27,10 @@ import { HttpClientModule } from '@angular/common/http';
   providers: [{ provide: RouteReuseStrategy, useClass: IonicRouteStrategy }],
   bootstrap: [AppComponent],
 })
-export class AppModule {}
+export class AppModule {
+  constructor() {
+    try {
+      setLogLevel('error');
+    } catch {}
+  }
+}

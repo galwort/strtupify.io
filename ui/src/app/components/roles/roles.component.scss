@@ -26,6 +26,8 @@
 
   .role {
     margin-bottom: 20px;
+    display: flex;
+    align-items: center;
   }
 
   label {
@@ -34,15 +36,64 @@
     margin-bottom: 8px;
   }
 
+  .qty {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 12px;
+  }
+
+  .qty .step {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 1.5px solid var(--theme-primary);
+    background: white;
+    color: var(--theme-text);
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 0;
+    box-sizing: border-box;
+    margin: 0;
+    font-size: 16px;
+    line-height: 28px;
+  }
+
+  .qty .step:hover:not(:disabled) {
+    border-color: var(--theme-accent);
+  }
+
+  .qty .step:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
   input {
     background-color: white;
     border: 1.5px solid var(--theme-primary);
     border-radius: 4px;
-    font-size: 1rem;
+    font-size: 14px;
     color: var(--theme-text);
-    margin-right: 8px;
-    width: 42px;
-    padding: 4px;
+    margin-right: 0;
+    width: 48px;
+    height: 28px;
+    padding: 0 6px;
+    line-height: 28px;
+    text-align: left;
+    box-sizing: border-box;
+  }
+
+  /* Hide native spin buttons (we use custom +/-) */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
   }
 
   button {

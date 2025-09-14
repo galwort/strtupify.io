@@ -148,4 +148,36 @@ export class RolesComponent implements OnInit {
       });
     });
   }
+
+  maxTotal = 20;
+
+  onCountChange(role: { count: number }, value: any) {
+    const n = Math.floor(Number(value));
+    const safe = Number.isFinite(n) && n > 0 ? n : 0;
+    const otherTotal = this.roles.reduce((sum, r) => sum + (r === role ? 0 : Math.max(0, Math.floor(Number(r.count) || 0))), 0);
+    const allowed = Math.max(0, this.maxTotal - otherTotal);
+    role.count = Math.min(safe, allowed);
+  }
+
+  preventNonNumeric(event: KeyboardEvent) {
+    const invalidKeys = ['-', '+', 'e', 'E', '.'];
+    if (invalidKeys.includes(event.key)) {
+      event.preventDefault();
+    }
+  }
+
+  remainingFor(role: { count: number }) {
+    const otherTotal = this.roles.reduce((sum, r) => sum + (r === role ? 0 : Math.max(0, Math.floor(Number(r.count) || 0))), 0);
+    return Math.max(0, this.maxTotal - otherTotal);
+  }
+
+  step(role: { count: number }, delta: number) {
+    if (delta > 0) {
+      const allowed = this.remainingFor(role);
+      if (allowed <= 0) return;
+      role.count = Math.min((Math.floor(role.count) || 0) + 1, (Math.floor(role.count) || 0) + allowed);
+    } else if (delta < 0) {
+      role.count = Math.max(0, (Math.floor(role.count) || 0) - 1);
+    }
+  }
 }

@@ -4,7 +4,20 @@
 </div>
 <div class="content">
   <div *ngFor="let role of roles" class="role">
-    <input type="number" [(ngModel)]="role.count" />
+    <div class="qty">
+      <button class="step" type="button" (click)="step(role, -1)" [disabled]="role.count <= 0">-</button>
+      <input
+        type="number"
+        inputmode="numeric"
+        pattern="[0-9]*"
+        min="0"
+        step="1"
+        [(ngModel)]="role.count"
+        (ngModelChange)="onCountChange(role, $event)"
+        (keydown)="preventNonNumeric($event)"
+      />
+      <button class="step" type="button" (click)="step(role, 1)" [disabled]="remainingFor(role) <= 0">+</button>
+    </div>
     <label>{{ role.title }}</label>
   </div>
   <button (click)="screen()">Begin Resumé Screening</button>

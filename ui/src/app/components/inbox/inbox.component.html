@@ -17,6 +17,10 @@
       }}</span>
       <span class="label">{{ showDeleted ? "UNDELETE" : "DELETE" }}</span>
     </button>
+    <button class="filter-btn" (click)="toggleSent()">
+      <span class="material-symbols-outlined">outbox</span>
+      <span class="label">{{ showSent ? 'INBOX' : 'SENT' }}</span>
+    </button>
     <button class="filter-btn" (click)="archiveEmails()">
       <span class="material-symbols-outlined">{{
         showDeleted ? "inbox" : "archive"

@@ -33,6 +33,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   @Input() companyId = '';
 
   inbox: Email[] = [];
+  private allEmails: Email[] = [];
   selectedEmail: Email | null = null;
 
   // Reply composer state
@@ -123,6 +124,7 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   showDeleted = false;
   private meAddress = '';
+  showSent = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -146,9 +148,9 @@ export class InboxComponent implements OnInit, OnDestroy {
       })
       .finally(() => {
         this.inboxService.getInbox(this.companyId).subscribe((emails) => {
-          this.inbox = this.sortEmails(emails);
-          if (!this.selectedEmail && this.inbox.length)
-            this.selectedEmail = this.inbox[0];
+          this.allEmails = emails;
+          this.inbox = this.sortEmails(this.filteredEmails(this.allEmails));
+          if (!this.selectedEmail && this.inbox.length) this.selectedEmail = this.inbox[0];
         });
       });
   }
@@ -168,9 +170,9 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.inboxService
       .deleteEmail(this.companyId, this.selectedEmail.id)
       .then(() => {
-        this.inbox = this.inbox.filter(
-          (email) => email.id !== this.selectedEmail?.id
-        );
+        const idx = this.allEmails.findIndex((e) => e.id === this.selectedEmail?.id);
+        if (idx >= 0) this.allEmails[idx].deleted = true;
+        this.inbox = this.sortEmails(this.filteredEmails(this.allEmails));
         this.selectedEmail = null;
       });
   }
@@ -180,9 +182,8 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.inboxService
       .getInbox(this.companyId, this.showDeleted)
       .subscribe((emails) => {
-        this.inbox = this.sortEmails(
-          emails.filter((email) => email.deleted === this.showDeleted)
-        );
+        this.allEmails = emails;
+        this.inbox = this.sortEmails(this.filteredEmails(this.allEmails));
         this.selectedEmail = null;
       });
   }
@@ -197,12 +198,10 @@ export class InboxComponent implements OnInit, OnDestroy {
     updateMethod
       .call(this.inboxService, this.companyId, this.selectedEmail.id)
       .then(() => {
-        if (this.selectedEmail) {
-          this.selectedEmail.deleted = newDeletedState;
-        }
-        this.inbox = this.sortEmails(
-          this.inbox.filter((email) => email.deleted === this.showDeleted)
-        );
+        if (this.selectedEmail) this.selectedEmail.deleted = newDeletedState;
+        const idx = this.allEmails.findIndex((e) => e.id === this.selectedEmail?.id);
+        if (idx >= 0) this.allEmails[idx].deleted = newDeletedState;
+        this.inbox = this.sortEmails(this.filteredEmails(this.allEmails));
         this.selectedEmail = null;
       });
   }
@@ -384,6 +383,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       banner,
       timestamp: this.simDate.toISOString(),
       threadId: emailId,
+      to: this.meAddress,
     }).then(async () => {
       const nextAt = this.computeNextSuperEats(this.simDate);
       this.superEatsSendTime = nextAt.getTime();
@@ -424,6 +424,12 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.replyText = '';
   }
 
+  toggleSent(): void {
+    this.showSent = !this.showSent;
+    this.inbox = this.sortEmails(this.filteredEmails(this.allEmails));
+    this.selectedEmail = null;
+  }
+
   async sendReply(): Promise<void> {
     if (!this.selectedEmail || !this.replyText.trim()) return;
     const baseSubject = this.selectedEmail.subject || '';
@@ -462,6 +468,13 @@ export class InboxComponent implements OnInit, OnDestroy {
     } catch (e) {
       console.error('Failed to send reply', e);
     }
+  }
+
+  private filteredEmails(emails: Email[]): Email[] {
+    if (this.showDeleted) return emails.filter((e) => !!e.deleted);
+    const byInbox = emails.filter((e) => !e.deleted);
+    if (this.showSent) return byInbox.filter((e) => (e as any).sender === this.meAddress);
+    return byInbox.filter((e) => (e as any).sender !== this.meAddress);
   }
 
   private parseMarkdownEmail(text: string): {

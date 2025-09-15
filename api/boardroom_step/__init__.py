@@ -178,8 +178,9 @@ def gen_agent_line(
         sys += (
             "The team **must** agree on ONE specific product or service **name** "
             "(two or three words max). "
-            "If no name has been chosen yet, propose one now in quotes—"
-            "e.g. Let's call it 'PulsePath'. "
+            "If no name has been chosen yet, propose one now in quotes. "
+            "The name DOES NOT need to be clever or catchy. "
+            "The name should be similar to existing product names in the market. "
             "After a name is chosen, stop proposing new ones and focus on refining details."
         )
     if stage == "CONCLUSION":

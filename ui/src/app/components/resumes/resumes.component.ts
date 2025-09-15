@@ -50,6 +50,7 @@ export class ResumesComponent implements OnInit {
   roles: Role[] = [];
   currentIndex = 0;
   private doneEmitted = false;
+  private hiredCount = 0;
 
   constructor(private router: Router) {}
 
@@ -71,6 +72,8 @@ export class ResumesComponent implements OnInit {
       const data = d.data() as Omit<Employee, 'id' | 'skills'>;
       return { ...data, id: d.id, skills: [] as Skill[] };
     });
+
+    this.hiredCount = temp.filter((e) => e.hired).length;
 
     for (const e of temp) {
       const sSnap = await getDocs(
@@ -120,6 +123,8 @@ export class ResumesComponent implements OnInit {
       { hired: true }
     );
 
+    this.hiredCount++;
+
     this.employees.splice(this.currentIndex, 1);
     this.applyRoleFilters();
     if (this.currentIndex >= this.employees.length)
@@ -148,7 +153,8 @@ export class ResumesComponent implements OnInit {
 
   private checkComplete() {
     const stillNeeded = this.roles.some((r) => r.openings > 0);
-    if (!stillNeeded && !this.doneEmitted) {
+    const enoughHires = this.hiredCount >= 2;
+    if (!stillNeeded && enoughHires && !this.doneEmitted) {
       this.doneEmitted = true;
       this.hiringFinished.emit();
     }

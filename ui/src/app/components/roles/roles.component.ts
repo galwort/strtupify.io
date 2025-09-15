@@ -1,4 +1,5 @@
 import { Component, OnInit, Output, EventEmitter, NgZone } from '@angular/core';
+import { AlertController } from '@ionic/angular';
 import { initializeApp } from 'firebase/app';
 import {
   getFirestore,
@@ -37,11 +38,13 @@ export class RolesComponent implements OnInit {
   }>();
   roles: { id: string; title: string; count: number; skills?: string[] }[] = [];
   companyId: string = '';
+  minTotal = 2;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private zone: NgZone
+    private zone: NgZone,
+    private alertCtrl: AlertController
   ) {}
 
   async ngOnInit() {
@@ -56,6 +59,13 @@ export class RolesComponent implements OnInit {
       title: docSnap.data()['title'],
       count: 0,
     }));
+  }
+
+  get totalSelected() {
+    return this.roles.reduce(
+      (sum, r) => sum + Math.max(0, Math.floor(Number(r.count) || 0)),
+      0
+    );
   }
 
   async fetchSkills(jobTitle: string): Promise<string[]> {
@@ -73,6 +83,10 @@ export class RolesComponent implements OnInit {
 
   async screen() {
     if (!this.companyId) return;
+    if (this.totalSelected < this.minTotal) {
+      await this.presentMinAlert();
+      return;
+    }
     const filtered = this.roles.filter((r) => r.count > 0);
     let totalTasks = 0;
     for (const role of filtered) {
@@ -154,7 +168,11 @@ export class RolesComponent implements OnInit {
   onCountChange(role: { count: number }, value: any) {
     const n = Math.floor(Number(value));
     const safe = Number.isFinite(n) && n > 0 ? n : 0;
-    const otherTotal = this.roles.reduce((sum, r) => sum + (r === role ? 0 : Math.max(0, Math.floor(Number(r.count) || 0))), 0);
+    const otherTotal = this.roles.reduce(
+      (sum, r) =>
+        sum + (r === role ? 0 : Math.max(0, Math.floor(Number(r.count) || 0))),
+      0
+    );
     const allowed = Math.max(0, this.maxTotal - otherTotal);
     role.count = Math.min(safe, allowed);
   }
@@ -167,7 +185,11 @@ export class RolesComponent implements OnInit {
   }
 
   remainingFor(role: { count: number }) {
-    const otherTotal = this.roles.reduce((sum, r) => sum + (r === role ? 0 : Math.max(0, Math.floor(Number(r.count) || 0))), 0);
+    const otherTotal = this.roles.reduce(
+      (sum, r) =>
+        sum + (r === role ? 0 : Math.max(0, Math.floor(Number(r.count) || 0))),
+      0
+    );
     return Math.max(0, this.maxTotal - otherTotal);
   }
 
@@ -175,9 +197,21 @@ export class RolesComponent implements OnInit {
     if (delta > 0) {
       const allowed = this.remainingFor(role);
       if (allowed <= 0) return;
-      role.count = Math.min((Math.floor(role.count) || 0) + 1, (Math.floor(role.count) || 0) + allowed);
+      role.count = Math.min(
+        (Math.floor(role.count) || 0) + 1,
+        (Math.floor(role.count) || 0) + allowed
+      );
     } else if (delta < 0) {
       role.count = Math.max(0, (Math.floor(role.count) || 0) - 1);
     }
+  }
+
+  private async presentMinAlert() {
+    const alert = await this.alertCtrl.create({
+      header: 'More resources needed',
+      message: `Select at least ${this.minTotal} employees to continue.`,
+      buttons: ['OK'],
+    });
+    await alert.present();
   }
 }

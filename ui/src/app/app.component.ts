@@ -35,6 +35,19 @@ export class AppComponent {
     if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey)) return;
 
     const target = event.target as HTMLElement | null;
+    const replyBtn = document.querySelector('.reply-composer #send-reply-btn') as HTMLButtonElement | null;
+    if (replyBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      replyBtn.click();
+      return;
+    }
+    const inReply = target && (target.closest ? (target.closest('.reply-composer') as HTMLElement | null) : null);
+    if (inReply) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     const form = target && (target.closest ? (target.closest('form') as HTMLFormElement | null) : null);
 
     const clickButton = (root: ParentNode | null): boolean => {
@@ -54,7 +67,7 @@ export class AppComponent {
         }
       }
       const anyBtn = root.querySelector(
-        'button:not([disabled]):not(.google-btn):not(.secondary)'
+        'button:not([disabled]):not(.google-btn):not(.secondary):not(.company-logo)'
       ) as HTMLElement | null;
       if (anyBtn) {
         event.preventDefault();

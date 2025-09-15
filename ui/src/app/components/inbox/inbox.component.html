@@ -51,9 +51,10 @@
           rows="6"
           placeholder="Write your reply..."
           class="reply-textarea"
+          (keydown)="onReplyKeydown($event)"
         ></textarea>
         <div class="actions">
-          <button class="btn btn-primary" (click)="sendReply()">
+          <button class="btn btn-primary" id="send-reply-btn" (click)="sendReply()">
             <span class="material-symbols-outlined">send</span>
             <span>Send</span>
           </button>

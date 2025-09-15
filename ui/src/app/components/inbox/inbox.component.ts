@@ -424,6 +424,14 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.replyText = '';
   }
 
+  onReplyKeydown(event: KeyboardEvent): void {
+    if ((event.ctrlKey || (event as any).metaKey) && event.key === 'Enter') {
+      event.preventDefault();
+      event.stopPropagation();
+      this.sendReply();
+    }
+  }
+
   toggleSent(): void {
     this.showSent = !this.showSent;
     this.inbox = this.sortEmails(this.filteredEmails(this.allEmails));

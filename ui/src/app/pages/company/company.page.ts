@@ -53,6 +53,8 @@ export class CompanyPage implements OnInit {
     if (!acceptedSnap.empty) {
       this.showInbox = true;
       this.showLoading = false;
+      // Ensure the sidebar profile icon is available as soon as inbox is reached
+      this.ui.setCompanyProfileEnabled(true);
       return;
     }
 
@@ -91,10 +93,14 @@ export class CompanyPage implements OnInit {
     this.showLoading = false;
     this.showResumes = false;
     this.showBoardroom = true;
+    // Hide the sidebar profile icon until inbox is reached
+    this.ui.setCompanyProfileEnabled(false);
   }
 
   openInbox() {
     this.showBoardroom = false;
     this.showInbox = true;
+    // Show the sidebar profile icon immediately when inbox is opened
+    this.ui.setCompanyProfileEnabled(true);
   }
 }

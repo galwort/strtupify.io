@@ -1,4 +1,5 @@
-import { Component, HostListener } from '@angular/core';
+import { Component, HostListener, OnDestroy } from '@angular/core';
+import { ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
@@ -11,7 +12,7 @@ import { environment } from '../environments/environment';
   styleUrls: ['app.component.scss'],
   standalone: false,
 })
-export class AppComponent {
+export class AppComponent implements OnDestroy {
   hideMenu: boolean = false;
   currentCompanyId: string | null = null;
   companyLogo: string = '';
@@ -21,13 +22,29 @@ export class AppComponent {
   private fbApp = initializeApp(environment.firebase);
   private db = getFirestore(this.fbApp);
 
-  constructor(private router: Router, private ui: UiStateService) {
+  private logoChangedHandler = (e: Event) => {
+    try {
+      const ce = e as CustomEvent<string>;
+      const next = (ce && (ce as any).detail) || '';
+      if (typeof next === 'string') {
+        this.companyLogo = next;
+        this.cdr.detectChanges();
+      }
+    } catch {}
+  };
+
+  constructor(private router: Router, private ui: UiStateService, private cdr: ChangeDetectorRef) {
     this.router.events.subscribe(() => {
       this.hideMenu =
         this.router.url === '/login' || this.router.url === '/register';
       this.updateCompanyContext();
     });
     this.ui.showCompanyProfile$.subscribe((v) => (this.showCompanyProfile = v));
+    // Keep sidebar icon availability in sync with UI state service
+    this.ui.companyProfileEnabled$.subscribe((v) => (this.companyProfileEnabled = v));
+
+    // Respond immediately when company profile updates the logo
+    window.addEventListener('company-logo-changed', this.logoChangedHandler as EventListener);
   }
 
   @HostListener('document:keydown', ['$event'])
@@ -112,6 +129,7 @@ export class AppComponent {
     this.currentCompanyId = companyId;
     this.companyLogo = '';
     this.companyProfileEnabled = false;
+    this.ui.setCompanyProfileEnabled(false);
     if (!companyId) return;
 
     try {
@@ -126,8 +144,13 @@ export class AppComponent {
         )
       );
       this.companyProfileEnabled = !prodSnap.empty;
+      this.ui.setCompanyProfileEnabled(this.companyProfileEnabled);
     } catch (e) {
       // ignore
     }
+  }
+
+  ngOnDestroy(): void {
+    window.removeEventListener('company-logo-changed', this.logoChangedHandler as EventListener);
   }
 }

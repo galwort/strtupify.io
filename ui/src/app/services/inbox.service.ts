@@ -28,6 +28,8 @@ export interface Email {
   timestamp: string;
   threadId?: string;
   parentId?: string;
+  to?: string;
+  category?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -47,6 +49,18 @@ export class InboxService {
             next: async (text) => {
               const parsed = this.parseMarkdownEmail(text);
               const timestamp = new Date().toISOString();
+              let toAddr = '';
+              try {
+                const companySnap = await getDoc(doc(db, `companies/${companyId}`));
+                let domain = `${companyId}.com`;
+                if (companySnap.exists()) {
+                  const data = companySnap.data() as any;
+                  if (data && data.company_name) {
+                    domain = String(data.company_name).replace(/\s+/g, '').toLowerCase() + '.com';
+                  }
+                }
+                toAddr = `me@${domain}`;
+              } catch {}
               try {
                 await setDoc(welcomeRef, {
                   from: parsed.from,
@@ -56,6 +70,8 @@ export class InboxService {
                   banner: parsed.banner ?? false,
                   timestamp,
                   threadId: 'welcome-vlad',
+                  to: toAddr,
+                  category: 'vlad',
                 });
                 resolve();
               } catch (e) {
@@ -91,6 +107,8 @@ export class InboxService {
                 timestamp: data.timestamp || '',
                 threadId: data.threadId,
                 parentId: data.parentId,
+                to: data.to,
+                category: data.category,
               };
             })
             .filter((e) => includeDeleted || !e.deleted);
@@ -126,20 +144,24 @@ export class InboxService {
       parentId?: string;
       from?: string;
       timestamp?: string; // optional override (e.g., simulated clock)
+      to?: string;
+      category?: string;
     }
-  ): Promise<void> {
+  ): Promise<string> {
     const emailId = `reply-${Date.now()}`;
     const payload: any = {
       from: opts.from || 'You',
+      to: opts.to || '',
       subject: opts.subject,
       message: opts.message,
       deleted: false,
       banner: false,
       timestamp: opts.timestamp || new Date().toISOString(),
       threadId: opts.threadId,
+      category: opts.category || undefined,
     };
     if (opts.parentId) payload.parentId = opts.parentId;
-    return setDoc(doc(db, `companies/${companyId}/inbox/${emailId}`), payload);
+    return setDoc(doc(db, `companies/${companyId}/inbox/${emailId}`), payload).then(() => emailId);
   }
 
   private parseMarkdownEmail(text: string): {

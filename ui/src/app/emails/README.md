@@ -1,25 +1,15 @@
-Email Markdown Files
+Email templates live here as Markdown files with a simple header for metadata.
 
-Place Markdown files here to seed or template in-game emails.
+Supported metadata keys:
+- From: sender email address
+- Subject: subject line
+- Banner: true/false to show banner styling
+- Deleted: true/false initial deleted state
 
-Metadata Header (simple):
+Body text follows after a blank line. Minimal inline formatting is supported.
 
-From: sender@example.com
-Subject: Subject line
-Banner: true|false
-Deleted: true|false
-
-Follow the metadata header with a blank line, then the email body.
-
-Example:
-
-From: vlad@strtupify.io
-Subject: How to email
-Banner: false
-Deleted: false
-
-Hello End User,
-...
-
-Files in this folder are copied to the build at /emails and can be fetched via HttpClient.
+Templates:
+- welcome-vlad.md: initial onboarding email from Vlad
+- supereats.md: Super Eats order notification template
+- vlad-autoreply.md: automatic reply sent by Vlad when the user replies in the Vlad thread
 

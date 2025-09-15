@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
 import { InboxService, Email } from '../../services/inbox.service';
+import { ReplyRouterService } from '../../services/reply-router.service';
 import { initializeApp, getApps } from 'firebase/app';
 import {
   getFirestore,
@@ -25,6 +26,7 @@ const momUrl = 'https://fa-strtupifyio.azurewebsites.net/api/mom_email';
   selector: 'app-inbox',
   templateUrl: './inbox.component.html',
   styleUrls: ['./inbox.component.scss'],
+  standalone: true,
   imports: [CommonModule, HttpClientModule, FormsModule],
 })
 export class InboxComponent implements OnInit, OnDestroy {
@@ -120,11 +122,13 @@ export class InboxComponent implements OnInit, OnDestroy {
   private momCreated = false;
 
   showDeleted = false;
+  private meAddress = '';
 
   constructor(
     private route: ActivatedRoute,
     private inboxService: InboxService,
-    private http: HttpClient
+    private http: HttpClient,
+    private replyRouter: ReplyRouterService
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -248,6 +252,12 @@ export class InboxComponent implements OnInit, OnDestroy {
         this.momSendTime = at.getTime();
         await updateDoc(ref, { momEmailAt: this.momSendTime });
       }
+      const anyData = snap.data() as any;
+      let domain = `${this.companyId}.com`;
+      if (anyData && anyData.company_name) {
+        domain = String(anyData.company_name).replace(/\s+/g, '').toLowerCase() + '.com';
+      }
+      this.meAddress = `me@${domain}`;
     } else {
       const firstAt = this.computeFirstDaySuperEats(this.simDate);
       this.superEatsSendTime = firstAt.getTime();
@@ -267,6 +277,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         momEmailAt: this.momSendTime,
         momEmailSent: false,
       });
+      this.meAddress = `me@${this.companyId}.com`;
     }
     this.updateDisplay();
   }
@@ -419,12 +430,31 @@ export class InboxComponent implements OnInit, OnDestroy {
     const subject = baseSubject.startsWith('Re:') ? baseSubject : `Re: ${baseSubject}`;
     const threadId = (this.selectedEmail as any).threadId || this.selectedEmail.id;
     try {
-      await this.inboxService.sendReply(this.companyId, {
+      const to = this.selectedEmail.sender || '';
+      let category = (this.selectedEmail as any).category || '';
+      if (!category) {
+        const tid = String(threadId);
+        if (tid === 'welcome-vlad' || tid.includes('vlad')) category = 'vlad';
+        else if (tid.startsWith('kickoff-')) category = 'kickoff';
+        else if (tid.startsWith('mom-')) category = 'mom';
+        else category = 'generic';
+      }
+      const replyId = await this.inboxService.sendReply(this.companyId, {
         threadId,
         subject,
         message: this.replyText.trim(),
         parentId: this.selectedEmail.id,
-        from: 'You',
+        from: this.meAddress,
+        to,
+        category,
+        timestamp: this.simDate.toISOString(),
+      });
+      await this.replyRouter.handleReply({
+        companyId: this.companyId,
+        category,
+        threadId,
+        subject,
+        parentId: replyId,
         timestamp: this.simDate.toISOString(),
       });
       this.showReplyBox = false;
@@ -556,6 +586,8 @@ export class InboxComponent implements OnInit, OnDestroy {
             banner: false,
             timestamp: this.simDate.toISOString(),
             threadId: emailId,
+            to: this.meAddress,
+            category: 'kickoff',
           }).catch(() => {
             this.kickoffCreated = false;
           });
@@ -586,6 +618,8 @@ export class InboxComponent implements OnInit, OnDestroy {
             banner: false,
             timestamp: this.simDate.toISOString(),
             threadId: emailId,
+            to: this.meAddress,
+            category: 'mom',
           }).then(async () => {
             const ref = doc(db, `companies/${this.companyId}`);
             await updateDoc(ref, { momEmailSent: true });

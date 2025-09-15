@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 
 const fbApp = getApps().length ? getApps()[0] : initializeApp(environment.firebase);
@@ -45,11 +45,13 @@ export class ReplyRouterService {
       const meAddress = await this.getMeAddress(opts.companyId);
       const replyText = await this.getReplyBody(opts.companyId, opts.parentId || '');
       if (!replyText) return;
+      const thread = await this.getThreadItems(opts.companyId, opts.threadId);
       const res = await this.http
         .post<any>('https://fa-strtupifyio.azurewebsites.net/api/kickoff_reply', {
           name: opts.companyId,
           threadId: opts.threadId,
           reply: replyText,
+          thread,
         })
         .toPromise();
       const from = res && res.from ? res.from : 'noreply@strtupify.io';
@@ -82,6 +84,30 @@ export class ReplyRouterService {
       return data && data.message ? String(data.message) : '';
     } catch {
       return '';
+    }
+  }
+
+  private async getThreadItems(companyId: string, threadId: string): Promise<any[]> {
+    try {
+      const inboxRef = collection(db, `companies/${companyId}/inbox`);
+      const q = query(inboxRef, where('threadId', '==', threadId));
+      const snap = await getDocs(q);
+      const items = snap.docs.map((d) => {
+        const x = d.data() as any;
+        return {
+          id: d.id,
+          from: x.from || '',
+          to: x.to || '',
+          subject: x.subject || '',
+          message: x.message || '',
+          timestamp: x.timestamp || '',
+          parentId: x.parentId || '',
+        };
+      });
+      items.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      return items;
+    } catch {
+      return [];
     }
   }
 

@@ -44,6 +44,15 @@ export class InboxComponent implements OnInit, OnDestroy {
     return base.startsWith('Re:') ? base : `Re: ${base}`;
   }
 
+  get threadMessages(): Email[] {
+    if (!this.selectedEmail) return [];
+    const tid = (this.selectedEmail as any).threadId || this.selectedEmail.id;
+    const list = this.allEmails.filter((e) => ((e as any).threadId || e.id) === tid && e.id !== this.selectedEmail?.id);
+    return list
+      .slice()
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }
+
   renderEmailBody(text: string | undefined | null): string {
     if (!text) return '';
     return this.simpleMarkdown(text);

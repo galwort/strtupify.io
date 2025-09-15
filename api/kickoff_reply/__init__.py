@@ -66,7 +66,7 @@ def pull_company_info(company):
     }
 
 
-def analyze_reply(context_json, reply_text):
+def analyze_reply(context_json, reply_text, thread_json):
     system_message = (
         "You will analyze a founder's reply to a kickoff plan and produce a JSON response. "
         "Decide one of: approved, rejected, suggestions, unknown. "
@@ -74,13 +74,17 @@ def analyze_reply(context_json, reply_text):
         "suggestions means the reply proposes changes (to product or roles or plan), unknown otherwise. "
         "Generate a concise assistant reply matching the case: "
         "approved -> casual short acknowledgement, rejected -> ask what changes are needed, "
-        "suggestions -> propose a new plan incorporating the suggestions, unknown -> ask for an approval decision. "
-        "Respond as a JSON object with keys: status, assistant_reply. "
+        "suggestions -> propose a new plan incorporating the suggestions, unknown -> ask for an approval decision. ""
+        "Also include an optional 'changes' object when status is 'suggestions' with this shape: "
+        "{ 'product': { 'name': string, 'description': string }, 'roles': [ { 'title': string, 'openings': number, 'skills': string[] } ] }. "
+        "If a field is not being changed, omit it. "
+        "Respond as a JSON object with keys: status, assistant_reply, changes. "
         "Status is one of: approved, rejected, suggestions, unknown. "
         "assistant_reply is plain text suitable as an email body."
     )
     user_message = (
         "Context JSON with current plan and team: \n\n" + dumps(context_json) + "\n\n" +
+        "Thread history as JSON array oldest-to-newest: \n\n" + dumps(thread_json) + "\n\n" +
         "Founder reply: \n\n" + reply_text
     )
     response = client.chat.completions.create(
@@ -94,11 +98,12 @@ def analyze_reply(context_json, reply_text):
     data = loads(response.choices[0].message.content)
     status = str(data.get("status", "unknown")).lower()
     assistant_reply = data.get("assistant_reply", "")
+    changes = data.get("changes") or {}
     if status not in ["approved", "rejected", "suggestions", "unknown"]:
         status = "unknown"
     if not assistant_reply:
         assistant_reply = "Sorry, I didn't understand. Do you approve of this plan?"
-    return status, assistant_reply
+    return status, assistant_reply, changes
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
@@ -106,6 +111,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     company = body.get("name")
     thread_id = body.get("threadId")
     reply_text = body.get("reply", "")
+    thread_history = body.get("thread") or []
     if not company or not thread_id or not reply_text:
         return func.HttpResponse(dumps({"error": "missing fields"}), status_code=400)
 
@@ -117,8 +123,47 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     from_addr = kickoff_doc.get("from") or "noreply@strtupify.io"
 
     ctx = pull_company_info(company)
-    status, assistant_reply = analyze_reply(ctx, reply_text)
+    status, assistant_reply, changes = analyze_reply(ctx, reply_text, thread_history)
+
+    if status == "suggestions":
+        try:
+            roles_changes = (changes or {}).get("roles") or []
+            product_changes = (changes or {}).get("product") or {}
+            company_ref = db.collection("companies").document(company)
+            if product_changes:
+                prod_ref = company_ref.collection("products").where("accepted", "==", True).get()
+                for d in prod_ref:
+                    if "name" in product_changes:
+                        d.reference.update({"product": product_changes.get("name")})
+                    if "description" in product_changes:
+                        d.reference.update({"description": product_changes.get("description")})
+            if roles_changes:
+                roles_ref = company_ref.collection("roles").get()
+                by_title = {r.get("title"): r for r in roles_ref}
+                for rc in roles_changes:
+                    title = rc.get("title")
+                    if not title:
+                        continue
+                    openings = rc.get("openings")
+                    skills = rc.get("skills")
+                    existing = by_title.get(title)
+                    if existing:
+                        updates = {}
+                        if openings is not None:
+                            updates["openings"] = openings
+                        if skills is not None:
+                            updates["skills"] = skills
+                        if updates:
+                            existing.reference.update(updates)
+                    else:
+                        payload = {"title": title}
+                        if openings is not None:
+                            payload["openings"] = openings
+                        if skills is not None:
+                            payload["skills"] = skills
+                        company_ref.collection("roles").add(payload)
+        except Exception:
+            pass
 
     out = {"from": from_addr, "subject": f"Re: {subject}", "body": assistant_reply, "status": status}
     return func.HttpResponse(dumps(out), mimetype="application/json")
-

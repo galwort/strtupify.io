@@ -20,25 +20,69 @@ export class ReplyRouterService {
     timestamp?: string;
   }): Promise<void> {
     const cat = (opts.category || '').toLowerCase();
-    if (cat !== 'vlad') return;
-    const meAddress = await this.getMeAddress(opts.companyId);
-    const tpl = await this.loadTemplate('emails/vlad-autoreply.md');
-    const from = tpl.from || 'vlad@strtupify.io';
-    const subject = tpl.subject || `Re: ${opts.subject || ''}`;
-    const emailId = `vlad-auto-${Date.now()}`;
-    const payload: any = {
-      from,
-      to: meAddress,
-      subject,
-      message: tpl.body,
-      deleted: false,
-      banner: tpl.banner ?? false,
-      timestamp: opts.timestamp || new Date().toISOString(),
-      threadId: opts.threadId,
-      category: 'vlad',
-    };
-    if (opts.parentId) payload.parentId = opts.parentId;
-    await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), payload);
+    if (cat === 'vlad') {
+      const meAddress = await this.getMeAddress(opts.companyId);
+      const tpl = await this.loadTemplate('emails/vlad-autoreply.md');
+      const from = tpl.from || 'vlad@strtupify.io';
+      const subject = tpl.subject || `Re: ${opts.subject || ''}`;
+      const emailId = `vlad-auto-${Date.now()}`;
+      const payload: any = {
+        from,
+        to: meAddress,
+        subject,
+        message: tpl.body,
+        deleted: false,
+        banner: tpl.banner ?? false,
+        timestamp: opts.timestamp || new Date().toISOString(),
+        threadId: opts.threadId,
+        category: 'vlad',
+      };
+      if (opts.parentId) payload.parentId = opts.parentId;
+      await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), payload);
+      return;
+    }
+    if (cat === 'kickoff') {
+      const meAddress = await this.getMeAddress(opts.companyId);
+      const replyText = await this.getReplyBody(opts.companyId, opts.parentId || '');
+      if (!replyText) return;
+      const res = await this.http
+        .post<any>('https://fa-strtupifyio.azurewebsites.net/api/kickoff_reply', {
+          name: opts.companyId,
+          threadId: opts.threadId,
+          reply: replyText,
+        })
+        .toPromise();
+      const from = res && res.from ? res.from : 'noreply@strtupify.io';
+      const subject = res && res.subject ? res.subject : `Re: ${opts.subject || ''}`;
+      const body = res && res.body ? res.body : '';
+      if (!body) return;
+      const emailId = `kickoff-auto-${Date.now()}`;
+      const payload: any = {
+        from,
+        to: meAddress,
+        subject,
+        message: body,
+        deleted: false,
+        banner: false,
+        timestamp: opts.timestamp || new Date().toISOString(),
+        threadId: opts.threadId,
+        category: 'kickoff',
+      };
+      if (opts.parentId) payload.parentId = opts.parentId;
+      await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), payload);
+      return;
+    }
+  }
+
+  private async getReplyBody(companyId: string, replyId: string): Promise<string> {
+    try {
+      if (!replyId) return '';
+      const snap = await getDoc(doc(db, `companies/${companyId}/inbox/${replyId}`));
+      const data = snap.data() as any;
+      return data && data.message ? String(data.message) : '';
+    } catch {
+      return '';
+    }
   }
 
   private async getMeAddress(companyId: string): Promise<string> {

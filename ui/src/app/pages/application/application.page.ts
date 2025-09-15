@@ -11,6 +11,7 @@ import {
   addDoc,
   getDoc,
   serverTimestamp,
+  updateDoc,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 
@@ -93,8 +94,32 @@ export class ApplicationPage implements OnInit {
               }
             }
 
-            await loading.dismiss();
-            this.router.navigateByUrl(`/company/${uniqueName}`);
+            const fundingUrl =
+              'https://fa-strtupifyio.azurewebsites.net/api/funding';
+            const fundingBody = {
+              company_description: this.companyDescription,
+            };
+            this.http.post(fundingUrl, fundingBody).subscribe({
+              next: async (funding: any) => {
+                await updateDoc(docRef, {
+                  funding: {
+                    approved: !!funding.approved,
+                    amount: Number(funding.amount || 0),
+                    grace_period_days: Number(funding.grace_period_days || 0),
+                    first_payment: Number(funding.first_payment || 0),
+                  },
+                  updated: serverTimestamp(),
+                });
+                await loading.dismiss();
+                this.router.navigateByUrl(`/funding/${uniqueName}`);
+              },
+              error: async () => {
+                await loading.dismiss();
+                this.presentErrorAlert(
+                  'An unexpected error occurred while evaluating funding.'
+                );
+              },
+            });
           },
           error: async () => {
             await loading.dismiss();

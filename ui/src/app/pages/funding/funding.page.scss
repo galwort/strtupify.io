@@ -1,0 +1,28 @@
+.container {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 24px;
+}
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.header img {
+  width: 36px;
+  height: 36px;
+}
+.row {
+  display: flex;
+  justify-content: space-between;
+  margin: 10px 0;
+}
+.label {
+  color: var(--ion-color-medium);
+}
+.loading {
+  padding: 24px;
+  text-align: center;
+}
+

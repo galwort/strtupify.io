@@ -5,6 +5,11 @@
     </div>
     <h1 class="name">{{ name }}</h1>
     <p class="description">{{ description }}</p>
+    <div class="section" *ngIf="foundedAt">
+      <div class="row">
+        <div class="label">Founded</div>
+        <div class="value">{{ foundedAt | date: 'mediumDate' }}</div>
+      </div>
+    </div>
   </div>
 </ion-content>
-

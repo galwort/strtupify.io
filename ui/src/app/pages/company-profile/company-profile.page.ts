@@ -18,6 +18,7 @@ export class CompanyProfilePage implements OnInit {
   name = '';
   description = '';
   logo = '';
+  foundedAt: string = '';
 
   constructor(private route: ActivatedRoute, private router: Router) {}
 
@@ -31,6 +32,6 @@ export class CompanyProfilePage implements OnInit {
     this.name = data?.company_name || '';
     this.description = data?.description || '';
     this.logo = data?.logo || '';
+    this.foundedAt = data?.founded_at || '';
   }
 }
-

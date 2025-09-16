@@ -8,6 +8,9 @@ import {
   getDocs,
   query,
   where,
+  doc,
+  getDoc,
+  updateDoc,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 
@@ -55,6 +58,8 @@ export class CompanyPage implements OnInit {
       this.showLoading = false;
       this.ui.setCompanyProfileEnabled(true);
       this.ui.setCurrentModule('inbox');
+      // Ensure founding date is set when inbox becomes active
+      await this.ensureFoundedAt();
       return;
     }
 
@@ -109,5 +114,21 @@ export class CompanyPage implements OnInit {
     this.showInbox = true;
     this.ui.setCompanyProfileEnabled(true);
     this.ui.setCurrentModule('inbox');
+    // Ensure founding date is set when inbox becomes active
+    this.ensureFoundedAt();
+  }
+
+  private async ensureFoundedAt() {
+    try {
+      if (!this.companyId) return;
+      const ref = doc(db, 'companies', this.companyId);
+      const snap = await getDoc(ref);
+      const data = (snap && (snap.data() as any)) || {};
+      if (!data || data.founded_at) return;
+      const todayIso = new Date().toISOString();
+      await updateDoc(ref, { founded_at: todayIso });
+    } catch {
+      // ignore failures silently
+    }
   }
 }

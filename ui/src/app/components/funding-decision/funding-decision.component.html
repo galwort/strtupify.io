@@ -1,0 +1,37 @@
+<div class="decision-card">
+  <div class="header-row">
+    <div class="logo" *ngIf="logo">
+      <span class="material-symbols-outlined"> {{ logo }} </span>
+    </div>
+    <div class="company-name">{{ companyName }}</div>
+  </div>
+
+  <div class="status approved" *ngIf="decision?.approved">Loan Approved</div>
+  <div class="status rejected" *ngIf="decision && !decision.approved">Loan Rejected</div>
+
+  <div class="details" *ngIf="decision?.approved">
+    <div class="row">
+      <div class="label">Amount</div>
+      <div class="value">{{ decision?.amount | currency: 'USD':'symbol' }}</div>
+    </div>
+    <div class="row">
+      <div class="label">Grace Period</div>
+      <div class="value">{{ decision?.grace_period_days }} days</div>
+    </div>
+    <div class="row">
+      <div class="label">First Payment</div>
+      <div class="value">{{ decision?.first_payment | currency: 'USD':'symbol' }}</div>
+    </div>
+  </div>
+
+  <div class="actions" *ngIf="decision && !decision.approved">
+    <button class="btn secondary" type="button" (click)="editApplication.emit()">Edit Application</button>
+    <button class="btn" type="button" (click)="newApplication.emit()">Start New Application</button>
+  </div>
+
+  <div class="actions" *ngIf="decision?.approved">
+    <button class="btn" type="button" (click)="acceptLoan.emit()">Accept Loan</button>
+    <button class="btn secondary" type="button" (click)="newApplication.emit()">Start New Application</button>
+  </div>
+</div>
+

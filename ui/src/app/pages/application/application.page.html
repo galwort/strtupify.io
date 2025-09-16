@@ -3,27 +3,29 @@
     <div class="header">
       <div class="title">Business Application</div>
     </div>
-    <div class="content">
+    <div class="content" *ngIf="!showDecision">
       <form (ngSubmit)="onSubmit()" class="login-form">
         <div class="form-group">
           <label>Company Name</label>
-          <input
-            type="text"
-            [(ngModel)]="companyName"
-            name="companyName"
-            required
-          />
+          <input type="text" [(ngModel)]="companyName" name="companyName" required />
         </div>
         <div class="form-group">
           <label>Company Description</label>
-          <textarea
-            [(ngModel)]="companyDescription"
-            name="companyDescription"
-            required
-          ></textarea>
+          <textarea [(ngModel)]="companyDescription" name="companyDescription" required></textarea>
         </div>
-        <button type="submit" class="login-btn">Submit</button>
+        <button type="submit" class="login-btn">Apply</button>
       </form>
+    </div>
+
+    <div class="content" *ngIf="showDecision">
+      <app-funding-decision
+        [companyName]="companyName"
+        [logo]="logoValue"
+        [decision]="fundingDecision"
+        (editApplication)="editApplication()"
+        (newApplication)="newApplication()"
+        (acceptLoan)="acceptLoan()"
+      ></app-funding-decision>
     </div>
   </div>
 </ion-content>

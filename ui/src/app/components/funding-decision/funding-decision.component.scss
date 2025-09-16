@@ -1,0 +1,66 @@
+.decision-card {
+  width: 100%;
+  max-width: 720px;
+  background: #fff;
+  border: 1px solid var(--theme-primary);
+  border-radius: 8px;
+  padding: 16px;
+  color: var(--theme-text);
+}
+.header-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.logo .material-symbols-outlined {
+  font-size: 28px;
+}
+.company-name {
+  font-size: 20px;
+  font-weight: 600;
+}
+.status {
+  margin: 8px 0 12px;
+  font-size: 18px;
+  font-weight: 600;
+}
+.status.approved {
+  color: var(--ion-color-success);
+}
+.status.rejected {
+  color: var(--ion-color-danger);
+}
+.details {
+  margin: 8px 0 16px;
+}
+.row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px dashed rgba(0,0,0,0.08);
+}
+.row:last-child {
+  border-bottom: none;
+}
+.label { color: var(--theme-text); opacity: 0.8; }
+.value { font-weight: 600; }
+
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+.btn {
+  padding: 10px 16px;
+  background: var(--theme-primary);
+  color: #fff;
+  border: 1px solid var(--theme-primary);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.btn.secondary {
+  background: #fff;
+  color: var(--theme-text);
+}
+

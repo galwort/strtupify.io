@@ -9,6 +9,7 @@ import { ApplicationPageRoutingModule } from './application-routing.module';
 import { ApplicationPage } from './application.page';
 
 import { HttpClientModule } from '@angular/common/http';
+import { FundingDecisionComponent } from 'src/app/components/funding-decision/funding-decision.component';
 
 @NgModule({
   imports: [
@@ -17,6 +18,7 @@ import { HttpClientModule } from '@angular/common/http';
     IonicModule,
     ApplicationPageRoutingModule,
     HttpClientModule,
+    FundingDecisionComponent,
   ],
   declarations: [ApplicationPage],
 })

@@ -27,6 +27,9 @@ export const db = getFirestore(app);
 export class ApplicationPage implements OnInit {
   companyName: string = '';
   companyDescription: string = '';
+  showDecision = false;
+  logoValue: string = '';
+  fundingDecision: { approved: boolean; amount: number; grace_period_days: number; first_payment: number } | null = null;
 
   constructor(
     private http: HttpClient,
@@ -52,80 +55,28 @@ export class ApplicationPage implements OnInit {
       return;
     }
 
-    let cleanedName = this.companyName
-      .replace(/[^a-zA-Z0-9]/g, '')
-      .toLowerCase();
-    let uniqueName = cleanedName;
-    let counter = 2;
-
-    while (await this.checkIfCompanyExists(uniqueName)) {
-      uniqueName = `${cleanedName}${counter}`;
-      counter++;
-    }
-
     const logoUrl = 'https://fa-strtupifyio.azurewebsites.net/api/logo';
     const logoBody = { input: this.companyDescription };
 
     this.http.post(logoUrl, logoBody, { responseType: 'text' }).subscribe({
       next: (logoResponse) => {
-        const logoValue = logoResponse || '';
-        const url = 'https://fa-strtupifyio.azurewebsites.net/api/jobs';
-        const body = { company_description: this.companyDescription };
-
-        this.http.post(url, body).subscribe({
-          next: async (response: any) => {
-            const docRef = doc(db, 'companies', uniqueName);
-            await setDoc(docRef, {
-              company_name: this.companyName,
-              description: this.companyDescription,
-              logo: logoValue,
-              colors: '',
-              created: serverTimestamp(),
-              updated: serverTimestamp(),
-            });
-
-            if (Array.isArray(response.jobs)) {
-              for (const role of response.jobs) {
-                await addDoc(collection(db, `companies/${uniqueName}/roles`), {
-                  title: role,
-                  created: serverTimestamp(),
-                  updated: serverTimestamp(),
-                });
-              }
-            }
-
-            const fundingUrl =
-              'https://fa-strtupifyio.azurewebsites.net/api/funding';
-            const fundingBody = {
-              company_description: this.companyDescription,
+        this.logoValue = logoResponse || '';
+        const fundingUrl = 'https://fa-strtupifyio.azurewebsites.net/api/funding';
+        const fundingBody = { company_description: this.companyDescription };
+        this.http.post(fundingUrl, fundingBody).subscribe({
+          next: async (funding: any) => {
+            this.fundingDecision = {
+              approved: !!funding.approved,
+              amount: Number(funding.amount || 0),
+              grace_period_days: Number(funding.grace_period_days || 0),
+              first_payment: Number(funding.first_payment || 0),
             };
-            this.http.post(fundingUrl, fundingBody).subscribe({
-              next: async (funding: any) => {
-                await updateDoc(docRef, {
-                  funding: {
-                    approved: !!funding.approved,
-                    amount: Number(funding.amount || 0),
-                    grace_period_days: Number(funding.grace_period_days || 0),
-                    first_payment: Number(funding.first_payment || 0),
-                  },
-                  updated: serverTimestamp(),
-                });
-                await loading.dismiss();
-                this.router.navigateByUrl(`/funding/${uniqueName}`);
-              },
-              error: async () => {
-                await loading.dismiss();
-                this.presentErrorAlert(
-                  'An unexpected error occurred while evaluating funding.'
-                );
-              },
-            });
+            this.showDecision = true;
+            await loading.dismiss();
           },
           error: async () => {
             await loading.dismiss();
-            this.presentErrorAlert(
-              'An unexpected error occurred. Please try again.'
-            );
+            this.presentErrorAlert('An unexpected error occurred while evaluating funding.');
           },
         });
       },
@@ -151,5 +102,65 @@ export class ApplicationPage implements OnInit {
       buttons: ['OK'],
     });
     await alert.present();
+  }
+
+  editApplication() {
+    this.showDecision = false;
+  }
+
+  newApplication() {
+    this.companyName = '';
+    this.companyDescription = '';
+    this.logoValue = '';
+    this.fundingDecision = null;
+    this.showDecision = false;
+  }
+
+  async acceptLoan() {
+    const loading = await this.loadingController.create();
+    await loading.present();
+    try {
+      let cleanedName = this.companyName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+      let uniqueName = cleanedName || 'company';
+      let counter = 2;
+      while (await this.checkIfCompanyExists(uniqueName)) {
+        uniqueName = `${cleanedName}${counter}`;
+        counter++;
+      }
+      const docRef = doc(db, 'companies', uniqueName);
+      await setDoc(docRef, {
+        company_name: this.companyName,
+        description: this.companyDescription,
+        logo: this.logoValue,
+        colors: '',
+        funding: this.fundingDecision,
+        created: serverTimestamp(),
+        updated: serverTimestamp(),
+      });
+      const url = 'https://fa-strtupifyio.azurewebsites.net/api/jobs';
+      const body = { company_description: this.companyDescription };
+      this.http.post(url, body).subscribe({
+        next: async (response: any) => {
+          if (Array.isArray(response.jobs)) {
+            for (const role of response.jobs) {
+              await addDoc(collection(db, `companies/${uniqueName}/roles`), {
+                title: role,
+                created: serverTimestamp(),
+                updated: serverTimestamp(),
+              });
+            }
+          }
+          await loading.dismiss();
+          this.router.navigateByUrl(`/company/${uniqueName}`);
+        },
+        error: async () => {
+          await loading.dismiss();
+          this.presentErrorAlert('An unexpected error occurred. Please try again.');
+        },
+      });
+    } catch (e) {
+      await loading.dismiss();
+      this.presentErrorAlert('An unexpected error occurred. Please try again.');
+    }
   }
 }

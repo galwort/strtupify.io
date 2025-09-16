@@ -14,6 +14,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
+import { firstValueFrom } from 'rxjs';
 
 export const app = initializeApp(environment.firebase);
 export const db = getFirestore(app);
@@ -30,6 +31,7 @@ export class ApplicationPage implements OnInit {
   showDecision = false;
   logoValue: string = '';
   fundingDecision: { approved: boolean; amount: number; grace_period_days: number; first_payment: number } | null = null;
+  private pendingRoles: string[] = [];
 
   constructor(
     private http: HttpClient,
@@ -55,38 +57,45 @@ export class ApplicationPage implements OnInit {
       return;
     }
 
-    const logoUrl = 'https://fa-strtupifyio.azurewebsites.net/api/logo';
-    const logoBody = { input: this.companyDescription };
+    try {
+      const logoUrl = 'https://fa-strtupifyio.azurewebsites.net/api/logo';
+      const logoBody = { input: this.companyDescription };
+      const logoResponse = await firstValueFrom(this.http.post(logoUrl, logoBody, { responseType: 'text' as 'json' }));
+      this.logoValue = (logoResponse as unknown as string) || '';
 
-    this.http.post(logoUrl, logoBody, { responseType: 'text' }).subscribe({
-      next: (logoResponse) => {
-        this.logoValue = logoResponse || '';
-        const fundingUrl = 'https://fa-strtupifyio.azurewebsites.net/api/funding';
-        const fundingBody = { company_description: this.companyDescription };
-        this.http.post(fundingUrl, fundingBody).subscribe({
-          next: async (funding: any) => {
-            this.fundingDecision = {
-              approved: !!funding.approved,
-              amount: Number(funding.amount || 0),
-              grace_period_days: Number(funding.grace_period_days || 0),
-              first_payment: Number(funding.first_payment || 0),
-            };
-            this.showDecision = true;
-            await loading.dismiss();
-          },
-          error: async () => {
-            await loading.dismiss();
-            this.presentErrorAlert('An unexpected error occurred while evaluating funding.');
-          },
-        });
-      },
-      error: async () => {
-        await loading.dismiss();
-        this.presentErrorAlert(
-          'An unexpected error occurred while generating the logo.'
-        );
-      },
-    });
+      const fundingUrl = 'https://fa-strtupifyio.azurewebsites.net/api/funding';
+      const jobsUrl = 'https://fa-strtupifyio.azurewebsites.net/api/jobs';
+
+      const [funding, jobs] = await Promise.all([
+        firstValueFrom(this.http.post<any>(fundingUrl, { company_description: this.companyDescription })),
+        firstValueFrom(this.http.post<any>(jobsUrl, { company_description: this.companyDescription })),
+      ]);
+
+      // Stash roles for use on accept
+      this.pendingRoles = Array.isArray(jobs?.jobs) ? jobs.jobs : [];
+      const insufficientRoles = !this.pendingRoles || this.pendingRoles.length === 0;
+
+      const computedDecision = {
+        approved: !!funding?.approved && !insufficientRoles,
+        amount: Number(funding?.amount || 0),
+        grace_period_days: Number(funding?.grace_period_days || 0),
+        first_payment: Number(funding?.first_payment || 0),
+      };
+      if (insufficientRoles) {
+        // If roles could not be generated, override as rejected and zeroed amounts
+        computedDecision.approved = false;
+        computedDecision.amount = 0;
+        computedDecision.grace_period_days = 0;
+        computedDecision.first_payment = 0;
+      }
+
+      this.fundingDecision = computedDecision;
+      this.showDecision = true;
+    } catch (e) {
+      this.presentErrorAlert('An unexpected error occurred. Please try again.');
+    } finally {
+      await loading.dismiss();
+    }
   }
 
   async checkIfCompanyExists(companyId: string): Promise<boolean> {
@@ -114,6 +123,7 @@ export class ApplicationPage implements OnInit {
     this.logoValue = '';
     this.fundingDecision = null;
     this.showDecision = false;
+    this.pendingRoles = [];
   }
 
   async acceptLoan() {
@@ -137,27 +147,16 @@ export class ApplicationPage implements OnInit {
         created: serverTimestamp(),
         updated: serverTimestamp(),
       });
-      const url = 'https://fa-strtupifyio.azurewebsites.net/api/jobs';
-      const body = { company_description: this.companyDescription };
-      this.http.post(url, body).subscribe({
-        next: async (response: any) => {
-          if (Array.isArray(response.jobs)) {
-            for (const role of response.jobs) {
-              await addDoc(collection(db, `companies/${uniqueName}/roles`), {
-                title: role,
-                created: serverTimestamp(),
-                updated: serverTimestamp(),
-              });
-            }
-          }
-          await loading.dismiss();
-          this.router.navigateByUrl(`/company/${uniqueName}`);
-        },
-        error: async () => {
-          await loading.dismiss();
-          this.presentErrorAlert('An unexpected error occurred. Please try again.');
-        },
-      });
+      const roles = Array.isArray(this.pendingRoles) ? this.pendingRoles : [];
+      for (const role of roles) {
+        await addDoc(collection(db, `companies/${uniqueName}/roles`), {
+          title: role,
+          created: serverTimestamp(),
+          updated: serverTimestamp(),
+        });
+      }
+      await loading.dismiss();
+      this.router.navigateByUrl(`/company/${uniqueName}`);
     } catch (e) {
       await loading.dismiss();
       this.presentErrorAlert('An unexpected error occurred. Please try again.');

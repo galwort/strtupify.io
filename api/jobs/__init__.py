@@ -17,16 +17,13 @@ client = AzureOpenAI(
 
 def gen_jobs(company_description):
     system_message = (
-        "You are a job title generator. "
-        + "When given a description of a company, "
-        + "your job is to reply with a list of job titles "
-        + "that the company should hire for. "
-        + "You should generate no more than 8 job titles. "
-        + "Reply in JSON format with the word 'jobs' as the key, "
-        + "and the job titles as a list of strings as the value. "
-        + "If there is an issue, leave the value as an empty list, "
-        + "and describe the issue in the 'error' key. "
-        + "If there is no issue, leave the 'error' key out."
+        "You are a hiring planner for an early-stage startup. "
+        + "Given a company description, return a JSON object with a 'jobs' array of no more than 8 role titles the company should hire for. "
+        + "Favor a cross-functional mix spanning various departments as appropriate for the company's focus. "
+        + "If the description is vague or incomplete, infer a plausible set of roles for a typical early-stage product company rather than returning an empty list. "
+        + "Only return an empty list when the description clearly states no hiring is needed. "
+        + "Keep titles concise and reply in strict JSON with key 'jobs' (list of strings). "
+        + "If there is a hard error parsing the input, include an 'error' key and set 'jobs' to an empty list."
     )
 
     messages = [{"role": "system", "content": system_message}]

@@ -66,7 +66,8 @@ export class CompanyPage implements OnInit {
     const rolesSnap = await getDocs(
       collection(db, `companies/${this.companyId}/roles`)
     );
-    const allFilled = rolesSnap.docs.every(
+    const hasRoles = rolesSnap.docs.length > 0;
+    const allFilled = hasRoles && rolesSnap.docs.every(
       (d) => (d.data() as any).openings === 0
     );
     if (allFilled) {

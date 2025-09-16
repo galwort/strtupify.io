@@ -246,6 +246,25 @@
         background: #1e40af;
         border-color: #1e3a8a;
       }
+
+      .btn-primary.sending {
+        opacity: 0.95;
+        cursor: not-allowed;
+      }
+
+      .btn-primary.clicked {
+        transform: translateY(1px);
+        filter: brightness(0.98);
+      }
+
+      @keyframes sendPulse {
+        0% { transform: translateX(0); opacity: 1; }
+        100% { transform: translateX(2px); opacity: 0.9; }
+      }
+
+      .btn-primary.sending .material-symbols-outlined {
+        animation: sendPulse 0.6s ease-in-out infinite alternate;
+      }
     }
   }
 }

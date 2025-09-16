@@ -39,6 +39,11 @@ export class InboxComponent implements OnInit, OnDestroy {
   // Reply composer state
   showReplyBox = false;
   replyText = '';
+  sendingReply = false;
+  clickedSend = false;
+  private pendingReplyTimers: any[] = [];
+  private readonly replyDelayMinMs = 3000; // 3s
+  private readonly replyDelayMaxMs = 12000; // 12s
   get replySubject(): string {
     const base = this.selectedEmail?.subject || '';
     return base.startsWith('Re:') ? base : `Re: ${base}`;
@@ -166,6 +171,11 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     if (this.intervalId) clearInterval(this.intervalId);
+    for (const t of this.pendingReplyTimers) {
+      try {
+        clearTimeout(t);
+      } catch {}
+    }
   }
 
   selectEmail(email: Email): void {
@@ -449,6 +459,10 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   async sendReply(): Promise<void> {
     if (!this.selectedEmail || !this.replyText.trim()) return;
+    if (this.sendingReply) return;
+    this.sendingReply = true;
+    this.clickedSend = true;
+    setTimeout(() => (this.clickedSend = false), 300);
     const baseSubject = this.selectedEmail.subject || '';
     const subject = baseSubject.startsWith('Re:') ? baseSubject : `Re: ${baseSubject}`;
     const threadId = (this.selectedEmail as any).threadId || this.selectedEmail.id;
@@ -472,14 +486,21 @@ export class InboxComponent implements OnInit, OnDestroy {
         category,
         timestamp: this.simDate.toISOString(),
       });
-      await this.replyRouter.handleReply({
-        companyId: this.companyId,
-        category,
-        threadId,
-        subject,
-        parentId: replyId,
-        timestamp: this.simDate.toISOString(),
-      });
+      // Schedule an auto-reply with a human-like delay
+      const delay = this.randomInt(this.replyDelayMinMs, this.replyDelayMaxMs);
+      const timer = setTimeout(() => {
+        this.replyRouter
+          .handleReply({
+            companyId: this.companyId,
+            category,
+            threadId,
+            subject,
+            parentId: replyId,
+            timestamp: this.simDate.toISOString(),
+          })
+          .catch(() => {});
+      }, delay);
+      this.pendingReplyTimers.push(timer);
       try {
         const ref = doc(db, `companies/${this.companyId}`);
         const snap = await getDoc(ref);
@@ -490,8 +511,10 @@ export class InboxComponent implements OnInit, OnDestroy {
       } catch {}
       this.showReplyBox = false;
       this.replyText = '';
+      this.sendingReply = false;
     } catch (e) {
       console.error('Failed to send reply', e);
+      this.sendingReply = false;
     }
   }
 

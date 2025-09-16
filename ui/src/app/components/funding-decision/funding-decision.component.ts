@@ -6,6 +6,7 @@ import { IonicModule } from '@ionic/angular';
   selector: 'app-funding-decision',
   templateUrl: './funding-decision.component.html',
   styleUrls: ['./funding-decision.component.scss'],
+  standalone: true,
   imports: [CommonModule, IonicModule],
 })
 export class FundingDecisionComponent {
@@ -16,4 +17,3 @@ export class FundingDecisionComponent {
   @Output() newApplication = new EventEmitter<void>();
   @Output() acceptLoan = new EventEmitter<void>();
 }
-

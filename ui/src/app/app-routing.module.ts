@@ -38,12 +38,6 @@ const routes: Routes = [
     canActivate: [AuthenticatedGuard],
   },
   {
-    path: 'funding/:id',
-    loadChildren: () =>
-      import('./pages/funding/funding.module').then((m) => m.FundingPageModule),
-    canActivate: [AuthenticatedGuard],
-  },
-  {
     path: 'company/:id',
     loadChildren: () =>
       import('./pages/company/company.module').then((m) => m.CompanyPageModule),

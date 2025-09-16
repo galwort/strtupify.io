@@ -18,6 +18,8 @@ export class AppComponent implements OnDestroy {
   companyLogo: string = '';
   companyProfileEnabled = false;
   showCompanyProfile = false;
+  currentModule: 'inbox' | 'roles' | 'resumes' | 'boardroom' = 'roles';
+  backIcon: string = 'group_add';
 
   private fbApp = initializeApp(environment.firebase);
   private db = getFirestore(this.fbApp);
@@ -40,8 +42,13 @@ export class AppComponent implements OnDestroy {
       this.updateCompanyContext();
     });
     this.ui.showCompanyProfile$.subscribe((v) => (this.showCompanyProfile = v));
-    // Keep sidebar icon availability in sync with UI state service
     this.ui.companyProfileEnabled$.subscribe((v) => (this.companyProfileEnabled = v));
+    this.ui.currentModule$.subscribe((m) => {
+      this.currentModule = m;
+      this.backIcon =
+        m === 'inbox' ? 'mail' : m === 'boardroom' ? 'forum' : m === 'roles' ? 'group_add' : 'badge';
+      this.cdr.detectChanges();
+    });
 
     // Respond immediately when company profile updates the logo
     window.addEventListener('company-logo-changed', this.logoChangedHandler as EventListener);
@@ -137,14 +144,8 @@ export class AppComponent implements OnDestroy {
       const data = snap.data() as any;
       this.companyLogo = data?.logo || '';
 
-      const prodSnap = await getDocs(
-        query(
-          collection(this.db, `companies/${companyId}/products`),
-          where('accepted', '==', true)
-        )
-      );
-      this.companyProfileEnabled = !prodSnap.empty;
-      this.ui.setCompanyProfileEnabled(this.companyProfileEnabled);
+      this.companyProfileEnabled = true;
+      this.ui.setCompanyProfileEnabled(true);
     } catch (e) {
       // ignore
     }

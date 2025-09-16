@@ -53,8 +53,8 @@ export class CompanyPage implements OnInit {
     if (!acceptedSnap.empty) {
       this.showInbox = true;
       this.showLoading = false;
-      // Ensure the sidebar profile icon is available as soon as inbox is reached
       this.ui.setCompanyProfileEnabled(true);
+      this.ui.setCurrentModule('inbox');
       return;
     }
 
@@ -67,6 +67,8 @@ export class CompanyPage implements OnInit {
     if (allFilled) {
       this.showBoardroom = true;
       this.showLoading = false;
+      this.ui.setCompanyProfileEnabled(true);
+      this.ui.setCurrentModule('boardroom');
       return;
     }
 
@@ -75,6 +77,8 @@ export class CompanyPage implements OnInit {
     );
     if (!employeesSnap.empty) this.showResumes = true;
     this.showLoading = false;
+    this.ui.setCompanyProfileEnabled(true);
+    this.ui.setCurrentModule(this.showResumes ? 'resumes' : 'roles');
   }
 
   handleLoadingState(e: {
@@ -87,20 +91,23 @@ export class CompanyPage implements OnInit {
     this.totalTasks = e.totalTasks;
     this.completedTasks = e.completedTasks;
     this.showResumes = e.showResumes;
+    if (!this.showLoading && !this.showBoardroom && !this.showInbox) {
+      this.ui.setCurrentModule(this.showResumes ? 'resumes' : 'roles');
+    }
   }
 
   openBoardroom() {
     this.showLoading = false;
     this.showResumes = false;
     this.showBoardroom = true;
-    // Hide the sidebar profile icon until inbox is reached
-    this.ui.setCompanyProfileEnabled(false);
+    this.ui.setCompanyProfileEnabled(true);
+    this.ui.setCurrentModule('boardroom');
   }
 
   openInbox() {
     this.showBoardroom = false;
     this.showInbox = true;
-    // Show the sidebar profile icon immediately when inbox is opened
     this.ui.setCompanyProfileEnabled(true);
+    this.ui.setCurrentModule('inbox');
   }
 }

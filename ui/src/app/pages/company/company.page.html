@@ -2,7 +2,7 @@
   <div class="page-container">
     <app-roles
       (loadingStateChange)="handleLoadingState($event)"
-      [hidden]="showLoading || showResumes || showBoardroom || showInbox"
+      [hidden]="showLoading || showResumes || showBoardroom || showInbox || showCompanyProfile"
     ></app-roles>
 
     <app-loading
@@ -13,18 +13,19 @@
     ></app-loading>
 
     <app-resumes
-      *ngIf="!showLoading && showResumes && !showInbox"
+      *ngIf="!showLoading && showResumes && !showInbox && !showCompanyProfile"
       (hiringFinished)="openBoardroom()"
     ></app-resumes>
 
     <app-boardroom
       *ngIf="showBoardroom"
+      [hidden]="showCompanyProfile"
       [companyId]="companyId"
       (acceptedProduct)="openInbox()"
     ></app-boardroom>
 
     <app-company-profile
-      *ngIf="showInbox && showCompanyProfile"
+      *ngIf="showCompanyProfile && !showLoading"
       [companyId]="companyId"
     ></app-company-profile>
     <app-inbox

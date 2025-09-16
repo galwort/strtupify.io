@@ -10,6 +10,9 @@ export class UiStateService {
   private _companyProfileEnabled = new BehaviorSubject<boolean>(false);
   readonly companyProfileEnabled$ = this._companyProfileEnabled.asObservable();
 
+  private _currentModule = new BehaviorSubject<'inbox' | 'roles' | 'resumes' | 'boardroom'>('roles');
+  readonly currentModule$ = this._currentModule.asObservable();
+
   setShowCompanyProfile(show: boolean) {
     this._showCompanyProfile.next(show);
   }
@@ -20,5 +23,9 @@ export class UiStateService {
 
   setCompanyProfileEnabled(enabled: boolean) {
     this._companyProfileEnabled.next(enabled);
+  }
+
+  setCurrentModule(m: 'inbox' | 'roles' | 'resumes' | 'boardroom') {
+    this._currentModule.next(m);
   }
 }

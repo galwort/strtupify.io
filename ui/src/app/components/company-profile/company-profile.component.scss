@@ -42,6 +42,56 @@
   margin: 0;
 }
 
+.section {
+  margin-top: 8px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
+  background: white;
+}
+
+.section .row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px dashed #eee;
+}
+.section .row:last-child {
+  border-bottom: none;
+}
+.section .row.header {
+  background: #f9fafb;
+  font-weight: 600;
+}
+.section .label {
+  color: #555;
+}
+.section .value {
+  color: #111;
+  font-weight: 600;
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+}
+.person .material-symbols-outlined {
+  color: var(--theme-primary);
+}
+.person .meta {
+  display: flex;
+  flex-direction: column;
+}
+.person .meta .n {
+  font-weight: 600;
+  color: #111;
+}
+.person .meta .t {
+  color: #555;
+  font-size: 13px;
+}
+
 .edit-icon {
   position: absolute;
   top: 6px;

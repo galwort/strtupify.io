@@ -2,7 +2,7 @@ import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { environment } from 'src/environments/environment';
@@ -28,6 +28,9 @@ export class CompanyProfileComponent implements OnInit {
   filtered: string[] = [];
   private allIcons: string[] = [];
   selectedIcon = '';
+  funding: { approved: boolean; amount: number; grace_period_days: number; first_payment: number } | null = null;
+  foundedAt: string = '';
+  hires: { id: string; name: string; title: string }[] = [];
 
   constructor(private http: HttpClient) {}
 
@@ -39,6 +42,26 @@ export class CompanyProfileComponent implements OnInit {
     this.description = data?.description || '';
     this.logo = data?.logo || '';
     this.selectedIcon = this.logo;
+    const f = data?.funding || null;
+    if (f) {
+      this.funding = {
+        approved: !!f.approved,
+        amount: Number(f.amount || 0),
+        grace_period_days: Number(f.grace_period_days || 0),
+        first_payment: Number(f.first_payment || 0),
+      };
+    } else {
+      this.funding = null;
+    }
+    this.foundedAt = data?.founded_at || '';
+
+    const hiredSnap = await getDocs(
+      query(collection(db, `companies/${this.companyId}/employees`), where('hired', '==', true))
+    );
+    this.hires = hiredSnap.docs.map((d) => {
+      const x = d.data() as any;
+      return { id: d.id, name: x.name || '', title: x.title || '' };
+    });
 
     await this.loadIcons();
     this.onSearchChange('');

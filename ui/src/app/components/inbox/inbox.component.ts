@@ -480,6 +480,14 @@ export class InboxComponent implements OnInit, OnDestroy {
         parentId: replyId,
         timestamp: this.simDate.toISOString(),
       });
+      try {
+        const ref = doc(db, `companies/${this.companyId}`);
+        const snap = await getDoc(ref);
+        const data = snap.data() as any;
+        if (!data || !data.founded_at) {
+          await updateDoc(ref, { founded_at: this.simDate.toISOString() });
+        }
+      } catch {}
       this.showReplyBox = false;
       this.replyText = '';
     } catch (e) {

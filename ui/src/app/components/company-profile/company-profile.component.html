@@ -10,6 +10,46 @@
   <h1 class="name">{{ name }}</h1>
   <p class="description">{{ description }}</p>
 
+  <div class="section" *ngIf="foundedAt">
+    <div class="row">
+      <div class="label">Founded</div>
+      <div class="value">{{ foundedAt | date: 'mediumDate' }}</div>
+    </div>
+  </div>
+
+  <div class="section" *ngIf="funding">
+    <div class="row">
+      <div class="label">Loan Status</div>
+      <div class="value">{{ funding?.approved ? 'Approved' : 'Rejected' }}</div>
+    </div>
+    <div class="row" *ngIf="funding?.approved">
+      <div class="label">Amount</div>
+      <div class="value">{{ funding?.amount | currency: 'USD':'symbol' }}</div>
+    </div>
+    <div class="row" *ngIf="funding?.approved">
+      <div class="label">Grace Period</div>
+      <div class="value">{{ funding?.grace_period_days }} days</div>
+    </div>
+    <div class="row" *ngIf="funding?.approved">
+      <div class="label">First Payment</div>
+      <div class="value">{{ funding?.first_payment | currency: 'USD':'symbol' }}</div>
+    </div>
+  </div>
+
+  <div class="section" *ngIf="hires.length">
+    <div class="row header">
+      <div class="label">Team</div>
+      <div class="value">{{ hires.length }} hired</div>
+    </div>
+    <div class="person" *ngFor="let h of hires">
+      <span class="material-symbols-outlined"> badge </span>
+      <div class="meta">
+        <div class="n">{{ h.name }}</div>
+        <div class="t">{{ h.title }}</div>
+      </div>
+    </div>
+  </div>
+
   <div class="picker" *ngIf="picking">
     <div class="picker-header">
       <input

@@ -1,4 +1,4 @@
-import argparse, json, datetime, time, random
+import argparse, json, datetime, time, random, os
 from typing import List, Dict
 import re
 import requests
@@ -416,6 +416,10 @@ def main():
 
     with open(args.outfile, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
+    try:
+        os.remove(args.outfile + ".tmp")
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

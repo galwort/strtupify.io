@@ -6,6 +6,11 @@ def collect(data):
     approvals = [bool(x.get("funding", {}).get("approved", False)) for x in data]
     amounts = [float(x.get("funding", {}).get("amount", 0) or 0) for x in data]
     payments = [float(x.get("funding", {}).get("first_payment", 0) or 0) for x in data]
+    grace = [
+        int(x.get("funding", {}).get("grace_period_days", 0) or 0)
+        for x in data
+        if bool(x.get("funding", {}).get("approved", False))
+    ]
     desc_lens = [len(x.get("company", {}).get("description", "")) for x in data]
     return [
         ct,
@@ -15,6 +20,10 @@ def collect(data):
         statistics.median(amounts) if amounts else 0,
         max(amounts) if amounts else 0,
         min(amounts) if amounts else 0,
+        statistics.mean(grace) if grace else 0,
+        statistics.median(grace) if grace else 0,
+        max(grace) if grace else 0,
+        min(grace) if grace else 0,
         statistics.mean(payments) if payments else 0,
         statistics.mean(desc_lens) if desc_lens else 0,
     ]
@@ -28,6 +37,10 @@ names = [
     "median amount",
     "max amount",
     "min amount",
+    "avg grace days",
+    "median grace days",
+    "max grace days",
+    "min grace days",
     "avg first payment",
     "avg description length",
 ]
@@ -54,4 +67,3 @@ for idx, metric in enumerate(names):
         cell = f"{val:.2f}" if isinstance(val, float) else str(val)
         row.append(cell.rjust(ws[i]))
     print("  ".join(row))
-

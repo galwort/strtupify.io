@@ -60,7 +60,7 @@ export class HomePage implements OnInit {
 
     const countDocs = async (): Promise<number> => {
       let total = 0;
-      const topCols = ['products', 'roles', 'inbox'];
+      const topCols = ['products', 'roles', 'inbox', 'workitems'];
       for (const top of topCols) {
         const snap = await getDocs(collection(db, 'companies', companyId, top));
         total += snap.docs.length;
@@ -81,7 +81,7 @@ export class HomePage implements OnInit {
     const bump = () => (this.deleteDone = Math.min(this.deleteDone + 1, this.deleteTotal));
 
     try {
-      for (const top of ['products', 'roles', 'inbox']) {
+      for (const top of ['products', 'roles', 'inbox', 'workitems']) {
         const snap = await getDocs(collection(db, 'companies', companyId, top));
         for (const d of snap.docs) {
           await deleteDoc(d.ref);

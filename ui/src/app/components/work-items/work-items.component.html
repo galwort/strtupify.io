@@ -1,0 +1,36 @@
+<div class="work-container">
+  <div class="header">
+    <div class="title">Work</div>
+    <div class="clock">
+      <span>{{ (simTime | date:'MMM d, y') }}</span>
+      <span>{{ (simTime | date:'h:mm a') }}</span>
+    </div>
+  </div>
+
+  <div class="groups">
+    <div class="group" *ngFor="let g of grouped">
+      <div class="assignee">
+        <div class="name">{{ g.assignee }}</div>
+        <div class="role">{{ g.title }}</div>
+      </div>
+      <div class="items">
+        <div class="item" *ngFor="let it of g.items">
+          <div class="meta">
+            <div class="top">
+              <div class="i-title">{{ it.title }}</div>
+              <div class="badge">{{ it.category }}</div>
+            </div>
+            <div class="desc">{{ it.description }}</div>
+          </div>
+          <div class="progress">
+            <div class="bar">
+              <div class="fill" [style.width.%]="progress(it)"></div>
+            </div>
+            <div class="pct">{{ progress(it) }}%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+

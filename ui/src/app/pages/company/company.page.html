@@ -28,6 +28,10 @@
       *ngIf="showCompanyProfile && !showLoading"
       [companyId]="companyId"
     ></app-company-profile>
+    <app-work-items
+      *ngIf="showWork && !showCompanyProfile"
+      [companyId]="companyId"
+    ></app-work-items>
     <app-inbox
       *ngIf="showInbox && !showCompanyProfile"
       [companyId]="companyId"

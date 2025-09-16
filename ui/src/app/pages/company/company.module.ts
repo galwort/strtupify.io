@@ -14,6 +14,7 @@ import { ResumesComponent } from 'src/app/components/resumes/resumes.component';
 import { BoardroomComponent } from 'src/app/components/boardroom/boardroom.component';
 import { InboxComponent } from 'src/app/components/inbox/inbox.component';
 import { CompanyProfileComponent } from 'src/app/components/company-profile/company-profile.component';
+import { WorkItemsComponent } from 'src/app/components/work-items/work-items.component';
 
 @NgModule({
   imports: [
@@ -27,6 +28,7 @@ import { CompanyProfileComponent } from 'src/app/components/company-profile/comp
     BoardroomComponent,
     InboxComponent,
     CompanyProfileComponent,
+    WorkItemsComponent,
   ],
   declarations: [CompanyPage],
 })

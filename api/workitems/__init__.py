@@ -1,0 +1,251 @@
+import azure.functions as func
+import firebase_admin
+from json import dumps, loads
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
+from firebase_admin import credentials, initialize_app, firestore
+from openai import AzureOpenAI
+import time
+
+vault_url = "https://kv-strtupifyio.vault.azure.net/"
+credential = DefaultAzureCredential()
+secret_client = SecretClient(vault_url=vault_url, credential=credential)
+
+endpoint = secret_client.get_secret("AIEndpoint").value
+api_key = secret_client.get_secret("AIKey").value
+deployment = secret_client.get_secret("AIDeploymentMini").value
+client = AzureOpenAI(
+    api_version="2023-07-01-preview", azure_endpoint=endpoint, api_key=api_key
+)
+
+firestore_sdk = secret_client.get_secret("FirebaseSDK").value
+cred = credentials.Certificate(loads(firestore_sdk))
+if not firebase_admin._apps:
+    initialize_app(cred)
+db = firestore.client()
+
+
+def pull_context(company):
+    company_ref = db.collection("companies").document(company)
+    c = company_ref.get().to_dict() or {}
+    products = (
+        company_ref.collection("products").where("accepted", "==", True).get()
+    )
+    product = None
+    for p in products:
+        product = p.to_dict() | {"id": p.id}
+        break
+    employees = []
+    for d in (
+        company_ref.collection("employees").where("hired", "==", True).stream()
+    ):
+        emp_raw = d.to_dict() | {"id": d.id}
+        for k in ["created", "updated", "hired"]:
+            if k in emp_raw:
+                try:
+                    emp_raw.pop(k)
+                except Exception:
+                    pass
+        skills = []
+        for s in d.reference.collection("skills").stream():
+            sd = s.to_dict() or {}
+            if "updated" in sd:
+                try:
+                    sd.pop("updated")
+                except Exception:
+                    pass
+            skills.append({
+                "skill": sd.get("skill"),
+                "level": sd.get("level", 5),
+            })
+        emp_raw["skills"] = skills
+        employees.append(emp_raw)
+    return {
+        "company": c,
+        "product": product,
+        "employees": employees,
+    }
+
+
+def llm_plan(ctx):
+    company_name = ctx.get("company", {}).get("company_name", "")
+    company_description = ctx.get("company", {}).get("description", "")
+    product_name = (ctx.get("product") or {}).get("product", "")
+    product_description = (ctx.get("product") or {}).get("description", "")
+    employees = ctx.get("employees", [])
+    sys = (
+        "You produce realistic early-execution work items for a newly approved product. "
+        "Return strict JSON with key 'workitems' as a list. Each item must have: "
+        "title, description, assignee_name, category, complexity. "
+        "complexity is an integer 1-5 where 1 is trivial and 5 is very hard. "
+        "Use the given employees' names and titles to assign appropriately. "
+        "Prefer more complex items for more senior or higher-skilled engineers. "
+        "Distribute work across functions (engineering, design, product, marketing) as applicable. "
+        "Keep titles concise and descriptions actionable. Do not include commentary."
+    )
+    user = dumps(
+        {
+            "company_name": company_name,
+            "company_description": company_description,
+            "product_name": product_name,
+            "product_description": product_description,
+            "employees": [
+                {
+                    "name": e.get("name"),
+                    "title": e.get("title"),
+                    "skills": [
+                        {"skill": (s or {}).get("skill"), "level": (s or {}).get("level", 5)}
+                        for s in (e.get("skills", []) or [])
+                    ],
+                }
+                for e in employees
+            ],
+        }
+    )
+    rsp = client.chat.completions.create(
+        model=deployment,
+        response_format={"type": "json_object"},
+        messages=[{"role": "system", "content": sys}, {"role": "user", "content": user}],
+    )
+    try:
+        data = loads(rsp.choices[0].message.content)
+        items = data.get("workitems") or []
+        if isinstance(items, list):
+            return items
+        return []
+    except Exception:
+        return []
+
+
+def level_avg(emp):
+    lvls = [max(1, min(10, int(s.get("level", 5)))) for s in emp.get("skills", [])]
+    if not lvls:
+        return 5
+    return sum(lvls) / len(lvls)
+
+
+def estimate_hours(complexity, emp_level):
+    base = 6 + 8 * max(1, min(5, int(complexity)))
+    mult = 1.0 - (emp_level - 5) * 0.05
+    mult = max(0.6, min(1.4, mult))
+    return int(round(base * mult))
+
+
+def ensure_items(company, ctx, items, start_at):
+    if not items:
+        emps = ctx.get("employees", [])
+        fallback = []
+        for e in emps:
+            title = (e.get("title") or "").lower()
+            if "engineer" in title or "developer" in title:
+                fallback.append(
+                    {
+                        "title": "Set up project repo",
+                        "description": "Initialize repository, CI, and environments",
+                        "assignee_name": e.get("name"),
+                        "category": "Engineering",
+                        "complexity": 2,
+                    }
+                )
+                fallback.append(
+                    {
+                        "title": "Implement core feature",
+                        "description": "Deliver the first user-facing capability",
+                        "assignee_name": e.get("name"),
+                        "category": "Engineering",
+                        "complexity": 4,
+                    }
+                )
+            elif "design" in title:
+                fallback.append(
+                    {
+                        "title": "Wireframes",
+                        "description": "Create wireframes for primary flows",
+                        "assignee_name": e.get("name"),
+                        "category": "Design",
+                        "complexity": 3,
+                    }
+                )
+            elif "product" in title:
+                fallback.append(
+                    {
+                        "title": "MVP spec",
+                        "description": "Define MVP scope and acceptance criteria",
+                        "assignee_name": e.get("name"),
+                        "category": "Product",
+                        "complexity": 2,
+                    }
+                )
+            elif "marketing" in title or "growth" in title:
+                fallback.append(
+                    {
+                        "title": "Launch plan",
+                        "description": "Draft channels, messaging, and KPIs",
+                        "assignee_name": e.get("name"),
+                        "category": "Marketing",
+                        "complexity": 3,
+                    }
+                )
+        items = fallback
+    company_ref = db.collection("companies").document(company)
+    work_ref = company_ref.collection("workitems")
+    emps_by_name = {e.get("name"): e for e in ctx.get("employees", [])}
+    for wi in items:
+        assignee_name = str(wi.get("assignee_name", "")).strip()
+        emp = emps_by_name.get(assignee_name) or {}
+        emp_id = emp.get("id", "")
+        emp_level = level_avg(emp)
+        cx = max(1, min(5, int(wi.get("complexity", 3))))
+        est = estimate_hours(cx, emp_level)
+        doc_id = f"wi-{int(time.time()*1000)}-{abs(hash(assignee_name+wi.get('title','')))%10000}"
+        work_ref.document(doc_id).set(
+            {
+                "title": wi.get("title", ""),
+                "description": wi.get("description", ""),
+                "assignee_id": emp_id,
+                "assignee_name": assignee_name,
+                "assignee_title": emp.get("title", ""),
+                "category": wi.get("category", ""),
+                "complexity": cx,
+                "estimated_hours": est,
+                "rate_per_hour": round(100.0 / max(1, est), 4),
+                "status": "in_progress",
+                "started_at": start_at,
+                "work_start_hour": 10,
+                "work_end_hour": 20,
+                "created": firestore.SERVER_TIMESTAMP,
+                "updated": firestore.SERVER_TIMESTAMP,
+            }
+        )
+    company_ref.set({"work_enabled": True, "work_created_at": firestore.SERVER_TIMESTAMP}, merge=True)
+
+
+def main(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        body = req.get_json()
+    except Exception:
+        return func.HttpResponse(dumps({"error": "invalid json"}), status_code=400)
+    company = body.get("company")
+    if not company:
+        return func.HttpResponse(dumps({"error": "missing company"}), status_code=400)
+    ctx = pull_context(company)
+    if not ctx.get("product"):
+        return func.HttpResponse(dumps({"error": "no accepted product"}), status_code=400)
+    cdoc = db.collection("companies").document(company).get().to_dict() or {}
+    start_at = int(cdoc.get("simTime") or int(time.time() * 1000))
+    existing = (
+        db.collection("companies")
+        .document(company)
+        .collection("workitems")
+        .limit(1)
+        .get()
+    )
+    if existing:
+        try:
+            if len(existing) > 0:
+                return func.HttpResponse(dumps({"ok": True, "skipped": True}), mimetype="application/json")
+        except Exception:
+            pass
+    planned = llm_plan(ctx)
+    ensure_items(company, ctx, planned, start_at)
+    return func.HttpResponse(dumps({"ok": True}), mimetype="application/json")

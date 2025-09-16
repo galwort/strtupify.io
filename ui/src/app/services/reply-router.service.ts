@@ -54,9 +54,10 @@ export class ReplyRouterService {
           thread,
         })
         .toPromise();
-      const from = res && res.from ? res.from : 'noreply@strtupify.io';
-      const subject = res && res.subject ? res.subject : `Re: ${opts.subject || ''}`;
-      const body = res && res.body ? res.body : '';
+     const from = res && res.from ? res.from : 'noreply@strtupify.io';
+     const subject = res && res.subject ? res.subject : `Re: ${opts.subject || ''}`;
+     const body = res && res.body ? res.body : '';
+      const status = res && res.status ? String(res.status).toLowerCase() : '';
       if (!body) return;
       const emailId = `kickoff-auto-${Date.now()}`;
       const payload: any = {
@@ -72,6 +73,15 @@ export class ReplyRouterService {
       };
       if (opts.parentId) payload.parentId = opts.parentId;
       await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), payload);
+      if (status === 'approved') {
+        try {
+          await this.http
+            .post<any>('https://fa-strtupifyio.azurewebsites.net/api/workitems', {
+              company: opts.companyId,
+            })
+            .toPromise();
+        } catch {}
+      }
       return;
     }
   }

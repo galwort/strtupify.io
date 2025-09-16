@@ -74,7 +74,7 @@ def analyze_reply(context_json, reply_text, thread_json):
         "suggestions means the reply proposes changes (to product or roles or plan), unknown otherwise. "
         "Generate a concise assistant reply matching the case: "
         "approved -> casual short acknowledgement, rejected -> ask what changes are needed, "
-        "suggestions -> propose a new plan incorporating the suggestions, unknown -> ask for an approval decision. ""
+        "suggestions -> propose a new plan incorporating the suggestions, unknown -> ask for an approval decision. "
         "Also include an optional 'changes' object when status is 'suggestions' with this shape: "
         "{ 'product': { 'name': string, 'description': string }, 'roles': [ { 'title': string, 'openings': number, 'skills': string[] } ] }. "
         "If a field is not being changed, omit it. "

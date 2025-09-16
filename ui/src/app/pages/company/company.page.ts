@@ -11,6 +11,9 @@ import {
   doc,
   getDoc,
   updateDoc,
+  onSnapshot,
+  QuerySnapshot,
+  DocumentData,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 
@@ -28,6 +31,7 @@ export class CompanyPage implements OnInit {
   showResumes = false;
   showBoardroom = false;
   showInbox = false;
+  showWork = false;
   totalTasks = 0;
   completedTasks = 0;
   companyId = '';
@@ -46,6 +50,15 @@ export class CompanyPage implements OnInit {
     this.ui.showCompanyProfile$.subscribe((v) => {
       this.showCompanyProfile = v;
     });
+    this.ui.currentModule$.subscribe((m) => {
+      if (!this.companyId) return;
+      if (m === 'work') {
+        this.showBoardroom = false;
+        this.showResumes = false;
+        this.showInbox = false;
+        this.showWork = true;
+      }
+    });
 
     const acceptedSnap = await getDocs(
       query(
@@ -60,6 +73,7 @@ export class CompanyPage implements OnInit {
       this.ui.setCurrentModule('inbox');
       // Ensure founding date is set when inbox becomes active
       await this.ensureFoundedAt();
+      this.observeWorkItems();
       return;
     }
 
@@ -85,6 +99,7 @@ export class CompanyPage implements OnInit {
     this.showLoading = false;
     this.ui.setCompanyProfileEnabled(true);
     this.ui.setCurrentModule(this.showResumes ? 'resumes' : 'roles');
+    this.observeWorkItems();
   }
 
   handleLoadingState(e: {
@@ -113,10 +128,26 @@ export class CompanyPage implements OnInit {
   openInbox() {
     this.showBoardroom = false;
     this.showInbox = true;
+    this.showWork = false;
     this.ui.setCompanyProfileEnabled(true);
     this.ui.setCurrentModule('inbox');
     // Ensure founding date is set when inbox becomes active
     this.ensureFoundedAt();
+  }
+
+  private observeWorkItems() {
+    try {
+      const unsub = (window as any)._workitemsUnsub as (() => void) | undefined;
+      if (unsub) unsub();
+    } catch {}
+    try {
+      const ref = collection(db, `companies/${this.companyId}/workitems`);
+      const unsubscribe = onSnapshot(ref, (snap: QuerySnapshot<DocumentData>) => {
+        const has = snap.docs.length > 0;
+        this.ui.setWorkEnabled(has);
+      });
+      (window as any)._workitemsUnsub = unsubscribe;
+    } catch {}
   }
 
   private async ensureFoundedAt() {

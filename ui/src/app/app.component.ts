@@ -18,8 +18,9 @@ export class AppComponent implements OnDestroy {
   companyLogo: string = '';
   companyProfileEnabled = false;
   showCompanyProfile = false;
-  currentModule: 'inbox' | 'roles' | 'resumes' | 'boardroom' = 'roles';
+  currentModule: 'inbox' | 'roles' | 'resumes' | 'boardroom' | 'work' = 'roles';
   backIcon: string = 'group_add';
+  workEnabled = false;
 
   private fbApp = initializeApp(environment.firebase);
   private db = getFirestore(this.fbApp);
@@ -43,10 +44,19 @@ export class AppComponent implements OnDestroy {
     });
     this.ui.showCompanyProfile$.subscribe((v) => (this.showCompanyProfile = v));
     this.ui.companyProfileEnabled$.subscribe((v) => (this.companyProfileEnabled = v));
+    this.ui.workEnabled$.subscribe((v) => (this.workEnabled = v));
     this.ui.currentModule$.subscribe((m) => {
       this.currentModule = m;
       this.backIcon =
-        m === 'inbox' ? 'mail' : m === 'boardroom' ? 'forum' : m === 'roles' ? 'group_add' : 'badge';
+        m === 'inbox'
+          ? 'mail'
+          : m === 'boardroom'
+          ? 'forum'
+          : m === 'roles'
+          ? 'group_add'
+          : m === 'work'
+          ? 'task'
+          : 'badge';
       this.cdr.detectChanges();
     });
 
@@ -128,6 +138,11 @@ export class AppComponent implements OnDestroy {
 
   openInbox() {
     this.ui.setShowCompanyProfile(false);
+  }
+
+  openWork() {
+    this.ui.setShowCompanyProfile(false);
+    this.ui.setCurrentModule('work');
   }
 
   private async updateCompanyContext() {

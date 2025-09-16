@@ -23,6 +23,15 @@
         >
           <span class="material-symbols-outlined"> {{ backIcon }} </span>
         </button>
+        <button
+          *ngIf="workEnabled && currentCompanyId && !showCompanyProfile"
+          type="button"
+          class="company-logo"
+          (click)="openWork()"
+          aria-label="Work"
+        >
+          <span class="material-symbols-outlined"> task </span>
+        </button>
       </ion-buttons>
     </ion-toolbar>
   </div>

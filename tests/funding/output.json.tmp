@@ -1,0 +1,527 @@
+[
+  {
+    "company": {
+      "name": "LeaseLink Solutions",
+      "description": "LeaseLink Solutions is a proptech startup based in India that connects tenants and landlords through a user-friendly digital platform. By streamlining the lease management process, we charge transaction fees for every successful rental agreement processed, ensuring that both parties enjoy a seamless experience. Currently, we are in the pilot phase with select tenants and landlords, focusing on urban areas to establish our market presence."
+    },
+    "profile": {
+      "industry": "proptech",
+      "capital_intensity": "high",
+      "regulated": "regulated",
+      "business_model": "Transaction fee",
+      "traction": "pilot customers",
+      "geography": "India"
+    },
+    "funding": {
+      "approved": false,
+      "amount": 0.0,
+      "grace_period_days": 0,
+      "first_payment": 0.0
+    },
+    "at": "2025-09-16T00:03:09.168277+00:00"
+  },
+  {
+    "company": {
+      "name": "LearnConnect Pro",
+      "description": "LearnConnect Pro aims to enhance professional development for teachers in rural US schools through an online platform offering accredited courses. With a subscription-based model targeting educational institutions, the service will provide resources and support for ongoing learning and advancements in pedagogical skills. Although still in the pre-revenue stage, our comprehensive curriculum has been developed with input from educational experts and aligned with state standards."
+    },
+    "profile": {
+      "industry": "edtech",
+      "capital_intensity": "high",
+      "regulated": "regulated",
+      "business_model": "B2B subscription",
+      "traction": "pre-revenue",
+      "geography": "rural US"
+    },
+    "funding": {
+      "approved": false,
+      "amount": 0.0,
+      "grace_period_days": 0,
+      "first_payment": 0.0
+    },
+    "at": "2025-09-16T00:03:12.232587+00:00"
+  },
+  {
+    "company": {
+      "name": "SmartIrrigate",
+      "description": "SmartIrrigate is a UK-based agtech startup focused on providing advanced irrigation solutions for farmers. Our services leverage data analytics to create customized irrigation plans, optimizing soil moisture levels to enhance crop yield. As we prepare for market entry, we are seeking funding to finalize product development and execute our launch strategy."
+    },
+    "profile": {
+      "industry": "agtech",
+      "capital_intensity": "medium",
+      "regulated": "unregulated",
+      "business_model": "Services",
+      "traction": "pre-revenue",
+      "geography": "UK"
+    },
+    "funding": {
+      "approved": true,
+      "amount": 500000.0,
+      "grace_period_days": 180,
+      "first_payment": 30000.0
+    },
+    "at": "2025-09-16T00:03:15.000908+00:00"
+  },
+  {
+    "company": {
+      "name": "YieldMax Services",
+      "description": "YieldMax Services specializes in providing comprehensive soil analysis and customized irrigation solutions to farmers across LATAM. With a current monthly recurring revenue of $50k, the company helps optimize crop yield through data-driven insights and tailored services. The focus on unregulated services allows for agility and responsiveness to farmers' needs without extensive bureaucratic hurdles."
+    },
+    "profile": {
+      "industry": "agtech",
+      "capital_intensity": "low",
+      "regulated": "unregulated",
+      "business_model": "Services",
+      "traction": "$50k MRR",
+      "geography": "LATAM"
+    },
+    "funding": {
+      "approved": true,
+      "amount": 200000.0,
+      "grace_period_days": 90,
+      "first_payment": 10000.0
+    },
+    "at": "2025-09-16T00:03:23.266123+00:00"
+  },
+  {
+    "company": {
+      "name": "MealMate",
+      "description": "MealMate is a mobile app designed to connect users with local home cooks who prepare and deliver homemade meals on demand. The platform operates on a transaction fee model, allowing users to subscribe for meal recommendations while providing cooks with a new revenue stream. Currently in the pre-revenue stage, MealMate aims to launch its service across major Canadian cities, targeting consumers seeking convenience and personalized dining experiences."
+    },
+    "profile": {
+      "industry": "consumer",
+      "capital_intensity": "medium",
+      "regulated": "unregulated",
+      "business_model": "Transaction fee",
+      "traction": "pre-revenue",
+      "geography": "Canada"
+    },
+    "funding": {
+      "approved": false,
+      "amount": 0.0,
+      "grace_period_days": 0,
+      "first_payment": 0.0
+    },
+    "at": "2025-09-16T00:03:26.672641+00:00"
+  },
+  {
+    "company": {
+      "name": "ShopifyConnect API",
+      "description": "ShopifyConnect API is an eCommerce platform specializing in a usage-based API that aids merchants in improving their conversion rates. Currently piloting with select Shopify merchants in major US metros, the platform aims to streamline the connection between various sales channels and enhance customer engagement. With high capital intensity, the company must navigate regulatory challenges while scaling its services."
+    },
+    "profile": {
+      "industry": "ecommerce",
+      "capital_intensity": "high",
+      "regulated": "regulated",
+      "business_model": "Usage-based API",
+      "traction": "pilot customers",
+      "geography": "US metro"
+    },
+    "funding": {
+      "approved": false,
+      "amount": 0.0,
+      "grace_period_days": 0,
+      "first_payment": 0.0
+    },
+    "at": "2025-09-16T00:03:29.183231+00:00"
+  },
+  {
+    "company": {
+      "name": "GreenWave Solutions",
+      "description": "GreenWave Solutions offers a digital platform connecting local farmers to consumers in urban areas through online transactions. By charging a small transaction fee, the company facilitates direct sales and reduces food waste. Currently, they have secured pilot customers across several cities in India, aiming to expand their reach."
+    },
+    "profile": {
+      "industry": "climate",
+      "capital_intensity": "low",
+      "regulated": "unregulated",
+      "business_model": "Transaction fee",
+      "traction": "pilot customers",
+      "geography": "India"
+    },
+    "funding": {
+      "approved": true,
+      "amount": 50000.0,
+      "grace_period_days": 90,
+      "first_payment": 10000.0
+    },
+    "at": "2025-09-16T00:03:32.523953+00:00"
+  },
+  {
+    "company": {
+      "name": "TuneRights",
+      "description": "TuneRights is a digital licensing service tailored for independent musicians in India. The platform simplifies the process of music rights management, helping creators ensure their works are protected while allowing seamless royalty collections. With a monthly recurring revenue of $10,000, TuneRights aims to empower local artists by providing them with easy access to licensing resources."
+    },
+    "profile": {
+      "industry": "creator",
+      "capital_intensity": "low",
+      "regulated": "unregulated",
+      "business_model": "Services",
+      "traction": "$10k MRR",
+      "geography": "India"
+    },
+    "funding": {
+      "approved": true,
+      "amount": 50000.0,
+      "grace_period_days": 30,
+      "first_payment": 2000.0
+    },
+    "at": "2025-09-16T00:03:35.022794+00:00"
+  },
+  {
+    "company": {
+      "name": "CreatorTunes API",
+      "description": "CreatorTunes API is a platform designed for music creators in Southeast Asia, facilitating the licensing of their works through a usage-based model. With a waitlist of over 10,000 eager users, the service streamlines the complex licensing process, ensuring musicians can monetize their creations efficiently and legally. Our innovative technology empowers creators to connect with potential partners while staying compliant with industry regulations."
+    },
+    "profile": {
+      "industry": "creator",
+      "capital_intensity": "medium",
+      "regulated": "regulated",
+      "business_model": "Usage-based API",
+      "traction": "waitlist 10k",
+      "geography": "SEA"
+    },
+    "funding": {
+      "approved": true,
+      "amount": 50000.0,
+      "grace_period_days": 60,
+      "first_payment": 1000.0
+    },
+    "at": "2025-09-16T00:03:42.338242+00:00"
+  },
+  {
+    "company": {
+      "name": "HealthSync App",
+      "description": "HealthSync is a mobile application designed to help users manage their personal health data through a subscription model. With features including medication reminders and personalized health insights, the app currently has a waitlist of 10,000 users eager to improve their health management. Operating in Sub-Saharan Africa, HealthSync aims to empower consumers by providing access to easy-to-use health tracking tools and resources."
+    },
+    "profile": {
+      "industry": "consumer",
+      "capital_intensity": "medium",
+      "regulated": "regulated",
+      "business_model": "B2C subscription",
+      "traction": "waitlist 10k",
+      "geography": "Sub-Saharan Africa"
+    },
+    "funding": {
+      "approved": true,
+      "amount": 50000.0,
+      "grace_period_days": 30,
+      "first_payment": 2000.0
+    },
+    "at": "2025-09-16T00:03:44.938717+00:00"
+  },
+  {
+    "company": {
+      "name": "LLM DevWorks",
+      "description": "LLM DevWorks is an AI devtools company focused on providing specialized SDKs and testing environments for large language models (LLM). With a capital intensity that balances R&D and service delivery, the business has achieved $10K MRR while navigating the challenges of the regulated tech sector. The company is based in a major US metro area, serving clients looking for robust development tools for their AI applications."
+    },
+    "profile": {
+      "industry": "AI devtools",
+      "capital_intensity": "medium",
+      "regulated": "regulated",
+      "business_model": "Services",
+      "traction": "$10k MRR",
+      "geography": "US metro"
+    },
+    "funding": {
+      "approved": true,
+      "amount": 50000.0,
+      "grace_period_days": 90,
+      "first_payment": 1000.0
+    },
+    "at": "2025-09-16T00:03:47.561150+00:00"
+  },
+  {
+    "company": {
+      "name": "DocketEase",
+      "description": "DocketEase is a legal tech startup focused on simplifying the intake process for rural law firms. We offer an intuitive platform that streamlines docket management, allowing paralegals to efficiently handle case documentation. With a business model based on transaction fees, we are already generating $50k in monthly recurring revenue, demonstrating strong traction in a regulated market."
+    },
+    "profile": {
+      "industry": "legaltech",
+      "capital_intensity": "low",
+      "regulated": "regulated",
+      "business_model": "Transaction fee",
+      "traction": "$50k MRR",
+      "geography": "rural US"
+    },
+    "funding": {
+      "approved": true,
+      "amount": 250000.0,
+      "grace_period_days": 90,
+      "first_payment": 5000.0
+    },
+    "at": "2025-09-16T00:03:50.551537+00:00"
+  },
+  {
+    "company": {
+      "name": "ConnectHome Services",
+      "description": "ConnectHome Services is a mobile app that provides a subscription-based platform for consumers to connect with various home service providers, from cleaning to plumbing. Operating in the MENA region, the app facilitates the booking and management of services through a user-friendly interface. With $10k MRR, the business has seen significant traction, leveraging a usage-based API model to adapt pricing according to consumer needs."
+    },
+    "profile": {
+      "industry": "consumer",
+      "capital_intensity": "high",
+      "regulated": "regulated",
+      "business_model": "Usage-based API",
+      "traction": "$10k MRR",
+      "geography": "MENA"
+    },
+    "funding": {
+      "approved": true,
+      "amount": 50000.0,
+      "grace_period_days": 30,
+      "first_payment": 2500.0
+    },
+    "at": "2025-09-16T00:03:53.395730+00:00"
+  },
+  {
+    "company": {
+      "name": "SecurePay Ledger",
+      "description": "SecurePay Ledger is a Canadian fintech startup aiming to revolutionize B2B payment processing through a subscription model. With a focus on KYC compliance and robust ledger management, the platform will streamline banking transactions for small to medium enterprises. Currently in pre-revenue stage, SecurePay Ledger is preparing to launch its solution to help businesses navigate the complex landscape of financial regulations."
+    },
+    "profile": {
+      "industry": "fintech",
+      "capital_intensity": "high",
+      "regulated": "regulated",
+      "business_model": "B2B subscription",
+      "traction": "pre-revenue",
+      "geography": "Canada"
+    },
+    "funding": {
+      "approved": false,
+      "amount": 0.0,
+      "grace_period_days": 0,
+      "first_payment": 0.0
+    },
+    "at": "2025-09-16T00:03:56.165946+00:00"
+  },
+  {
+    "company": {
+      "name": "CloudGuard Services",
+      "description": "CloudGuard Services focuses on providing cybersecurity assessments tailored for small to medium-sized enterprises across Southeast Asia. With an emphasis on identifying vulnerabilities within cloud infrastructure, the company aims to offer comprehensive security solutions despite being pre-revenue. As the demand for cloud security increases in the region, CloudGuard plans to establish itself as a trusted partner for businesses seeking to enhance their digital protection."
+    },
+    "profile": {
+      "industry": "security",
+      "capital_intensity": "high",
+      "regulated": "unregulated",
+      "business_model": "Services",
+      "traction": "pre-revenue",
+      "geography": "SEA"
+    },
+    "funding": {
+      "approved": false,
+      "amount": 0.0,
+      "grace_period_days": 0,
+      "first_payment": 0.0
+    },
+    "at": "2025-09-16T00:03:58.931061+00:00"
+  },
+  {
+    "company": {
+      "name": "TransactWise",
+      "description": "TransactWise is a fintech startup based in Brazil that simplifies payment processing for small businesses. With a focus on KYC compliance and robust ledger systems, it offers tools that help merchants manage transactions efficiently while adhering to banking regulations. The company has achieved $10k MRR by providing exceptional customer service and integrating with local banks."
+    },
+    "profile": {
+      "industry": "fintech",
+      "capital_intensity": "medium",
+      "regulated": "regulated",
+      "business_model": "Services",
+      "traction": "$10k MRR",
+      "geography": "LATAM"
+    },
+    "funding": {
+      "approved": true,
+      "amount": 50000.0,
+      "grace_period_days": 90,
+      "first_payment": 2000.0
+    },
+    "at": "2025-09-16T00:04:01.691903+00:00"
+  },
+  {
+    "company": {
+      "name": "RuralAI Dev",
+      "description": "RuralAI Dev develops an integrated hardware and software solution aimed at enhancing agricultural productivity in rural areas. Our SDK allows farmers to utilize an LLM-powered application that helps in crop management and real-time data analysis. Currently, we are testing the product with pilot customers, gathering feedback to refine our offering."
+    },
+    "profile": {
+      "industry": "AI devtools",
+      "capital_intensity": "medium",
+      "regulated": "regulated",
+      "business_model": "Hardware + service",
+      "traction": "pilot customers",
+      "geography": "rural US"
+    },
+    "funding": {
+      "approved": false,
+      "amount": 0.0,
+      "grace_period_days": 0,
+      "first_payment": 0.0
+    },
+    "at": "2025-09-16T00:04:05.590638+00:00"
+  },
+  {
+    "company": {
+      "name": "DevIntelli SDK",
+      "description": "DevIntelli SDK specializes in providing a comprehensive software development kit for artificial intelligence applications aimed at industries such as healthcare and finance. Our innovative LLM tools enable developers to rapidly prototype and test AI solutions while ensuring compliance with industry regulations. With a monthly recurring revenue of $50k, we are positioned in major U.S. metro markets, combining hardware interfaces with robust software support."
+    },
+    "profile": {
+      "industry": "AI devtools",
+      "capital_intensity": "medium",
+      "regulated": "regulated",
+      "business_model": "Hardware + service",
+      "traction": "$50k MRR",
+      "geography": "US metro"
+    },
+    "funding": {
+      "approved": true,
+      "amount": 150000.0,
+      "grace_period_days": 90,
+      "first_payment": 5000.0
+    },
+    "at": "2025-09-16T00:04:13.585959+00:00"
+  },
+  {
+    "company": {
+      "name": "PayLedger Innovations",
+      "description": "PayLedger Innovations is a fintech startup based in India focusing on providing integrated KYC solutions alongside payment processing hardware. With a waitlist of over 10,000 eager users, we aim to streamline banking transactions while ensuring compliance with regulatory frameworks. Our service combines innovative ledger technology with user-friendly hardware, making secure payments accessible for various businesses."
+    },
+    "profile": {
+      "industry": "fintech",
+      "capital_intensity": "medium",
+      "regulated": "regulated",
+      "business_model": "Hardware + service",
+      "traction": "waitlist 10k",
+      "geography": "India"
+    },
+    "funding": {
+      "approved": true,
+      "amount": 500000.0,
+      "grace_period_days": 90,
+      "first_payment": 10000.0
+    },
+    "at": "2025-09-16T00:04:21.281243+00:00"
+  },
+  {
+    "company": {
+      "name": "SubSaharan Merchants Hub",
+      "description": "SubSaharan Merchants Hub is an ecommerce platform focused on connecting local businesses in Sub-Saharan Africa with international customers. The platform offers a B2C subscription model that simplifies the operational aspects of online selling, providing tools for merchants to optimize their Shopify stores and improve conversion rates. Currently, we are in the pilot phase with several local merchants eager to expand their reach."
+    },
+    "profile": {
+      "industry": "ecommerce",
+      "capital_intensity": "medium",
+      "regulated": "unregulated",
+      "business_model": "B2C subscription",
+      "traction": "pilot customers",
+      "geography": "Sub-Saharan Africa"
+    },
+    "funding": {
+      "approved": false,
+      "amount": 0.0,
+      "grace_period_days": 0,
+      "first_payment": 0.0
+    },
+    "at": "2025-09-16T00:04:25.268899+00:00"
+  },
+  {
+    "company": {
+      "name": "ClinicConnect Cloud",
+      "description": "ClinicConnect Cloud offers a secure, HIPAA-compliant patient management system designed for small to medium-sized clinics in Southeast Asia. With features that integrate seamlessly with existing EHR systems, our platform streamlines administrative tasks while enhancing patient engagement. We've successfully built a waitlist of 10,000 prospective clinics eager to adopt our solution, anticipating a B2B subscription model."
+    },
+    "profile": {
+      "industry": "healthtech",
+      "capital_intensity": "low",
+      "regulated": "unregulated",
+      "business_model": "B2B subscription",
+      "traction": "waitlist 10k",
+      "geography": "SEA"
+    },
+    "funding": {
+      "approved": true,
+      "amount": 500000.0,
+      "grace_period_days": 90,
+      "first_payment": 25000.0
+    },
+    "at": "2025-09-16T00:04:29.073272+00:00"
+  },
+  {
+    "company": {
+      "name": "DocketLink Market",
+      "description": "DocketLink Market is a legaltech startup focused on connecting consumers with certified paralegals across the MENA region. With a high capital intensity due to regulatory requirements, we aim to streamline the intake and docket processes for customers seeking legal support. Currently, we have built a strong interest with a waitlist of 10,000 users eager for our services."
+    },
+    "profile": {
+      "industry": "legaltech",
+      "capital_intensity": "high",
+      "regulated": "regulated",
+      "business_model": "Marketplace",
+      "traction": "waitlist 10k",
+      "geography": "MENA"
+    },
+    "funding": {
+      "approved": true,
+      "amount": 500000.0,
+      "grace_period_days": 180,
+      "first_payment": 20000.0
+    },
+    "at": "2025-09-16T00:04:36.820663+00:00"
+  },
+  {
+    "company": {
+      "name": "SwiftRoute Logistics",
+      "description": "SwiftRoute Logistics specializes in optimizing courier dispatch systems for small to medium-sized businesses in Southeast Asia. With a hardware component that integrates with existing vehicles, the startup has achieved a consistent $10k MRR while offering innovative routing solutions to improve delivery times and reduce operational costs. We aim to expand our service offerings to include real-time tracking and analytics."
+    },
+    "profile": {
+      "industry": "logistics",
+      "capital_intensity": "high",
+      "regulated": "unregulated",
+      "business_model": "Hardware + service",
+      "traction": "$10k MRR",
+      "geography": "SEA"
+    },
+    "funding": {
+      "approved": true,
+      "amount": 50000.0,
+      "grace_period_days": 30,
+      "first_payment": 2000.0
+    },
+    "at": "2025-09-16T00:04:39.370182+00:00"
+  },
+  {
+    "company": {
+      "name": "PCB Innovations",
+      "description": "PCB Innovations is a B2B company focused on manufacturing high-performance printed circuit boards (PCBs) tailored for various hardware applications. With an established waitlist of over 10,000 businesses eagerly awaiting our products, we aim to streamline the prototyping phase for tech startups across LATAM. Our low-capital intensity business model allows us to deliver quality devices on a subscription basis, transforming how companies manage their electronic components."
+    },
+    "profile": {
+      "industry": "hardware",
+      "capital_intensity": "low",
+      "regulated": "unregulated",
+      "business_model": "B2B subscription",
+      "traction": "waitlist 10k",
+      "geography": "LATAM"
+    },
+    "funding": {
+      "approved": true,
+      "amount": 500000.0,
+      "grace_period_days": 90,
+      "first_payment": 5000.0
+    },
+    "at": "2025-09-16T00:04:43.047182+00:00"
+  },
+  {
+    "company": {
+      "name": "PaymentsInsight",
+      "description": "PaymentsInsight is a Canadian fintech startup that offers KYC compliance solutions for online payment platforms. By providing streamlined verification processes and an easy-to-use ledger system, they aim to simplify banking interactions for new businesses trying to navigate payment regulations. Currently pre-revenue, the company is seeking funding to develop their technology and expand its capabilities."
+    },
+    "profile": {
+      "industry": "fintech",
+      "capital_intensity": "low",
+      "regulated": "unregulated",
+      "business_model": "Services",
+      "traction": "pre-revenue",
+      "geography": "Canada"
+    },
+    "funding": {
+      "approved": false,
+      "amount": 0.0,
+      "grace_period_days": 0,
+      "first_payment": 0.0
+    },
+    "at": "2025-09-16T00:04:51.370729+00:00"
+  }
+]

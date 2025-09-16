@@ -1,5 +1,5 @@
-<div class="decision-card">
-  <div class="header-row">
+<div class="decision">
+  <div class="top">
     <div class="logo" *ngIf="logo">
       <span class="material-symbols-outlined"> {{ logo }} </span>
     </div>
@@ -10,28 +10,24 @@
   <div class="status rejected" *ngIf="decision && !decision.approved">Loan Rejected</div>
 
   <div class="details" *ngIf="decision?.approved">
-    <div class="row">
-      <div class="label">Amount</div>
-      <div class="value">{{ decision?.amount | currency: 'USD':'symbol' }}</div>
-    </div>
-    <div class="row">
-      <div class="label">Grace Period</div>
-      <div class="value">{{ decision?.grace_period_days }} days</div>
-    </div>
-    <div class="row">
-      <div class="label">First Payment</div>
-      <div class="value">{{ decision?.first_payment | currency: 'USD':'symbol' }}</div>
-    </div>
+    <p>
+      Amount: <b>{{ decision?.amount | currency: 'USD':'symbol' }}</b>
+    </p>
+    <p>
+      Grace Period: <b>{{ decision?.grace_period_days }} days</b>
+    </p>
+    <p>
+      First Payment: <b>{{ decision?.first_payment | currency: 'USD':'symbol' }}</b>
+    </p>
   </div>
 
-  <div class="actions" *ngIf="decision && !decision.approved">
-    <button class="btn secondary" type="button" (click)="editApplication.emit()">Edit Application</button>
-    <button class="btn" type="button" (click)="newApplication.emit()">Start New Application</button>
+  <div class="button-container" *ngIf="decision && !decision.approved">
+    <button type="button" (click)="editApplication.emit()">Edit Application</button>
+    <button type="button" (click)="newApplication.emit()">Start New Application</button>
   </div>
 
-  <div class="actions" *ngIf="decision?.approved">
-    <button class="btn" type="button" (click)="acceptLoan.emit()">Accept Loan</button>
-    <button class="btn secondary" type="button" (click)="newApplication.emit()">Start New Application</button>
+  <div class="button-container" *ngIf="decision?.approved">
+    <button class="accept-button" type="button" (click)="acceptLoan.emit()">Accept Loan</button>
+    <button type="button" (click)="newApplication.emit()">Start New Application</button>
   </div>
 </div>
-

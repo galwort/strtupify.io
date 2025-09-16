@@ -1,17 +1,12 @@
-.decision-card {
+.decision {
   width: 100%;
-  max-width: 720px;
-  background: #fff;
-  border: 1px solid var(--theme-primary);
-  border-radius: 8px;
-  padding: 16px;
   color: var(--theme-text);
 }
-.header-row {
+.top {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 8px;
+  margin-bottom: 1.5rem;
 }
 .logo .material-symbols-outlined {
   font-size: 28px;
@@ -21,46 +16,44 @@
   font-weight: 600;
 }
 .status {
-  margin: 8px 0 12px;
-  font-size: 18px;
+  margin-bottom: 0.5rem;
+  font-size: 22px;
   font-weight: 600;
 }
 .status.approved {
-  color: var(--ion-color-success);
+  color: var(--theme-accent);
 }
 .status.rejected {
   color: var(--ion-color-danger);
 }
 .details {
-  margin: 8px 0 16px;
+  margin-bottom: 1.5rem;
 }
-.row {
+.details p {
+  margin: 6px 0;
+}
+.button-container {
   display: flex;
-  justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px dashed rgba(0,0,0,0.08);
+  width: 100%;
+  padding-top: 20px;
 }
-.row:last-child {
-  border-bottom: none;
-}
-.label { color: var(--theme-text); opacity: 0.8; }
-.value { font-weight: 600; }
-
-.actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 8px;
-}
-.btn {
-  padding: 10px 16px;
+.button-container button {
+  width: 300px;
+  padding: 0.75rem;
   background: var(--theme-primary);
-  color: #fff;
-  border: 1px solid var(--theme-primary);
+  color: white;
+  border: 1.5px solid var(--theme-primary);
   border-radius: 4px;
+  font-size: 1rem;
   cursor: pointer;
+  transition: background 0.3s;
+  margin-right: 8px;
 }
-.btn.secondary {
-  background: #fff;
-  color: var(--theme-text);
+.button-container button:hover {
+  border: 1.5px solid var(--theme-accent);
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
 }
-
+.button-container .accept-button {
+  background: var(--theme-accent);
+  border: 1.5px solid var(--theme-accent);
+}

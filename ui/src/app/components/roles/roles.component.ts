@@ -27,6 +27,7 @@ function generateResumeCount(openings: number, cap: number = 20): number {
   selector: 'app-roles',
   templateUrl: './roles.component.html',
   styleUrls: ['./roles.component.scss'],
+  standalone: true,
   imports: [CommonModule, FormsModule],
 })
 export class RolesComponent implements OnInit {

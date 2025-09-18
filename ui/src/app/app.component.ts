@@ -21,6 +21,7 @@ export class AppComponent implements OnDestroy {
   currentModule: 'inbox' | 'roles' | 'resumes' | 'boardroom' | 'work' = 'roles';
   backIcon: string = 'group_add';
   workEnabled = false;
+  inboxEnabled = false;
 
   private fbApp = initializeApp(environment.firebase);
   private db = getFirestore(this.fbApp);
@@ -57,6 +58,7 @@ export class AppComponent implements OnDestroy {
           : m === 'work'
           ? 'task'
           : 'badge';
+      if (m === 'inbox') this.inboxEnabled = true;
       this.cdr.detectChanges();
     });
 
@@ -138,11 +140,45 @@ export class AppComponent implements OnDestroy {
 
   openInbox() {
     this.ui.setShowCompanyProfile(false);
+    this.ui.setCurrentModule('inbox');
+  }
+
+  openBoardroom() {
+    this.ui.setShowCompanyProfile(false);
+    this.ui.setCurrentModule('boardroom');
+  }
+
+  openRoles() {
+    this.ui.setShowCompanyProfile(false);
+    this.ui.setCurrentModule('roles');
+  }
+
+  openResumes() {
+    this.ui.setShowCompanyProfile(false);
+    this.ui.setCurrentModule('resumes');
   }
 
   openWork() {
     this.ui.setShowCompanyProfile(false);
     this.ui.setCurrentModule('work');
+  }
+
+  // Back navigation from Company Profile to the active module
+  openBackToModule() {
+    switch (this.currentModule) {
+      case 'roles':
+        return this.openRoles();
+      case 'resumes':
+        return this.openResumes();
+      case 'boardroom':
+        return this.openBoardroom();
+      case 'inbox':
+        return this.openInbox();
+      case 'work':
+        return this.openWork();
+      default:
+        return this.openRoles();
+    }
   }
 
   private async updateCompanyContext() {
@@ -151,6 +187,7 @@ export class AppComponent implements OnDestroy {
     this.currentCompanyId = companyId;
     this.companyLogo = '';
     this.companyProfileEnabled = false;
+    this.inboxEnabled = false;
     this.ui.setCompanyProfileEnabled(false);
     if (!companyId) return;
 
@@ -161,6 +198,17 @@ export class AppComponent implements OnDestroy {
 
       this.companyProfileEnabled = true;
       this.ui.setCompanyProfileEnabled(true);
+
+      try {
+        const acceptedSnap = await getDocs(
+          query(
+            collection(this.db, `companies/${companyId}/products`),
+            where('accepted', '==', true)
+          )
+        );
+        this.inboxEnabled = !acceptedSnap.empty;
+      } catch {}
+      this.cdr.detectChanges();
     } catch (e) {
       // ignore
     }

@@ -1,4 +1,4 @@
-<div class="loading-container" *ngIf="totalTasks > 0">
+<div class="loading-container" *ngIf="totalTasks > 0; else basicLoading">
   <div>{{ (completedTasks / totalTasks) * 100 | number : "1.0-0" }}%</div>
   <div class="progress-bar">
     <div
@@ -7,3 +7,6 @@
     ></div>
   </div>
 </div>
+<ng-template #basicLoading>
+  <div class="loading-container">Loading…</div>
+</ng-template>

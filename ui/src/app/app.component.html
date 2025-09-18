@@ -5,8 +5,9 @@
         <a class="logo" [routerLink]="['/home']" aria-label="Home">
           <img src="assets/favicon.svg" alt="strtupify.io" />
         </a>
+        <!-- Company Profile (always available while viewing a company; hidden while open) -->
         <button
-          *ngIf="companyProfileEnabled && currentCompanyId && !showCompanyProfile"
+          *ngIf="currentCompanyId && companyProfileEnabled && !showCompanyProfile"
           type="button"
           class="company-logo"
           (click)="openCompanyProfile()"
@@ -14,24 +15,62 @@
         >
           <span class="material-symbols-outlined"> {{ companyLogo }} </span>
         </button>
-        <button
-          *ngIf="companyProfileEnabled && currentCompanyId && showCompanyProfile"
-          type="button"
-          class="company-logo"
-          (click)="openInbox()"
-          aria-label="Back"
-        >
-          <span class="material-symbols-outlined"> {{ backIcon }} </span>
-        </button>
-        <button
-          *ngIf="workEnabled && currentCompanyId && !showCompanyProfile"
-          type="button"
-          class="company-logo"
-          (click)="openWork()"
-          aria-label="Work"
-        >
-          <span class="material-symbols-outlined"> task </span>
-        </button>
+
+        <!-- Inside Company Profile: show a back-to-context icon, or both Email/Kanban when available -->
+        <ng-container *ngIf="currentCompanyId && showCompanyProfile">
+          <!-- When Kanban is enabled, show both options (Email and Kanban) -->
+          <button
+            *ngIf="workEnabled && inboxEnabled"
+            type="button"
+            class="company-logo"
+            (click)="openInbox()"
+            aria-label="Back to Inbox"
+          >
+            <span class="material-symbols-outlined"> mail </span>
+          </button>
+          <button
+            *ngIf="workEnabled"
+            type="button"
+            class="company-logo"
+            (click)="openWork()"
+            aria-label="Back to Kanban"
+          >
+            <span class="material-symbols-outlined"> task </span>
+          </button>
+          <!-- Before Kanban exists, show a single context back icon -->
+          <button
+            *ngIf="!workEnabled"
+            type="button"
+            class="company-logo"
+            (click)="openBackToModule()"
+            [attr.aria-label]="'Back to ' + currentModule"
+          >
+            <span class="material-symbols-outlined"> {{ backIcon }} </span>
+          </button>
+        </ng-container>
+
+        <!-- Outside Company Profile: only show Kanban/Email once Kanban exists; toggle to the other view -->
+        <ng-container *ngIf="currentCompanyId && !showCompanyProfile">
+          <!-- After approval (kanban exists): show the other available view as the third icon -->
+          <button
+            *ngIf="workEnabled && inboxEnabled && currentModule === 'work'"
+            type="button"
+            class="company-logo"
+            (click)="openInbox()"
+            aria-label="Inbox"
+          >
+            <span class="material-symbols-outlined"> mail </span>
+          </button>
+          <button
+            *ngIf="workEnabled && currentModule !== 'work'"
+            type="button"
+            class="company-logo"
+            (click)="openWork()"
+            aria-label="Kanban"
+          >
+            <span class="material-symbols-outlined"> task </span>
+          </button>
+        </ng-container>
       </ion-buttons>
     </ion-toolbar>
   </div>

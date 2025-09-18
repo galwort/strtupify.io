@@ -40,6 +40,7 @@ interface Role {
   selector: 'app-resumes',
   templateUrl: './resumes.component.html',
   styleUrls: ['./resumes.component.scss'],
+  standalone: true,
   imports: [CommonModule],
 })
 export class ResumesComponent implements OnInit {

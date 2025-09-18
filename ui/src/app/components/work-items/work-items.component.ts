@@ -9,6 +9,7 @@ import {
   QuerySnapshot,
   doc,
   onSnapshot as onDocSnapshot,
+  updateDoc,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 
@@ -42,13 +43,16 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   @Input() companyId = '';
 
   items: WorkItem[] = [];
-  grouped: { assignee: string; title: string; items: WorkItem[] }[] = [];
+  todo: WorkItem[] = [];
+  doing: WorkItem[] = [];
+  done: WorkItem[] = [];
   simTime = Date.now();
   private speed = 1;
   private tickMs = 250;
   private unsubItems: any;
   private unsubCompany: any;
   private intervalId: any;
+  private draggingId: string | null = null;
 
   ngOnInit(): void {
     if (!this.companyId) return;
@@ -72,7 +76,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
           work_end_hour: Number(x.work_end_hour || 20),
         } as WorkItem;
       });
-      this.groupItems();
+      this.partition();
     });
     this.unsubCompany = onDocSnapshot(doc(db, `companies/${this.companyId}`), (ds) => {
       const x = (ds && (ds.data() as any)) || {};
@@ -89,16 +93,13 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     if (this.intervalId) clearInterval(this.intervalId);
   }
 
-  private groupItems() {
-    const by: { [k: string]: { title: string; list: WorkItem[] } } = {};
-    for (const it of this.items) {
-      const key = it.assignee_name || 'Unassigned';
-      if (!by[key]) by[key] = { title: it.assignee_title || '', list: [] };
-      by[key].list.push(it);
-    }
-    this.grouped = Object.keys(by)
-      .sort((a, b) => a.localeCompare(b))
-      .map((k) => ({ assignee: k, title: by[k].title, items: by[k].list }));
+  private partition() {
+    const order = (a: WorkItem, b: WorkItem) => a.title.localeCompare(b.title);
+    this.todo = this.items.filter((i) => (i.status || 'todo') === 'todo').sort(order);
+    this.doing = this.items
+      .filter((i) => i.status === 'doing' || i.status === 'in_progress')
+      .sort(order);
+    this.done = this.items.filter((i) => i.status === 'done').sort(order);
   }
 
   progress(it: WorkItem): number {
@@ -132,5 +133,39 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     this.intervalId = setInterval(() => {
       this.simTime = this.simTime + this.speed * this.tickMs;
     }, this.tickMs);
+  }
+
+  onDragStart(ev: DragEvent, it: WorkItem) {
+    this.draggingId = it.id;
+    if (ev.dataTransfer) ev.dataTransfer.setData('text/plain', it.id);
+  }
+
+  onDragOver(ev: DragEvent) {
+    ev.preventDefault();
+  }
+
+  async onDrop(ev: DragEvent, target: 'todo' | 'doing' | 'done') {
+    ev.preventDefault();
+    const id = (ev.dataTransfer && ev.dataTransfer.getData('text/plain')) || this.draggingId;
+    this.draggingId = null;
+    if (!id) return;
+    const it = this.items.find((x) => x.id === id);
+    if (!it) return;
+    if (it.status === target) return;
+    const ref = doc(db, `companies/${this.companyId}/workitems/${id}`);
+    const update: any = { status: target };
+    if (target === 'doing' && it.status !== 'doing') {
+      update.started_at = this.simTime;
+    }
+    if (target !== 'doing') {
+      update.started_at = update.started_at || it.started_at || 0;
+    }
+    if (target === 'todo') {
+      update.started_at = 0;
+    }
+    if (target === 'done') {
+      update.completed_at = this.simTime;
+    }
+    await updateDoc(ref, update);
   }
 }

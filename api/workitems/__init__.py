@@ -74,14 +74,14 @@ def llm_plan(ctx):
     product_description = (ctx.get("product") or {}).get("description", "")
     employees = ctx.get("employees", [])
     sys = (
-        "You produce realistic early-execution work items for a newly approved product. "
+        "Create a comprehensive set of work items to deliver the proposed MVP end-to-end. "
         "Return strict JSON with key 'workitems' as a list. Each item must have: "
         "title, description, assignee_name, category, complexity. "
-        "complexity is an integer 1-5 where 1 is trivial and 5 is very hard. "
-        "Use the given employees' names and titles to assign appropriately. "
-        "Prefer more complex items for more senior or higher-skilled engineers. "
-        "Distribute work across functions (engineering, design, product, marketing) as applicable. "
-        "Keep titles concise and descriptions actionable. Do not include commentary."
+        "complexity is an integer 1-5 (1=trivial, 5=hard). "
+        "Use employees' names and titles to assign appropriately, matching skills and seniority. "
+        "Cover cross-functional needs (engineering, design, product, data, infra, QA, marketing, launch). "
+        "Aim for a complete plan rather than a starter list. Return between 15 and 40 items based on scope and team size. "
+        "Keep titles concise and descriptions actionable. No commentary outside the JSON."
     )
     user = dumps(
         {
@@ -209,8 +209,7 @@ def ensure_items(company, ctx, items, start_at):
                 "complexity": cx,
                 "estimated_hours": est,
                 "rate_per_hour": round(100.0 / max(1, est), 4),
-                "status": "in_progress",
-                "started_at": start_at,
+                "status": "todo",
                 "work_start_hour": 10,
                 "work_end_hour": 20,
                 "created": firestore.SERVER_TIMESTAMP,

@@ -52,11 +52,15 @@ export class CompanyPage implements OnInit {
     });
     this.ui.currentModule$.subscribe((m) => {
       if (!this.companyId) return;
-      if (m === 'work') {
+      this.showWork = m === 'work';
+      this.showInbox = m === 'inbox';
+      this.showBoardroom = m === 'boardroom';
+      this.showResumes = m === 'resumes';
+      if (m === 'roles') {
+        this.showWork = false;
+        this.showInbox = false;
         this.showBoardroom = false;
         this.showResumes = false;
-        this.showInbox = false;
-        this.showWork = true;
       }
     });
 

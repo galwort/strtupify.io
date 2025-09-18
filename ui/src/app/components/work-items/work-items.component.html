@@ -1,36 +1,81 @@
-<div class="work-container">
+<div class="page-container">
   <div class="header">
-    <div class="title">Work</div>
+    <div class="title">Kanban</div>
     <div class="clock">
       <span>{{ (simTime | date:'MMM d, y') }}</span>
       <span>{{ (simTime | date:'h:mm a') }}</span>
     </div>
   </div>
 
-  <div class="groups">
-    <div class="group" *ngFor="let g of grouped">
-      <div class="assignee">
-        <div class="name">{{ g.assignee }}</div>
-        <div class="role">{{ g.title }}</div>
+  <div class="kanban">
+    <div class="column" (dragover)="onDragOver($event)" (drop)="onDrop($event, 'todo')">
+      <div class="col-header">
+        <div class="col-title">Do</div>
+        <div class="count">{{ todo.length }}</div>
       </div>
-      <div class="items">
-        <div class="item" *ngFor="let it of g.items">
-          <div class="meta">
-            <div class="top">
-              <div class="i-title">{{ it.title }}</div>
-              <div class="badge">{{ it.category }}</div>
-            </div>
-            <div class="desc">{{ it.description }}</div>
+      <div class="cards">
+        <div
+          class="card"
+          *ngFor="let it of todo"
+          draggable="true"
+          (dragstart)="onDragStart($event, it)"
+        >
+          <div class="card-title">{{ it.title }}</div>
+          <div class="card-meta">
+            <div class="badge">{{ it.category }}</div>
+            <div class="assignee">{{ it.assignee_name }}</div>
+          </div>
+          <div class="card-desc">{{ it.description }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="column" (dragover)="onDragOver($event)" (drop)="onDrop($event, 'doing')">
+      <div class="col-header">
+        <div class="col-title">Doing</div>
+        <div class="count">{{ doing.length }}</div>
+      </div>
+      <div class="cards">
+        <div
+          class="card doing"
+          *ngFor="let it of doing"
+          draggable="true"
+          (dragstart)="onDragStart($event, it)"
+        >
+          <div class="card-title">{{ it.title }}</div>
+          <div class="card-meta">
+            <div class="badge">{{ it.category }}</div>
+            <div class="assignee">{{ it.assignee_name }}</div>
           </div>
           <div class="progress">
-            <div class="bar">
-              <div class="fill" [style.width.%]="progress(it)"></div>
-            </div>
+            <div class="bar"><div class="fill" [style.width.%]="progress(it)"></div></div>
             <div class="pct">{{ progress(it) }}%</div>
           </div>
+          <div class="card-desc">{{ it.description }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="column" (dragover)="onDragOver($event)" (drop)="onDrop($event, 'done')">
+      <div class="col-header">
+        <div class="col-title">Done</div>
+        <div class="count">{{ done.length }}</div>
+      </div>
+      <div class="cards">
+        <div
+          class="card done"
+          *ngFor="let it of done"
+          draggable="true"
+          (dragstart)="onDragStart($event, it)"
+        >
+          <div class="card-title">{{ it.title }}</div>
+          <div class="card-meta">
+            <div class="badge">{{ it.category }}</div>
+            <div class="assignee">{{ it.assignee_name }}</div>
+          </div>
+          <div class="card-desc">{{ it.description }}</div>
         </div>
       </div>
     </div>
   </div>
 </div>
-

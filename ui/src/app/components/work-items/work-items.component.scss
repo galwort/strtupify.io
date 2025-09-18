@@ -1,5 +1,10 @@
-.work-container {
-  padding: 16px;
+.page-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 20px;
+  margin-left: 50px;
+  background-color: var(--theme-background);
 }
 .header {
   display: flex;
@@ -8,74 +13,86 @@
   margin-bottom: 12px;
 }
 .title {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 40px;
+  padding: 8px;
+  color: var(--theme-text);
+  margin-right: 20px;
 }
 .clock {
   display: flex;
   gap: 12px;
-  color: var(--theme-text-muted, #9aa0a6);
+  color: var(--theme-text);
 }
-.group {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  margin-bottom: 12px;
-}
-.assignee {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.03);
-}
-.assignee .name {
-  font-weight: 600;
-}
-.assignee .role {
-  font-size: 12px;
-  color: var(--theme-text-muted, #9aa0a6);
-}
-.items {
-  padding: 8px 12px 12px 12px;
-}
-.item {
+.kanban {
   display: grid;
-  grid-template-columns: 1fr 150px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.column {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
-.item:last-child {
-  border-bottom: none;
+.col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
-.meta .top {
+.col-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--theme-text);
+}
+.count {
+  color: var(--theme-text);
+  opacity: 0.7;
+}
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.card {
+  padding: 12px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  color: var(--theme-text);
+}
+.card-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.card-meta {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-.i-title {
-  font-weight: 600;
+  margin-bottom: 8px;
 }
 .badge {
   font-size: 11px;
   padding: 2px 6px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 999px;
 }
-.desc {
+.assignee {
   font-size: 12px;
-  color: var(--theme-text-muted, #9aa0a6);
-  margin-top: 4px;
+  opacity: 0.8;
+}
+.card-desc {
+  font-size: 13px;
+  opacity: 0.85;
 }
 .progress {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-bottom: 8px;
 }
 .bar {
   position: relative;
   height: 8px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.08);
   border-radius: 999px;
   overflow: hidden;
   flex: 1 1 auto;
@@ -92,4 +109,3 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-

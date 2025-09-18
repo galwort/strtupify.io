@@ -22,6 +22,7 @@ const db = getFirestore(fbApp);
   selector: 'app-boardroom',
   templateUrl: './boardroom.component.html',
   styleUrls: ['./boardroom.component.scss'],
+  standalone: true,
   imports: [CommonModule],
 })
 export class BoardroomComponent implements OnInit, AfterViewInit {

@@ -59,7 +59,6 @@ export class AppComponent implements OnDestroy {
           ? 'task'
           : 'badge';
       if (m === 'inbox') this.inboxEnabled = true;
-      this.cdr.detectChanges();
     });
 
     // Respond immediately when company profile updates the logo
@@ -208,7 +207,7 @@ export class AppComponent implements OnDestroy {
         );
         this.inboxEnabled = !acceptedSnap.empty;
       } catch {}
-      this.cdr.detectChanges();
+      // view will refresh on next tick
     } catch (e) {
       // ignore
     }

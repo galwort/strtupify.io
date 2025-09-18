@@ -17,22 +17,22 @@
     </div>
   </div>
 
-  <div class="section" *ngIf="funding">
+  <div class="section" *ngIf="funding as f">
     <div class="row">
       <div class="label">Loan Status</div>
-      <div class="value">{{ funding?.approved ? 'Approved' : 'Rejected' }}</div>
+      <div class="value">{{ f.approved ? 'Approved' : 'Rejected' }}</div>
     </div>
-    <div class="row" *ngIf="funding?.approved">
+    <div class="row" *ngIf="f.approved">
       <div class="label">Amount</div>
-      <div class="value">{{ funding?.amount | currency: 'USD':'symbol' }}</div>
+      <div class="value">{{ f.amount | currency: 'USD':'symbol' }}</div>
     </div>
-    <div class="row" *ngIf="funding?.approved">
+    <div class="row" *ngIf="f.approved">
       <div class="label">Grace Period</div>
-      <div class="value">{{ funding?.grace_period_days }} days</div>
+      <div class="value">{{ f.grace_period_days }} days</div>
     </div>
-    <div class="row" *ngIf="funding?.approved">
+    <div class="row" *ngIf="f.approved">
       <div class="label">First Payment</div>
-      <div class="value">{{ funding?.first_payment | currency: 'USD':'symbol' }}</div>
+      <div class="value">{{ f.first_payment | currency: 'USD':'symbol' }}</div>
     </div>
   </div>
 

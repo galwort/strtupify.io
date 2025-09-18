@@ -61,8 +61,7 @@
         <div
           class="card done"
           *ngFor="let it of done"
-          draggable="true"
-          (dragstart)="onDragStart($event, it)"
+          [attr.draggable]="false"
         >
           <div class="card-title">{{ it.title }}</div>
           <div class="card-meta">

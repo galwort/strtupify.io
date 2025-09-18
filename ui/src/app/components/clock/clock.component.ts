@@ -1,7 +1,7 @@
 import { Component, Input, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, doc, onSnapshot, DocumentData, DocumentSnapshot } from 'firebase/firestore';
+import { getFirestore, doc, onSnapshot, DocumentData, DocumentSnapshot, collection, onSnapshot as onColSnapshot, QuerySnapshot, updateDoc } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 
 const fbApp = getApps().length ? getApps()[0] : initializeApp(environment.firebase);
@@ -24,7 +24,17 @@ export class ClockComponent implements OnChanges, OnDestroy {
   private speed = 1;
   private readonly tickMs = 250;
   private unsub: (() => void) | null = null;
+  private unsubItems: (() => void) | null = null;
   private intervalId: any;
+  private items: Array<{
+    id: string;
+    status: string;
+    started_at: number;
+    estimated_hours: number;
+    work_start_hour?: number;
+    work_end_hour?: number;
+  }> = [];
+  private completedIds = new Set<string>();
 
   ngOnChanges(changes: SimpleChanges): void {
     if ('companyId' in changes) {
@@ -46,6 +56,10 @@ export class ClockComponent implements OnChanges, OnDestroy {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
+    if (this.unsubItems) {
+      this.unsubItems();
+      this.unsubItems = null;
+    }
     if (!this.companyId) return;
     const ref = doc(db, `companies/${this.companyId}`);
     this.unsub = onSnapshot(ref, (snap: DocumentSnapshot<DocumentData>) => {
@@ -57,6 +71,26 @@ export class ClockComponent implements OnChanges, OnDestroy {
       this.updateDisplay();
       this.startClock();
     });
+
+    // Listen to work items for auto-complete to DONE
+    const itemsRef = collection(db, `companies/${this.companyId}/workitems`);
+    this.unsubItems = onColSnapshot(itemsRef, (snap: QuerySnapshot<DocumentData>) => {
+      this.items = snap.docs.map((d) => {
+        const x = d.data() as any;
+        return {
+          id: d.id,
+          status: String(x.status || ''),
+          started_at: Number(x.started_at || 0),
+          estimated_hours: Number(x.estimated_hours || 0),
+          work_start_hour: Number(x.work_start_hour || 10),
+          work_end_hour: Number(x.work_end_hour || 20),
+        };
+      });
+      // Reset completion cache if snapshot changes
+      this.completedIds.clear();
+      // Try an immediate check as well
+      this.checkAutoComplete();
+    });
   }
 
   private startClock(): void {
@@ -64,6 +98,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
     this.intervalId = setInterval(() => {
       this.simTime = this.simTime + this.speed * this.tickMs;
       this.updateDisplay();
+      this.checkAutoComplete();
     }, this.tickMs);
   }
 
@@ -74,5 +109,54 @@ export class ClockComponent implements OnChanges, OnDestroy {
       hour: 'numeric',
       minute: '2-digit',
     });
+  }
+
+  private checkAutoComplete(): void {
+    if (!this.companyId || !this.items.length) return;
+    for (const it of this.items) {
+      if (it.status === 'done') continue;
+      if (it.status !== 'doing') continue;
+      if (!it.started_at || !it.estimated_hours) continue;
+      const pct = this.progressFor(it);
+      if (pct >= 100 && !this.completedIds.has(it.id)) {
+        this.completedIds.add(it.id);
+        const ref = doc(db, `companies/${this.companyId}/workitems/${it.id}`);
+        updateDoc(ref, { status: 'done', completed_at: this.simTime }).catch(() => {
+          this.completedIds.delete(it.id);
+        });
+      }
+    }
+  }
+
+  private progressFor(it: {
+    started_at: number;
+    estimated_hours: number;
+    work_start_hour?: number;
+    work_end_hour?: number;
+  }): number {
+    const now = new Date(this.simTime);
+    const started = new Date(it.started_at);
+    const startH = Number(it.work_start_hour ?? 10);
+    const endH = Number(it.work_end_hour ?? 20);
+    const hours = this.workingHoursBetween(started, now, startH, endH);
+    const pct = Math.min(100, Math.max(0, (hours / it.estimated_hours) * 100));
+    return Math.round(pct);
+  }
+
+  private workingHoursBetween(a: Date, b: Date, startHour: number, endHour: number): number {
+    if (b <= a) return 0;
+    let total = 0;
+    const x = new Date(a.getTime());
+    while (x < b) {
+      const dayStart = new Date(x.getTime());
+      dayStart.setHours(startHour, 0, 0, 0);
+      const dayEnd = new Date(x.getTime());
+      dayEnd.setHours(endHour, 0, 0, 0);
+      const from = x > dayStart ? x : dayStart;
+      const to = b < dayEnd ? b : dayEnd;
+      if (to > from) total += (to.getTime() - from.getTime()) / 3600000;
+      x.setHours(24, 0, 0, 0);
+    }
+    return total;
   }
 }

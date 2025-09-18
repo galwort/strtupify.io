@@ -152,6 +152,8 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     const it = this.items.find((x) => x.id === id);
     if (!it) return;
     if (it.status === target) return;
+    // Disallow any manual moves into or out of DONE
+    if (target === 'done' || it.status === 'done') return;
     const ref = doc(db, `companies/${this.companyId}/workitems/${id}`);
     const update: any = { status: target };
     if (target === 'doing' && it.status !== 'doing') {
@@ -162,9 +164,6 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     }
     if (target === 'todo') {
       update.started_at = 0;
-    }
-    if (target === 'done') {
-      update.completed_at = this.simTime;
     }
     await updateDoc(ref, update);
   }

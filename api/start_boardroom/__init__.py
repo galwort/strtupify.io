@@ -46,6 +46,25 @@ def load_company_description(company):
     return ""
 
 
+def load_company_financials(company):
+    doc = db.collection("companies").document(company).get()
+    data = doc.to_dict() if doc.exists else {}
+    f = data.get("funding") or {}
+    try:
+        approved = bool(f.get("approved", False))
+        amount = float(f.get("amount", 0) or 0)
+        grace = int(f.get("grace_period_days", 0) or 0)
+        first_payment = float(f.get("first_payment", 0) or 0)
+    except Exception:
+        approved, amount, grace, first_payment = False, 0.0, 0, 0.0
+    return {
+        "approved": approved,
+        "amount": amount,
+        "grace_period_days": grace,
+        "first_payment": first_payment,
+    }
+
+
 def calc_weights(emps, directive):
     sys = (
         "Re-evaluate each participant’s confidence weight (0-1) for the *next* turn.\n"
@@ -91,10 +110,12 @@ def pick_first_speaker(emps, weights):
     return max(emps, key=lambda e: weights.get(e["name"], 0.4) + gauss(0, 0.05))
 
 
-def gen_agent_line(agent, directive, company, company_description, emp_names):
+def gen_agent_line(agent, directive, company, company_description, finance, emp_names):
     sys = (
         f"You are {agent['name']}, a {agent['title']} at a new startup. "
         f"Company: {company}. Company description: {company_description}. "
+        f"Financial constraint: The company has a bank loan of ${finance['amount']:.0f}. "
+        f"The first payment due is ${finance['first_payment']:.0f} in {finance['grace_period_days']} days. "
         f"Personality: {agent['personality']}. Meeting goal: {directive} "
         f"You should respond naturally as if you are in a real meeting. "
         f"When replying to someone, AVOID mentioning them by name. "
@@ -104,6 +125,8 @@ def gen_agent_line(agent, directive, company, company_description, emp_names):
         f"Respond with a single natural-sounding line of dialogue."
         f"So far, no minutes have passed in the meeting, "
         f"which means you are in the INTRODUCTION stage of the meeting. "
+        f"While brainstorming, prioritize ideas that can generate revenue quickly enough to at least meet the first bank payment on time. "
+        f"Encourage discussion of pricing, payment flow, and early go-to-market to achieve that goal. "
     )
     msgs = [{"role": "system", "content": sys}]
     msgs.append({"role": "user", "content": f"{agent['name']}:"})
@@ -129,9 +152,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     if not emps:
         return func.HttpResponse(json.dumps({"error": "no employees"}), status_code=400)
     company_description = load_company_description(company)
+    finance = load_company_financials(company)
     weights = calc_weights(emps, DIRECTIVE)
     speaker = pick_first_speaker(emps, weights)
-    line = gen_agent_line(speaker, DIRECTIVE, company, company_description, emp_names)
+    line = gen_agent_line(
+        speaker, DIRECTIVE, company, company_description, finance, emp_names
+    )
     doc_ref = (
         db.collection("companies")
         .document(company)

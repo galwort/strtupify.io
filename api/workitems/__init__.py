@@ -70,6 +70,11 @@ def pull_context(company):
 def llm_plan(ctx):
     company_name = ctx.get("company", {}).get("company_name", "")
     company_description = ctx.get("company", {}).get("description", "")
+    funding = (ctx.get("company", {}) or {}).get("funding", {})
+    approved = bool(funding.get("approved", False))
+    amount = float(funding.get("amount", 0) or 0)
+    grace = int(funding.get("grace_period_days", 0) or 0)
+    first_payment = float(funding.get("first_payment", 0) or 0)
     product_name = (ctx.get("product") or {}).get("product", "")
     product_description = (ctx.get("product") or {}).get("description", "")
     employees = ctx.get("employees", [])
@@ -81,12 +86,19 @@ def llm_plan(ctx):
         "Use employees' names and titles to assign appropriately, matching skills and seniority. "
         "Cover cross-functional needs (engineering, design, product, data, infra, QA, marketing, launch). "
         "Aim for a complete plan rather than a starter list. Return between 15 and 40 items based on scope and team size. "
+        "If funding or loan details are provided, explicitly include early revenue-generation work (pricing, payments, onboarding, billing, go-to-market) so the company can make money quickly and cover bank payments on time. "
         "Keep titles concise and descriptions actionable. No commentary outside the JSON."
     )
     user = dumps(
         {
             "company_name": company_name,
             "company_description": company_description,
+            "funding": {
+                "approved": approved,
+                "amount": amount,
+                "grace_period_days": grace,
+                "first_payment": first_payment,
+            },
             "product_name": product_name,
             "product_description": product_description,
             "employees": [

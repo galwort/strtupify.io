@@ -101,6 +101,24 @@ def load_company_description(company):
     return doc.get("description", "")
 
 
+def load_company_financials(company):
+    data = db.collection("companies").document(company).get().to_dict() or {}
+    f = data.get("funding") or {}
+    try:
+        approved = bool(f.get("approved", False))
+        amount = float(f.get("amount", 0) or 0)
+        grace = int(f.get("grace_period_days", 0) or 0)
+        first_payment = float(f.get("first_payment", 0) or 0)
+    except Exception:
+        approved, amount, grace, first_payment = False, 0.0, 0, 0.0
+    return {
+        "approved": approved,
+        "amount": amount,
+        "grace_period_days": grace,
+        "first_payment": first_payment,
+    }
+
+
 def calc_weights(emps, directive, recent_lines):
     sys = (
         "Re-evaluate each participant’s confidence weight (0-1) for the *next* turn.\n"
@@ -159,11 +177,21 @@ def choose_next_speaker(emps, history, weights):
 
 
 def gen_agent_line(
-    agent, history, directive, company, company_description, counter, stage, emp_names
+    agent,
+    history,
+    directive,
+    company,
+    company_description,
+    finance,
+    counter,
+    stage,
+    emp_names,
 ):
     sys = (
         f"You are {agent['name']}, a {agent['title']} at a new startup. "
         f"Company: {company}. Company description: {company_description}. "
+        f"Financial constraint: The company has a bank loan of ${finance['amount']:.0f}. "
+        f"The first payment due is ${finance['first_payment']:.0f} in {finance['grace_period_days']} days. "
         f"Personality: {agent['personality']}. Meeting goal: {directive} "
         f"You should respond naturally as if you are in a real meeting. "
         f"When replying to someone, AVOID mentioning them by name. "
@@ -173,6 +201,8 @@ def gen_agent_line(
         f"Respond with a single natural-sounding line of dialogue."
         f"So far, {counter*2} minutes have passed in the meeting, "
         f"which means you are in the {stage} stage of the meeting. "
+        f"While brainstorming and deciding, prioritize ideas that can generate revenue quickly enough to at least meet the first bank payment on time. "
+        f"Encourage discussion of pricing, payment flow, and early go-to-market to achieve that goal. "
     )
     if stage in {"DECIDE ON A PRODUCT", "REFINEMENT"}:
         sys += (
@@ -304,12 +334,14 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     recent = "\n".join(f"{h['speaker']}: {h['msg']}" for h in history)
     weights = calc_weights(emps, DIRECTIVE, recent)
     speaker = choose_next_speaker(emps, history, weights)
+    finance = load_company_financials(company)
     line = gen_agent_line(
         speaker,
         history,
         DIRECTIVE,
         company,
         load_company_description(company),
+        finance,
         len(history),
         clock.stage,
         emp_names,

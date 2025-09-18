@@ -3,7 +3,7 @@
   flex-direction: column;
   align-items: flex-start;
   justify-content: flex-start;
-  margin-bottom: 20px;
+  margin-bottom: 0;
   color: var(--theme-text);
   height: calc(100vh - 40px);
   position: relative;
@@ -28,7 +28,7 @@
       border: 1.5px solid var(--theme-primary);
       border-radius: 4px;
       width: 100%;
-      max-height: calc(100vh - 40px);
+      flex: 1 1 auto;
       margin-bottom: 20px;
       overflow-y: auto;
       scroll-behavior: smooth;

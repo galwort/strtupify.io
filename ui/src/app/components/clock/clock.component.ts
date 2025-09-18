@@ -26,6 +26,8 @@ export class ClockComponent implements OnChanges, OnDestroy {
   private unsub: (() => void) | null = null;
   private unsubItems: (() => void) | null = null;
   private intervalId: any;
+  private readonly saveEveryMs = 5000;
+  private elapsedSinceSave = 0;
   private items: Array<{
     id: string;
     status: string;
@@ -99,6 +101,14 @@ export class ClockComponent implements OnChanges, OnDestroy {
       this.simTime = this.simTime + this.speed * this.tickMs;
       this.updateDisplay();
       this.checkAutoComplete();
+      this.elapsedSinceSave += this.tickMs;
+      if (this.elapsedSinceSave >= this.saveEveryMs) {
+        this.elapsedSinceSave = 0;
+        if (this.companyId) {
+          const ref = doc(db, `companies/${this.companyId}`);
+          updateDoc(ref, { simTime: this.simTime, speed: this.speed }).catch(() => {});
+        }
+      }
     }, this.tickMs);
   }
 

@@ -12,6 +12,7 @@ import { AngularFirestoreModule } from '@angular/fire/compat/firestore';
 import { environment } from '../environments/environment';
 import { HttpClientModule } from '@angular/common/http';
 import { setLogLevel } from 'firebase/firestore';
+import { ClockComponent } from './components/clock/clock.component';
 
 @NgModule({
   declarations: [AppComponent],
@@ -23,6 +24,7 @@ import { setLogLevel } from 'firebase/firestore';
     AngularFireAuthModule,
     AngularFirestoreModule,
     HttpClientModule,
+    ClockComponent,
   ],
   providers: [{ provide: RouteReuseStrategy, useClass: IonicRouteStrategy }],
   bootstrap: [AppComponent],

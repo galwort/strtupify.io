@@ -50,9 +50,21 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   get threadMessages(): Email[] {
+    // Show only PREVIOUS messages in the thread (older than the selected one),
+    // ordered from most-recent-previous to oldest. Do not show future replies
+    // beneath an older message, matching Outlook-like behavior.
     if (!this.selectedEmail) return [];
     const tid = (this.selectedEmail as any).threadId || this.selectedEmail.id;
-    const list = this.allEmails.filter((e) => ((e as any).threadId || e.id) === tid && e.id !== this.selectedEmail?.id);
+    const selectedTs = new Date(this.selectedEmail.timestamp || '').getTime();
+    const isValidTs = Number.isFinite(selectedTs);
+    const list = this.allEmails.filter((e) => {
+      const sameThread = (((e as any).threadId || e.id) === tid);
+      if (!sameThread) return false;
+      if (e.id === this.selectedEmail?.id) return false;
+      if (!isValidTs) return false; // without a selected timestamp, avoid showing chain
+      const ts = new Date(e.timestamp || '').getTime();
+      return Number.isFinite(ts) && ts < selectedTs; // only older messages
+    });
     return list
       .slice()
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());

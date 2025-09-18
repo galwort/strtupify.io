@@ -77,4 +77,6 @@
   <ion-content>
     <ion-router-outlet id="main-content"></ion-router-outlet>
   </ion-content>
+  <!-- Global clock, shown once Inbox is accessible -->
+  <app-clock *ngIf="currentCompanyId && inboxEnabled" [companyId]="currentCompanyId"></app-clock>
 </ion-app>

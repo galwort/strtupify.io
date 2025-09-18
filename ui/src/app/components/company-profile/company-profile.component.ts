@@ -6,7 +6,7 @@ import { getFirestore, doc, getDoc, updateDoc, collection, getDocs, query, where
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { environment } from 'src/environments/environment';
-import { MATERIAL_ICONS } from './icons';
+import { MATERIAL_ICONS, RESERVED_ICONS } from './icons';
 
 const app = initializeApp(environment.firebase);
 const db = getFirestore(app);
@@ -81,7 +81,10 @@ export class CompanyProfileComponent implements OnInit {
     this.query = q || '';
     const ql = this.query.toLowerCase();
     const base = this.allIcons.length ? this.allIcons : MATERIAL_ICONS;
-    const list = ql ? base.filter((n) => n.toLowerCase().includes(ql)) : base;
+    const withoutReserved = base.filter((n) => !RESERVED_ICONS.includes(n));
+    const list = ql
+      ? withoutReserved.filter((n) => n.toLowerCase().includes(ql))
+      : withoutReserved;
     this.filtered = list.slice(0, 200);
   }
 
@@ -91,6 +94,7 @@ export class CompanyProfileComponent implements OnInit {
 
   async saveIcon() {
     if (!this.companyId || !this.selectedIcon) return;
+    if (RESERVED_ICONS.includes(this.selectedIcon)) return;
     await updateDoc(doc(db, 'companies', this.companyId), { logo: this.selectedIcon });
     this.logo = this.selectedIcon;
     this.picking = false;

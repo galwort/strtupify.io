@@ -28,11 +28,7 @@ export class HomePage implements OnInit {
   constructor() {}
 
   async ngOnInit() {
-    const companiesSnapshot = await getDocs(collection(db, 'companies'));
-    this.companies = companiesSnapshot.docs.map((d) => ({
-      id: d.id,
-      ...d.data(),
-    }));
+    await this.loadCompanies();
 
     const pendingId = localStorage.getItem('deletingCompanyId');
     if (pendingId) {
@@ -44,6 +40,18 @@ export class HomePage implements OnInit {
         localStorage.removeItem('deletingCompanyId');
       }
     }
+  }
+
+  async ionViewWillEnter() {
+    await this.loadCompanies();
+  }
+
+  private async loadCompanies() {
+    const companiesSnapshot = await getDocs(collection(db, 'companies'));
+    this.companies = companiesSnapshot.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    }));
   }
 
   async onDelete(event: Event, companyId: string) {

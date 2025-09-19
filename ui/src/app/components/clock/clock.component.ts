@@ -35,6 +35,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
     estimated_hours: number;
     work_start_hour?: number;
     work_end_hour?: number;
+    assignee_id?: string;
   }> = [];
   private completedIds = new Set<string>();
 
@@ -86,6 +87,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
           estimated_hours: Number(x.estimated_hours || 0),
           work_start_hour: Number(x.work_start_hour || 10),
           work_end_hour: Number(x.work_end_hour || 20),
+          assignee_id: String(x.assignee_id || ''),
         };
       });
       // Reset completion cache if snapshot changes
@@ -126,6 +128,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
     for (const it of this.items) {
       if (it.status === 'done') continue;
       if (it.status !== 'doing') continue;
+      if (!it.assignee_id) continue;
       if (!it.started_at || !it.estimated_hours) continue;
       const pct = this.progressFor(it);
       if (pct >= 100 && !this.completedIds.has(it.id)) {

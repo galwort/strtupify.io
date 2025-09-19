@@ -47,6 +47,8 @@ export class CompanyPage implements OnInit {
       return;
     }
 
+    this.ui.setCurrentModule('roles');
+
     this.ui.showCompanyProfile$.subscribe((v) => {
       this.showCompanyProfile = v;
     });

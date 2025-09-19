@@ -19,8 +19,14 @@
           <div class="card-title">{{ it.title }}</div>
           <div class="card-meta">
             <div class="badge">{{ it.category }}</div>
-            <div class="assignee">{{ it.assignee_name }}</div>
           </div>
+          <div class="assign">
+            <select (change)="reassign(it, $any($event.target).value)">
+              <option value="" [selected]="!it.assignee_id">Unassigned</option>
+              <option *ngFor="let e of hires" [value]="e.id" [selected]="e.id === it.assignee_id">{{ e.name }} ({{ e.title }})</option>
+            </select>
+          </div>
+          <div class="blockers" [attr.title]="blockerTitle(it)">Blockers: {{ remainingBlockers(it) }}</div>
           <div class="card-desc">{{ it.description }}</div>
         </div>
       </div>
@@ -41,12 +47,18 @@
           <div class="card-title">{{ it.title }}</div>
           <div class="card-meta">
             <div class="badge">{{ it.category }}</div>
-            <div class="assignee">{{ it.assignee_name }}</div>
+          </div>
+          <div class="assign">
+            <select (change)="reassign(it, $any($event.target).value)">
+              <option value="" [selected]="!it.assignee_id">Unassigned</option>
+              <option *ngFor="let e of hires" [value]="e.id" [selected]="e.id === it.assignee_id">{{ e.name }} ({{ e.title }})</option>
+            </select>
           </div>
           <div class="progress">
             <div class="bar"><div class="fill" [style.width.%]="progress(it)"></div></div>
             <div class="pct">{{ progress(it) }}%</div>
           </div>
+          <div class="blockers" [attr.title]="blockerTitle(it)">Blockers: {{ remainingBlockers(it) }}</div>
           <div class="card-desc">{{ it.description }}</div>
         </div>
       </div>
@@ -66,8 +78,14 @@
           <div class="card-title">{{ it.title }}</div>
           <div class="card-meta">
             <div class="badge">{{ it.category }}</div>
-            <div class="assignee">{{ it.assignee_name }}</div>
           </div>
+          <div class="assign">
+            <select (change)="reassign(it, $any($event.target).value)">
+              <option value="" [selected]="!it.assignee_id">Unassigned</option>
+              <option *ngFor="let e of hires" [value]="e.id" [selected]="e.id === it.assignee_id">{{ e.name }} ({{ e.title }})</option>
+            </select>
+          </div>
+          <div class="blockers" [attr.title]="blockerTitle(it)">Blockers: {{ remainingBlockers(it) }}</div>
           <div class="card-desc">{{ it.description }}</div>
         </div>
       </div>

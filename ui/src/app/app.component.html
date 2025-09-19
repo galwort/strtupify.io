@@ -62,7 +62,7 @@
             <span class="material-symbols-outlined"> mail </span>
           </button>
           <button
-            *ngIf="workEnabled && currentModule !== 'work'"
+            *ngIf="workEnabled && inboxEnabled && currentModule !== 'work'"
             type="button"
             class="company-logo"
             (click)="openWork()"

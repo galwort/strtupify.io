@@ -21,8 +21,8 @@ export class ClockComponent implements OnChanges, OnDestroy {
   displayTime = '';
 
   private simTime = Date.now();
-  private speed = 1;
-  private readonly tickMs = 250;
+  private speed = 8;
+  private readonly tickMs = 150;
   private unsub: (() => void) | null = null;
   private unsubItems: (() => void) | null = null;
   private intervalId: any;
@@ -68,7 +68,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
     this.unsub = onSnapshot(ref, (snap: DocumentSnapshot<DocumentData>) => {
       const data = (snap && (snap.data() as any)) || {};
       const st = Number(data.simTime || Date.now());
-      const sp = Number(data.speed || 1);
+      const sp = Number(data.speed || 8);
       this.simTime = Number.isFinite(st) ? st : Date.now();
       this.speed = Number.isFinite(sp) && sp > 0 ? sp : 1;
       this.updateDisplay();

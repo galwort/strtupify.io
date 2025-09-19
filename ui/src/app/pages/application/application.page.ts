@@ -144,6 +144,8 @@ export class ApplicationPage implements OnInit {
         logo: this.logoValue,
         colors: '',
         funding: this.fundingDecision,
+        speed: 8,
+        simTime: Date.now(),
         created: serverTimestamp(),
         updated: serverTimestamp(),
       });

@@ -53,8 +53,8 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   doing: WorkItem[] = [];
   done: WorkItem[] = [];
   simTime = Date.now();
-  private speed = 1;
-  private tickMs = 250;
+  private speed = 8;
+  private tickMs = 150;
   private unsubItems: any;
   private unsubCompany: any;
   private intervalId: any;
@@ -95,7 +95,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     this.unsubCompany = onDocSnapshot(doc(db, `companies/${this.companyId}`), (ds) => {
       const x = (ds && (ds.data() as any)) || {};
       this.simTime = Number(x.simTime || Date.now());
-      this.speed = Number(x.speed || 1);
+      this.speed = Number(x.speed || 8);
       if (this.speed <= 0) this.speed = 1;
       this.startLocalClock();
     });

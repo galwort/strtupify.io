@@ -163,7 +163,20 @@ export class InboxComponent implements OnInit, OnDestroy {
     if (!this.companyId) return;
 
     await this.loadClockState();
-    this.startClock();
+    {
+      const ref = doc(db, `companies/${this.companyId}`);
+      const unsub = (await import('firebase/firestore')).onSnapshot(ref, (snap) => {
+        const d = (snap && (snap.data() as any)) || {};
+        if (typeof d.simTime === 'number') {
+          this.simDate = new Date(d.simTime);
+          this.updateDisplay();
+          this.checkSuperEatsEmail();
+          this.checkKickoffEmail();
+          this.checkMomEmail();
+        }
+      });
+      (this as any).__unsubInboxSim = unsub;
+    }
     this.loadSnacks();
     this.loadSuperEatsTemplate();
 
@@ -250,15 +263,15 @@ export class InboxComponent implements OnInit, OnDestroy {
     const ref = doc(db, `companies/${this.companyId}`);
     const snap = await getDoc(ref);
     if (snap.exists()) {
-      const data = snap.data() as {
-        simTime?: number;
-        speed?: number;
-        superEatsNextAt?: number;
-        momEmailAt?: number;
-        momEmailSent?: boolean;
-      };
-      if (data.simTime !== undefined) this.simDate = new Date(data.simTime);
-      if (data.speed !== undefined) this.speed = data.speed;
+      const data = snap.data() as any;
+      if (!data || !data.simStarted) {
+        this.simDate = new Date();
+        this.speed = 1;
+        try { await updateDoc(ref, { simTime: this.simDate.getTime(), speed: this.speed, simStarted: true }); } catch {}
+      } else {
+        if (typeof data.simTime === 'number') this.simDate = new Date(data.simTime);
+        if (typeof data.speed === 'number') this.speed = data.speed;
+      }
       if (data.superEatsNextAt !== undefined) {
         this.superEatsSendTime = data.superEatsNextAt;
       } else {
@@ -303,6 +316,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       await setDoc(ref, {
         simTime: this.simDate.getTime(),
         speed: this.speed,
+        simStarted: true,
         superEatsNextAt: this.superEatsSendTime,
         momEmailAt: this.momSendTime,
         momEmailSent: false,
@@ -706,3 +720,5 @@ export class InboxComponent implements OnInit, OnDestroy {
       });
   }
 }
+
+

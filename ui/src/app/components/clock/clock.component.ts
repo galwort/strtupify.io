@@ -26,8 +26,11 @@ export class ClockComponent implements OnChanges, OnDestroy {
   private unsub: (() => void) | null = null;
   private unsubItems: (() => void) | null = null;
   private intervalId: any;
-  private readonly saveEveryMs = 5000;
+  private readonly saveEveryMs = 1000;
   private elapsedSinceSave = 0;
+  private readonly minuteScheduleSec = [60, 50, 40, 30, 20, 10, 1];
+  private scheduleIdx = 0;
+  private simMsIntoStep = 0;
   private items: Array<{
     id: string;
     status: string;
@@ -72,6 +75,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
       this.simTime = Number.isFinite(st) ? st : Date.now();
       this.speed = Number.isFinite(sp) && sp > 0 ? sp : 1;
       this.updateDisplay();
+      this.checkAutoComplete();
       this.startClock();
     });
 
@@ -98,17 +102,41 @@ export class ClockComponent implements OnChanges, OnDestroy {
   }
 
   private startClock(): void {
-    if (this.intervalId) clearInterval(this.intervalId);
-    this.intervalId = setInterval(() => {
-      this.simTime = this.simTime + this.speed * this.tickMs;
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    // Initialize schedule from current speed
+    const currentSecPerMin = 60 / (this.speed || 1);
+    const idx = this.minuteScheduleSec.findIndex((s) => Math.abs(s - currentSecPerMin) < 1e-6);
+    this.scheduleIdx = idx >= 0 ? idx : this.minuteScheduleSec.length - 1;
+    this.simMsIntoStep = 0;
+
+    const ref = doc(db, `companies/${this.companyId}`);
+    this.intervalId = setInterval(async () => {
+      const advance = this.speed * this.tickMs;
+      this.simTime += advance;
+      this.simMsIntoStep += advance;
+
+      while (this.simMsIntoStep >= 60_000) {
+        this.simMsIntoStep -= 60_000;
+        if (this.scheduleIdx < this.minuteScheduleSec.length - 1) {
+          this.scheduleIdx += 1;
+          this.speed = 60 / this.minuteScheduleSec[this.scheduleIdx];
+        } else {
+          this.scheduleIdx = this.minuteScheduleSec.length - 1;
+          this.speed = 60 / this.minuteScheduleSec[this.scheduleIdx];
+        }
+      }
+
       this.updateDisplay();
       this.checkAutoComplete();
+
       this.elapsedSinceSave += this.tickMs;
       if (this.elapsedSinceSave >= this.saveEveryMs) {
         this.elapsedSinceSave = 0;
         if (this.companyId) {
-          const ref = doc(db, `companies/${this.companyId}`);
-          updateDoc(ref, { simTime: this.simTime, speed: this.speed }).catch(() => {});
+          try { await updateDoc(ref, { simTime: this.simTime, speed: this.speed }); } catch {}
         }
       }
     }, this.tickMs);
@@ -173,3 +201,4 @@ export class ClockComponent implements OnChanges, OnDestroy {
     return total;
   }
 }
+

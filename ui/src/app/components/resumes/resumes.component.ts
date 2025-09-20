@@ -1,4 +1,4 @@
-import { Component, OnInit, Output, EventEmitter } from '@angular/core';
+﻿import { Component, OnInit, Output, EventEmitter } from '@angular/core';
 import { initializeApp } from 'firebase/app';
 import {
   getFirestore,
@@ -88,6 +88,8 @@ export class ResumesComponent implements OnInit {
     this.employees = temp.filter((x) => !x.hired);
     this.applyRoleFilters();
     this.checkComplete();
+    await this.ensureCurrentEmployeeSkillsLoaded();
+
   }
 
   get rolesWithOpenings() {
@@ -131,15 +133,10 @@ export class ResumesComponent implements OnInit {
     if (this.currentIndex >= this.employees.length)
       this.currentIndex = this.employees.length - 1;
     this.checkComplete();
+    await this.ensureCurrentEmployeeSkillsLoaded();
   }
 
-  nextResume() {
-    if (this.currentIndex < this.employees.length - 1) this.currentIndex++;
-  }
-
-  prevResume() {
-    if (this.currentIndex > 0) this.currentIndex--;
-  }
+  
 
   private applyRoleFilters() {
     const openTitles = new Set(
@@ -160,4 +157,32 @@ export class ResumesComponent implements OnInit {
       this.hiringFinished.emit();
     }
   }
+
+  private async ensureCurrentEmployeeSkillsLoaded(): Promise<void> {
+    const e = this.currentEmployee;
+    if (!e || (e.skills && e.skills.length)) return;
+    const sSnap = await getDocs(
+      collection(db, `companies/${this.companyId}/employees/${e.id}/skills`)
+    );
+    e.skills = sSnap.docs
+      .map((s) => ({ ...(s.data() as Omit<Skill, 'id'>), id: s.id }))
+      .sort((a, b) => a.skill.localeCompare(b.skill));
+  }
+
+  async nextResume() {
+    if (this.currentIndex < this.employees.length - 1) {
+      this.currentIndex++;
+      await this.ensureCurrentEmployeeSkillsLoaded();
+    }
+  }
+
+  async prevResume() {
+    if (this.currentIndex > 0) {
+      this.currentIndex--;
+      await this.ensureCurrentEmployeeSkillsLoaded();
+    }
+  }
 }
+
+
+

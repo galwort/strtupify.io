@@ -7,6 +7,7 @@ import {
   getDocs,
   doc,
   updateDoc,
+  setDoc,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -108,21 +109,36 @@ export class RolesComponent implements OnInit {
       });
       this.updateProgress(++completedTasks, totalTasks);
       await this.delayStep(async () => {
-        await updateDoc(doc(db, `companies/${this.companyId}/roles`, role.id), {
-          openings: role.count,
-        });
+        await setDoc(
+          doc(db, `companies/${this.companyId}/roles`, role.id),
+          {
+            title: role.title,
+            openings: role.count,
+          },
+          { merge: true }
+        );
       });
       this.updateProgress(++completedTasks, totalTasks);
       await this.delayStep(async () => {
-        await updateDoc(doc(db, `companies/${this.companyId}/roles`, role.id), {
-          skills: role.skills,
-        });
+        await setDoc(
+          doc(db, `companies/${this.companyId}/roles`, role.id),
+          {
+            title: role.title,
+            skills: role.skills,
+          },
+          { merge: true }
+        );
       });
       this.updateProgress(++completedTasks, totalTasks);
       await this.delayStep(async () => {
-        await updateDoc(doc(db, `companies/${this.companyId}/roles`, role.id), {
-          updated: timestamp,
-        });
+        await setDoc(
+          doc(db, `companies/${this.companyId}/roles`, role.id),
+          {
+            title: role.title,
+            updated: timestamp,
+          },
+          { merge: true }
+        );
       });
       this.updateProgress(++completedTasks, totalTasks);
       const resumeCount = generateResumeCount(role.count);

@@ -1,4 +1,4 @@
-﻿import { Component, HostListener, OnDestroy } from '@angular/core';
+import { Component, HostListener, OnDestroy } from '@angular/core';
 import { ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { initializeApp } from 'firebase/app';
@@ -13,9 +13,9 @@ import { environment } from '../environments/environment';
   standalone: false,
 })
 export class AppComponent implements OnDestroy {
-  hideMenu: boolean = false;
+  hideMenu = false;
   currentCompanyId: string | null = null;
-  companyLogo: string = '';
+  companyLogo = '';
   companyProfileEnabled = false;
   showCompanyProfile = false;
   currentModule: 'inbox' | 'roles' | 'resumes' | 'boardroom' | 'work' = 'roles';
@@ -39,8 +39,7 @@ export class AppComponent implements OnDestroy {
 
   constructor(private router: Router, private ui: UiStateService, private cdr: ChangeDetectorRef) {
     this.router.events.subscribe(() => {
-      this.hideMenu =
-        this.router.url === '/login' || this.router.url === '/register';
+      this.hideMenu = this.router.url === '/login' || this.router.url === '/register';
       this.updateCompanyContext();
     });
     this.ui.showCompanyProfile$.subscribe((v) => (this.showCompanyProfile = v));
@@ -49,18 +48,9 @@ export class AppComponent implements OnDestroy {
     this.ui.currentModule$.subscribe((m) => {
       this.currentModule = m;
       this.backIcon =
-        m === 'inbox'
-          ? 'mail'
-          : m === 'boardroom'
-          ? 'forum'
-          : m === 'roles'
-          ? 'group_add'
-          : m === 'work'
-          ? 'task'
-          : 'badge';
+        m === 'inbox' ? 'mail' : m === 'boardroom' ? 'forum' : m === 'roles' ? 'group_add' : m === 'work' ? 'task' : 'badge';
       if (m === 'inbox') this.inboxEnabled = true;
     });
-
 
     window.addEventListener('company-logo-changed', this.logoChangedHandler as EventListener);
   }
@@ -132,51 +122,21 @@ export class AppComponent implements OnDestroy {
     clickButton(scope);
   }
 
-
-  openCompanyProfile() {
-    this.ui.setShowCompanyProfile(true);
-  }
-
-  openInbox() {
-    this.ui.setShowCompanyProfile(false);
-    this.ui.setCurrentModule('inbox');
-  }
-
-  openBoardroom() {
-    this.ui.setShowCompanyProfile(false);
-    this.ui.setCurrentModule('boardroom');
-  }
-
-  openRoles() {
-    this.ui.setShowCompanyProfile(false);
-    this.ui.setCurrentModule('roles');
-  }
-
-  openResumes() {
-    this.ui.setShowCompanyProfile(false);
-    this.ui.setCurrentModule('resumes');
-  }
-
-  openWork() {
-    this.ui.setShowCompanyProfile(false);
-    this.ui.setCurrentModule('work');
-  }
-
+  openCompanyProfile() { this.ui.setShowCompanyProfile(true); }
+  openInbox() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('inbox'); }
+  openBoardroom() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('boardroom'); }
+  openRoles() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('roles'); }
+  openResumes() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('resumes'); }
+  openWork() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('work'); }
 
   openBackToModule() {
     switch (this.currentModule) {
-      case 'roles':
-        return this.openRoles();
-      case 'resumes':
-        return this.openResumes();
-      case 'boardroom':
-        return this.openBoardroom();
-      case 'inbox':
-        return this.openInbox();
-      case 'work':
-        return this.openWork();
-      default:
-        return this.openRoles();
+      case 'roles': return this.openRoles();
+      case 'resumes': return this.openResumes();
+      case 'boardroom': return this.openBoardroom();
+      case 'inbox': return this.openInbox();
+      case 'work': return this.openWork();
+      default: return this.openRoles();
     }
   }
 
@@ -194,26 +154,19 @@ export class AppComponent implements OnDestroy {
       const snap = await getDoc(doc(this.db, 'companies', companyId));
       const data = snap.data() as any;
       this.companyLogo = data?.logo || '';
-
       this.companyProfileEnabled = true;
       this.ui.setCompanyProfileEnabled(true);
-
       try {
         const acceptedSnap = await getDocs(
-          query(
-            collection(this.db, `companies/${companyId}/products`),
-            where('accepted', '==', true)
-          )
+          query(collection(this.db, `companies/${companyId}/products`), where('accepted', '==', true))
         );
         this.inboxEnabled = !acceptedSnap.empty;
       } catch {}
-
-    } catch (e) {
-
-    }
+    } catch (e) {}
   }
 
   ngOnDestroy(): void {
     window.removeEventListener('company-logo-changed', this.logoChangedHandler as EventListener);
   }
 }
+

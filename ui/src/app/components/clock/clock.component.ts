@@ -28,7 +28,9 @@ export class ClockComponent implements OnChanges, OnDestroy {
   private intervalId: any;
   private readonly saveEveryMs = 1000;
   private elapsedSinceSave = 0;
-  private readonly minuteScheduleSec = [60, 50, 40, 30, 20, 10, 1];
+  // Real seconds per simulated minute schedule:
+  // 1st minute: 60s, 2nd: 40s, 3rd: 20s, then 1s thereafter
+  private readonly minuteScheduleSec = [60, 40, 20, 1];
   private scheduleIdx = 0;
   private simMsIntoStep = 0;
   private items: Array<{
@@ -75,8 +77,18 @@ export class ClockComponent implements OnChanges, OnDestroy {
       this.simTime = Number.isFinite(st) ? st : Date.now();
       this.speed = Number.isFinite(sp) && sp > 0 ? sp : 1;
       this.updateDisplay();
+      // Only run the clock after Inbox has started the simulation
+      if (!data.simStarted) {
+        if (this.intervalId) {
+          clearInterval(this.intervalId);
+          this.intervalId = null;
+        }
+        return;
+      }
       this.checkAutoComplete();
-      this.startClock();
+      if (!this.intervalId) {
+        this.startClock();
+      }
     });
 
 
@@ -106,10 +118,15 @@ export class ClockComponent implements OnChanges, OnDestroy {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
-    // Initialize schedule from current speed
+    // Initialize schedule from current speed if it matches; otherwise start at first step
     const currentSecPerMin = 60 / (this.speed || 1);
     const idx = this.minuteScheduleSec.findIndex((s) => Math.abs(s - currentSecPerMin) < 1e-6);
-    this.scheduleIdx = idx >= 0 ? idx : this.minuteScheduleSec.length - 1;
+    if (idx >= 0) {
+      this.scheduleIdx = idx;
+    } else {
+      this.scheduleIdx = 0;
+      this.speed = 60 / this.minuteScheduleSec[this.scheduleIdx];
+    }
     this.simMsIntoStep = 0;
 
     const ref = doc(db, `companies/${this.companyId}`);

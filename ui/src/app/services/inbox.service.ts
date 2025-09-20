@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+﻿import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { initializeApp } from 'firebase/app';
 import {
@@ -143,7 +143,7 @@ export class InboxService {
       message: string;
       parentId?: string;
       from?: string;
-      timestamp?: string; // optional override (e.g., simulated clock)
+      timestamp?: string; 
       to?: string;
       category?: string;
     }

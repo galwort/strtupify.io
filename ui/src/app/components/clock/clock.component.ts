@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
+﻿import { Component, Input, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, doc, onSnapshot, DocumentData, DocumentSnapshot, collection, onSnapshot as onColSnapshot, QuerySnapshot, updateDoc } from 'firebase/firestore';
@@ -75,7 +75,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
       this.startClock();
     });
 
-    // Listen to work items for auto-complete to DONE
+
     const itemsRef = collection(db, `companies/${this.companyId}/workitems`);
     this.unsubItems = onColSnapshot(itemsRef, (snap: QuerySnapshot<DocumentData>) => {
       this.items = snap.docs.map((d) => {
@@ -90,9 +90,9 @@ export class ClockComponent implements OnChanges, OnDestroy {
           assignee_id: String(x.assignee_id || ''),
         };
       });
-      // Reset completion cache if snapshot changes
+
       this.completedIds.clear();
-      // Try an immediate check as well
+
       this.checkAutoComplete();
     });
   }

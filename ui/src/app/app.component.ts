@@ -1,4 +1,4 @@
-import { Component, HostListener, OnDestroy } from '@angular/core';
+﻿import { Component, HostListener, OnDestroy } from '@angular/core';
 import { ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { initializeApp } from 'firebase/app';
@@ -61,7 +61,7 @@ export class AppComponent implements OnDestroy {
       if (m === 'inbox') this.inboxEnabled = true;
     });
 
-    // Respond immediately when company profile updates the logo
+
     window.addEventListener('company-logo-changed', this.logoChangedHandler as EventListener);
   }
 
@@ -132,7 +132,7 @@ export class AppComponent implements OnDestroy {
     clickButton(scope);
   }
 
-  // Sidebar actions
+
   openCompanyProfile() {
     this.ui.setShowCompanyProfile(true);
   }
@@ -162,7 +162,7 @@ export class AppComponent implements OnDestroy {
     this.ui.setCurrentModule('work');
   }
 
-  // Back navigation from Company Profile to the active module
+
   openBackToModule() {
     switch (this.currentModule) {
       case 'roles':
@@ -207,9 +207,9 @@ export class AppComponent implements OnDestroy {
         );
         this.inboxEnabled = !acceptedSnap.empty;
       } catch {}
-      // view will refresh on next tick
+
     } catch (e) {
-      // ignore
+
     }
   }
 

@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+﻿import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { initializeApp } from 'firebase/app';
@@ -104,7 +104,7 @@ export class CompanyProfileComponent implements OnInit {
   }
 
   private async loadIcons() {
-    // Try cache first
+
     try {
       const cached = localStorage.getItem('materialIconsList');
       if (cached) {
@@ -116,7 +116,7 @@ export class CompanyProfileComponent implements OnInit {
       }
     } catch {}
 
-    // Try network fetch via backend proxy (avoids browser CORS)
+
     try {
       const res = await firstValueFrom(
         this.http.get<{ icons: string[] }>('https://fa-strtupifyio.azurewebsites.net/api/material_icons')
@@ -131,7 +131,7 @@ export class CompanyProfileComponent implements OnInit {
       }
     } catch {}
 
-    // Fallback to bundled list
+
     this.allIcons = MATERIAL_ICONS;
   }
 }

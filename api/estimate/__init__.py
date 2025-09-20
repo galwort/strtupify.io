@@ -1,4 +1,4 @@
-import azure.functions as func
+﻿import azure.functions as func
 import firebase_admin
 from json import dumps, loads
 from azure.identity import DefaultAzureCredential
@@ -39,7 +39,7 @@ def _task_key(title: str, description: str, category: str, complexity: int) -> s
 
 
 def _skills_key(skills: list[dict]) -> str:
-    # Normalize skills list into deterministic string then hash
+
     norm = []
     for s in skills or []:
         nm = str((s or {}).get("skill") or "").strip().lower()
@@ -97,12 +97,12 @@ def _call_llm(task: dict, assignee: dict) -> tuple[float, str]:
     try:
         data = loads(rsp.choices[0].message.content)
         mult = float(data.get("multiplier"))
-        # Clamp multiplier to safe range
+
         mult = max(0.6, min(1.4, mult))
         reason = str(data.get("reason", ""))
         return mult, reason
     except Exception:
-        # Fallback neutral multiplier
+
         return 1.0, "fallback"
 
 
@@ -137,13 +137,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     if not emp_snap.exists:
         return func.HttpResponse(dumps({"error": "assignee not found"}), status_code=404)
     emp = emp_snap.to_dict() or {}
-    # Load skills
+
     skills = [d.to_dict() for d in emp_ref.collection("skills").stream()]
     for s in skills:
         s.pop("updated", None)
     emp["skills"] = skills
 
-    # Cache lookup: employees/{id}/rates/{workitem_id}
+
     rates_ref = emp_ref.collection("rates").document(str(workitem_id))
     cached = rates_ref.get()
 
@@ -159,7 +159,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         est_hours = _safe_int(c.get("estimated_hours") or base_hours, base_hours)
         used_cache = True
     else:
-        # Call LLM for a multiplier
+
         mult, reason = _call_llm(
             {
                 "title": wi.get("title", ""),
@@ -173,7 +173,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             },
         )
         est_hours = int(round(max(1, base_hours * mult)))
-        # Store cache entry
+
         try:
             rates_ref.set(
                 {
@@ -195,7 +195,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         except Exception:
             pass
 
-    # Update work item with new estimate if changed
+
     try:
         wi_update = {
             "estimated_hours": est_hours,

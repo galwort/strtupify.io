@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
+﻿import { Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { initializeApp, getApps } from 'firebase/app';
 import {
@@ -168,7 +168,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     const it = this.items.find((x) => x.id === id);
     if (!it) return;
     if (it.status === target) return;
-    // Disallow any manual moves into or out of DONE
+
     if (target === 'done' || it.status === 'done') return;
     if (target === 'doing') {
       if (!it.assignee_id) return;
@@ -194,7 +194,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       update.started_at = 0;
     }
     await updateDoc(ref, update);
-    // If the item just moved into DOING, request an LLM-based estimate asynchronously
+
     if (target === 'doing') {
       try {
         await this.requestLlmEstimate(id);
@@ -295,7 +295,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     it.assignee_name = name;
     it.assignee_title = title;
     it.estimated_hours = est;
-    // If already DOING, request an LLM-based estimate for better fit
+
     if (it.status === 'doing') {
       try {
         await this.requestLlmEstimate(it.id);
@@ -313,7 +313,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
         body: JSON.stringify({ company: this.companyId, workitem_id: workitemId }),
       });
     } catch {
-      // Non-blocking; keep baseline if request fails
+
     }
   }
 }

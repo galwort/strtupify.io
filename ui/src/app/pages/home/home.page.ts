@@ -1,4 +1,4 @@
-import { Component, HostListener, OnInit } from '@angular/core';
+﻿import { Component, HostListener, OnInit } from '@angular/core';
 import { initializeApp } from 'firebase/app';
 import {
   getFirestore,
@@ -81,7 +81,7 @@ export class HomePage implements OnInit {
         const skillsSnap = await getDocs(collection(emp.ref, 'skills'));
         total += skillsSnap.docs.length;
       }
-      total += 1; // company doc itself
+      total += 1; 
       return total;
     };
 

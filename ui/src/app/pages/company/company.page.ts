@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { UiStateService } from 'src/app/services/ui-state.service';
 import { initializeApp } from 'firebase/app';
@@ -77,7 +77,7 @@ export class CompanyPage implements OnInit {
       this.showLoading = false;
       this.ui.setCompanyProfileEnabled(true);
       this.ui.setCurrentModule('inbox');
-      // Ensure founding date is set when inbox becomes active
+
       await this.ensureFoundedAt();
       this.observeWorkItems();
       return;
@@ -137,7 +137,7 @@ export class CompanyPage implements OnInit {
     this.showWork = false;
     this.ui.setCompanyProfileEnabled(true);
     this.ui.setCurrentModule('inbox');
-    // Ensure founding date is set when inbox becomes active
+
     this.ensureFoundedAt();
   }
 
@@ -166,7 +166,7 @@ export class CompanyPage implements OnInit {
       const todayIso = new Date().toISOString();
       await updateDoc(ref, { founded_at: todayIso });
     } catch {
-      // ignore failures silently
+
     }
   }
 }

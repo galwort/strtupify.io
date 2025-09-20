@@ -1,4 +1,4 @@
-<div class="content-container">
+﻿<div class="content-container">
   <div class="header">
     <div class="title">Inbox</div>
   </div>
@@ -46,7 +46,7 @@
       </div>
     </div>
     <div class="email-preview" *ngIf="selectedEmail">
-      <!-- Reply composer up top -->
+
       <div *ngIf="showReplyBox" class="reply-composer">
         <div class="row">
           <span class="label">To</span
@@ -83,7 +83,7 @@
         <div class="original-sep">----- Original message -----</div>
       </div>
 
-      <!-- Original email content underneath -->
+
       <div class="email-content">
         <h2>{{ selectedEmail.subject }}</h2>
         <h4>From: {{ selectedEmail.sender }}</h4>
@@ -107,7 +107,7 @@
           <div class="thread-item" *ngFor="let m of threadMessages">
             <div class="thread-head">
               <span> From: {{ m.sender }}</span>
-              <span> • {{ m.timestamp | date : "short" }}</span>
+              <span> â€¢ {{ m.timestamp | date : "short" }}</span>
             </div>
             <br />
             <div

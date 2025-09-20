@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { AlertController, LoadingController } from '@ionic/angular';
 import { Router } from '@angular/router';
@@ -71,7 +71,7 @@ export class ApplicationPage implements OnInit {
         firstValueFrom(this.http.post<any>(jobsUrl, { company_description: this.companyDescription })),
       ]);
 
-      // Stash roles for use on accept
+
       this.pendingRoles = Array.isArray(jobs?.jobs) ? jobs.jobs : [];
       const insufficientRoles = !this.pendingRoles || this.pendingRoles.length === 0;
 
@@ -82,7 +82,7 @@ export class ApplicationPage implements OnInit {
         first_payment: Number(funding?.first_payment || 0),
       };
       if (insufficientRoles) {
-        // If roles could not be generated, override as rejected and zeroed amounts
+
         computedDecision.approved = false;
         computedDecision.amount = 0;
         computedDecision.grace_period_days = 0;

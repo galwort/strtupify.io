@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Input } from '@angular/core';
+﻿import { Component, OnInit, OnDestroy, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
@@ -36,23 +36,23 @@ export class InboxComponent implements OnInit, OnDestroy {
   private allEmails: Email[] = [];
   selectedEmail: Email | null = null;
 
-  // Reply composer state
+
   showReplyBox = false;
   replyText = '';
   sendingReply = false;
   clickedSend = false;
   private pendingReplyTimers: any[] = [];
-  private readonly replyDelayMinMs = 3000; // 3s
-  private readonly replyDelayMaxMs = 12000; // 12s
+  private readonly replyDelayMinMs = 3000; 
+  private readonly replyDelayMaxMs = 12000; 
   get replySubject(): string {
     const base = this.selectedEmail?.subject || '';
     return base.startsWith('Re:') ? base : `Re: ${base}`;
   }
 
   get threadMessages(): Email[] {
-    // Show only PREVIOUS messages in the thread (older than the selected one),
-    // ordered from most-recent-previous to oldest. Do not show future replies
-    // beneath an older message, matching Outlook-like behavior.
+
+
+
     if (!this.selectedEmail) return [];
     const tid = (this.selectedEmail as any).threadId || this.selectedEmail.id;
     const selectedTs = new Date(this.selectedEmail.timestamp || '').getTime();
@@ -61,9 +61,9 @@ export class InboxComponent implements OnInit, OnDestroy {
       const sameThread = (((e as any).threadId || e.id) === tid);
       if (!sameThread) return false;
       if (e.id === this.selectedEmail?.id) return false;
-      if (!isValidTs) return false; // without a selected timestamp, avoid showing chain
+      if (!isValidTs) return false; 
       const ts = new Date(e.timestamp || '').getTime();
-      return Number.isFinite(ts) && ts < selectedTs; // only older messages
+      return Number.isFinite(ts) && ts < selectedTs; 
     });
     return list
       .slice()
@@ -84,13 +84,13 @@ export class InboxComponent implements OnInit, OnDestroy {
 
     const formatInline = (s: string) => {
       let out = escape(s);
-      // links: [text](https://...)
+
       out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-      // bold: **text**
+
       out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1<\/strong>');
-      // italics: *text* (do after bold)
+
       out = out.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2<\/em>');
-      // inline code: `code`
+
       out = out.replace(/`([^`]+)`/g, '<code>$1<\/code>');
       return out;
     };
@@ -498,7 +498,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         category,
         timestamp: this.simDate.toISOString(),
       });
-      // Schedule an auto-reply with a human-like delay
+
       const delay = this.randomInt(this.replyDelayMinMs, this.replyDelayMaxMs);
       const timer = setTimeout(() => {
         this.replyRouter

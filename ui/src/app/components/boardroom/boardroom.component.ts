@@ -1,4 +1,4 @@
-import {
+﻿import {
   Component,
   Input,
   OnInit,
@@ -85,7 +85,7 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
           this.stage = r.stage;
           this.finished = r.done;
           this.busy = false;
-          // Recalculate layout after DOM updates (including bottom panel visibility)
+
           this.cdr.detectChanges();
           setTimeout(() => {
             this.updateLayout();
@@ -141,8 +141,8 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
     const header = this.headerBox.nativeElement;
     const bottom = this.bottomBox?.nativeElement ?? null;
 
-    const pageVerticalPadding = 40; // 20px top + 20px bottom from page container
-    const gridGaps = bottom ? 40 : 20; // 20px between rows; two gaps when bottom visible
+    const pageVerticalPadding = 40; 
+    const gridGaps = bottom ? 40 : 20; 
 
     const viewport = window.innerHeight || document.documentElement.clientHeight;
     const available = Math.max(

@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+﻿import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
@@ -6,7 +6,7 @@ export class UiStateService {
   private _showCompanyProfile = new BehaviorSubject<boolean>(false);
   readonly showCompanyProfile$ = this._showCompanyProfile.asObservable();
 
-  // Controls when the company profile icon should be available in the sidebar
+
   private _companyProfileEnabled = new BehaviorSubject<boolean>(false);
   readonly companyProfileEnabled$ = this._companyProfileEnabled.asObservable();
 

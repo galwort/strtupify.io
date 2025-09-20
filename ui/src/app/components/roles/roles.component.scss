@@ -1,4 +1,4 @@
-.header {
+﻿.header {
   display: flex;
   flex-direction: column;
   align-items: left;
@@ -85,7 +85,7 @@
     box-sizing: border-box;
   }
 
-  /* Hide native spin buttons (we use custom +/-) */
+  
   input[type='number']::-webkit-outer-spin-button,
   input[type='number']::-webkit-inner-spin-button {
     -webkit-appearance: none;

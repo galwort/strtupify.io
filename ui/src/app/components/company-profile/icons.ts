@@ -1,4 +1,4 @@
-export const MATERIAL_ICONS: string[] = [
+﻿export const MATERIAL_ICONS: string[] = [
   'home',
   'work',
   'mail',
@@ -156,17 +156,17 @@ export const MATERIAL_ICONS: string[] = [
   'rocket',
 ];
 
-// Icons reserved by the app UI so they cannot be chosen as a company logo.
-// This avoids confusion with navigation and action icons.
+
+
 export const RESERVED_ICONS: string[] = [
-  // App navigation/context
+
   'mail',
   'forum',
   'group_add',
   'task',
   'badge',
 
-  // App chrome and common actions
+
   'inbox',
   'outbox',
   'reply',
@@ -179,7 +179,7 @@ export const RESERVED_ICONS: string[] = [
   'add',
   'help',
 
-  // App branding lookalikes
+
   'rocket',
   'rocket_launch',
 ];

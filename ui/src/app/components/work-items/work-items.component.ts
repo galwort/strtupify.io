@@ -194,6 +194,12 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       update.started_at = 0;
     }
     await updateDoc(ref, update);
+    // If the item just moved into DOING, request an LLM-based estimate asynchronously
+    if (target === 'doing') {
+      try {
+        await this.requestLlmEstimate(id);
+      } catch {}
+    }
   }
 
   private async loadHires() {
@@ -289,5 +295,25 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     it.assignee_name = name;
     it.assignee_title = title;
     it.estimated_hours = est;
+    // If already DOING, request an LLM-based estimate for better fit
+    if (it.status === 'doing') {
+      try {
+        await this.requestLlmEstimate(it.id);
+      } catch {}
+    }
+  }
+
+  private async requestLlmEstimate(workitemId: string) {
+    if (!this.companyId || !workitemId) return;
+    const url = 'https://fa-strtupifyio.azurewebsites.net/api/estimate';
+    try {
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ company: this.companyId, workitem_id: workitemId }),
+      });
+    } catch {
+      // Non-blocking; keep baseline if request fails
+    }
   }
 }

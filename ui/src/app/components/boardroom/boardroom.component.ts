@@ -6,6 +6,7 @@ import {
   ElementRef,
   AfterViewInit,
   ChangeDetectorRef,
+  HostListener,
   Output,
   EventEmitter,
 } from '@angular/core';
@@ -29,6 +30,8 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
   @Input() companyId = '';
   @Output() acceptedProduct = new EventEmitter<void>();
   @ViewChild('scrollBox') private scrollBox!: ElementRef<HTMLDivElement>;
+  @ViewChild('headerBox') private headerBox!: ElementRef<HTMLDivElement>;
+  @ViewChild('bottomBox') private bottomBox?: ElementRef<HTMLDivElement>;
 
   productId = '';
   transcript: { speaker: string; line: string }[] = [];
@@ -44,12 +47,16 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
     this.api.start(this.companyId).subscribe((r) => {
       this.productId = r.productId;
       this.transcript.push({ speaker: r.speaker, line: r.line });
-      setTimeout(() => this.scrollToBottom());
+      setTimeout(() => {
+        this.updateLayout();
+        this.scrollToBottom();
+      });
       this.next();
     });
   }
 
   ngAfterViewInit() {
+    this.updateLayout();
     this.scrollToBottom();
   }
 
@@ -78,7 +85,12 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
           this.stage = r.stage;
           this.finished = r.done;
           this.busy = false;
-          setTimeout(() => this.scrollToBottom());
+          // Recalculate layout after DOM updates (including bottom panel visibility)
+          this.cdr.detectChanges();
+          setTimeout(() => {
+            this.updateLayout();
+            this.scrollToBottom();
+          });
           if (!this.finished) {
             setTimeout(() => this.next(), 1000);
           }
@@ -97,7 +109,10 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
     this.api.start(this.companyId).subscribe((r) => {
       this.productId = r.productId;
       this.transcript.push({ speaker: r.speaker, line: r.line });
-      setTimeout(() => this.scrollToBottom());
+      setTimeout(() => {
+        this.updateLayout();
+        this.scrollToBottom();
+      });
       this.next();
     });
   }
@@ -113,5 +128,29 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
   private scrollToBottom(): void {
     const box = this.scrollBox.nativeElement;
     box.scrollTop = box.scrollHeight;
+  }
+
+  @HostListener('window:resize')
+  onResize() {
+    this.updateLayout();
+  }
+
+  private updateLayout(): void {
+    if (!this.scrollBox || !this.headerBox) return;
+    const scroll = this.scrollBox.nativeElement;
+    const header = this.headerBox.nativeElement;
+    const bottom = this.bottomBox?.nativeElement ?? null;
+
+    const pageVerticalPadding = 40; // 20px top + 20px bottom from page container
+    const gridGaps = bottom ? 40 : 20; // 20px between rows; two gaps when bottom visible
+
+    const viewport = window.innerHeight || document.documentElement.clientHeight;
+    const available = Math.max(
+      0,
+      viewport - pageVerticalPadding - header.offsetHeight - (bottom?.offsetHeight ?? 0) - gridGaps
+    );
+
+    scroll.style.maxHeight = `${available}px`;
+    scroll.style.overflowY = 'auto';
   }
 }

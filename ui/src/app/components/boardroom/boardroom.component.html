@@ -1,5 +1,5 @@
 <div class="content-container">
-  <div class="header">
+  <div class="header" #headerBox>
     <div class="title">Boardroom Transcript</div>
   </div>
 
@@ -14,7 +14,7 @@
     </div>
   </div>
 
-  <div class="bottom-container" *ngIf="outcome.name || outcome.description">
+  <div class="bottom-container" *ngIf="outcome.name || outcome.description" #bottomBox>
     <div class="bottom-bar">
       <h2>Proposed product</h2>
       <p>

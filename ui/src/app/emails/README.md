@@ -11,5 +11,5 @@ Body text follows after a blank line. Minimal inline formatting is supported.
 Templates:
 - welcome-vlad.md: initial onboarding email from Vlad
 - supereats.md: Super Eats order notification template
+- bank.md: Fifth Fourth Bank payroll disbursement notification template
 - vlad-autoreply.md: automatic reply sent by Vlad when the user replies in the Vlad thread
-

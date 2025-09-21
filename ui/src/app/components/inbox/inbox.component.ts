@@ -12,6 +12,10 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  getDocs,
+  collection,
+  query,
+  where,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 
@@ -143,6 +147,11 @@ export class InboxComponent implements OnInit, OnDestroy {
     | { from?: string; banner?: boolean; body: string }
     | null = null;
 
+  private bankSendTime: number | null = null;
+  private bankTemplate:
+    | { from?: string; subject?: string; banner?: boolean; body: string }
+    | null = null;
+
   private kickoffSendTime: number | null = null;
   private kickoffCreated = false;
   private momSendTime: number | null = null;
@@ -173,12 +182,14 @@ export class InboxComponent implements OnInit, OnDestroy {
           this.checkSuperEatsEmail();
           this.checkKickoffEmail();
           this.checkMomEmail();
+          this.checkBankEmail();
         }
       });
       (this as any).__unsubInboxSim = unsub;
     }
     this.loadSnacks();
     this.loadSuperEatsTemplate();
+    this.loadBankTemplate();
 
     this.inboxService
       .ensureWelcomeEmail(this.companyId)
@@ -280,6 +291,14 @@ export class InboxComponent implements OnInit, OnDestroy {
         await updateDoc(ref, { superEatsNextAt: this.superEatsSendTime });
       }
 
+      if (data.bankNextAt !== undefined) {
+        this.bankSendTime = data.bankNextAt;
+      } else {
+        const firstBankAt = this.computeNextFriday5(this.simDate);
+        this.bankSendTime = firstBankAt.getTime();
+        await updateDoc(ref, { bankNextAt: this.bankSendTime });
+      }
+
       if (data.momEmailSent) {
         this.momSendTime = null;
       } else if (data.momEmailAt !== undefined) {
@@ -304,6 +323,8 @@ export class InboxComponent implements OnInit, OnDestroy {
     } else {
       const firstAt = this.computeFirstDaySuperEats(this.simDate);
       this.superEatsSendTime = firstAt.getTime();
+      const firstBankAt = this.computeNextFriday5(this.simDate);
+      this.bankSendTime = firstBankAt.getTime();
       const { start } = this.computeDay2Window(this.simDate);
       const totalMinutes = (this.businessEndHour - this.businessStartHour) * 60 - 1;
       const offset = this.randomInt(0, totalMinutes);
@@ -318,6 +339,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         speed: this.speed,
         simStarted: true,
         superEatsNextAt: this.superEatsSendTime,
+        bankNextAt: this.bankSendTime,
         momEmailAt: this.momSendTime,
         momEmailSent: false,
       });
@@ -344,6 +366,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.checkSuperEatsEmail();
       this.checkKickoffEmail();
       this.checkMomEmail();
+      this.checkBankEmail();
 
       this.elapsedSinceSave += this.tickMs;
       if (this.elapsedSinceSave >= this.saveEveryMs) {
@@ -429,6 +452,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       timestamp: this.simDate.toISOString(),
       threadId: emailId,
       to: this.meAddress,
+      category: 'supereats',
     }).then(async () => {
       const nextAt = this.computeNextSuperEats(this.simDate);
       this.superEatsSendTime = nextAt.getTime();
@@ -455,6 +479,23 @@ export class InboxComponent implements OnInit, OnDestroy {
           const parsed = this.parseMarkdownEmail(text);
           this.superEatsTemplate = {
             from: parsed.from,
+            banner: parsed.banner,
+            body: parsed.body,
+          };
+        },
+        error: () => {},
+      });
+  }
+
+  private async loadBankTemplate(): Promise<void> {
+    this.http
+      .get('emails/bank.md', { responseType: 'text' })
+      .subscribe({
+        next: (text) => {
+          const parsed = this.parseMarkdownEmail(text);
+          this.bankTemplate = {
+            from: parsed.from,
+            subject: parsed.subject,
             banner: parsed.banner,
             body: parsed.body,
           };
@@ -651,6 +692,89 @@ export class InboxComponent implements OnInit, OnDestroy {
     const d = this.startOfDay(base);
     d.setHours(h, m, 0, 0);
     return d;
+  }
+
+  private computeNextFriday5(after: Date): Date {
+    const d = new Date(after.getTime());
+    d.setSeconds(0, 0);
+    const day = d.getDay();
+    const hour = d.getHours();
+    const minute = d.getMinutes();
+    let daysUntilFriday = (5 - day + 7) % 7;
+    let target = new Date(this.startOfDay(d).getTime());
+    target.setDate(target.getDate() + daysUntilFriday);
+    target.setHours(5, 0, 0, 0);
+    if (
+      daysUntilFriday === 0 &&
+      (hour > 5 || (hour === 5 && minute >= 0))
+    ) {
+      target = new Date(target.getTime() + 7 * 24 * 60 * 60 * 1000);
+    }
+    return target;
+  }
+
+  private async checkBankEmail(): Promise<void> {
+    if (!this.bankSendTime) return;
+    if (this.simDate.getTime() < this.bankSendTime) return;
+    if (!this.bankTemplate) return;
+
+    let employees: { name: string; salary: number }[] = [];
+    try {
+      const empsRef = collection(db, `companies/${this.companyId}/employees`);
+      const q = query(empsRef, where('hired', '==', true));
+      const snap = await getDocs(q);
+      employees = snap.docs
+        .map((d) => d.data() as any)
+        .map((e) => ({ name: String(e.name || ''), salary: Number(e.salary || 0) }))
+        .filter((e) => e.name);
+    } catch {}
+
+    if (!employees.length) {
+      const nextAt = this.computeNextFriday5(this.simDate);
+      this.bankSendTime = nextAt.getTime();
+      const ref = doc(db, `companies/${this.companyId}`);
+      await updateDoc(ref, { bankNextAt: this.bankSendTime });
+      return;
+    }
+
+    const weekly = employees.map((e) => ({
+      name: e.name,
+      amt: Math.ceil((e.salary / 52) * 100) / 100,
+    }));
+    const total = weekly.reduce((s, w) => s + w.amt, 0);
+    const totalStr = `$${total.toFixed(2)}`;
+    const breakdown = weekly
+      .map((w) => `$${w.amt.toFixed(2)} – Payment for ${w.name}`)
+      .join('\n');
+
+    const tpl = this.bankTemplate as {
+      from?: string;
+      subject?: string;
+      banner?: boolean;
+      body: string;
+    };
+    const from = tpl.from || 'noreply@54.com';
+    const subject = tpl.subject || 'Payroll Batch Withdrawal Processed';
+    const banner = tpl.banner ?? true;
+    const message = tpl.body
+      .replace(/\{TOTAL_AMOUNT\}/g, totalStr)
+      .replace(/\{BREAKDOWN\}/g, breakdown);
+    const emailId = `bank-${Date.now()}`;
+    await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+      from,
+      subject,
+      message,
+      deleted: false,
+      banner,
+      timestamp: this.simDate.toISOString(),
+      threadId: emailId,
+      to: this.meAddress,
+      category: 'bank',
+    });
+    const nextAt = this.computeNextFriday5(this.simDate);
+    this.bankSendTime = nextAt.getTime();
+    const ref = doc(db, `companies/${this.companyId}`);
+    await updateDoc(ref, { bankNextAt: this.bankSendTime });
   }
 
   private checkKickoffEmail(): void {

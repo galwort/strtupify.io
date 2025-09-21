@@ -32,6 +32,7 @@ export class CompanyPage implements OnInit {
   showBoardroom = false;
   showInbox = false;
   showWork = false;
+  showLedger = false;
   totalTasks = 0;
   completedTasks = 0;
   companyId = '';
@@ -58,11 +59,13 @@ export class CompanyPage implements OnInit {
       this.showInbox = m === 'inbox';
       this.showBoardroom = m === 'boardroom';
       this.showResumes = m === 'resumes';
+      this.showLedger = m === 'ledger';
       if (m === 'roles') {
         this.showWork = false;
         this.showInbox = false;
         this.showBoardroom = false;
         this.showResumes = false;
+        this.showLedger = false;
       }
     });
 

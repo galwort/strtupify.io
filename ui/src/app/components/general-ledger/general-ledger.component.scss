@@ -1,0 +1,106 @@
+.content-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  color: var(--theme-text);
+  width: 100%;
+  height: calc(100vh - 40px);
+  position: relative;
+  margin-left: -20px;
+  background: #fff;
+
+  .header {
+    display: flex;
+    flex-direction: column;
+    align-items: left;
+    justify-content: flex-start;
+    width: 120%;
+    background-color: var(--theme-background);
+    border-bottom: 1px solid #e0e0e0;
+
+    .title {
+      font-size: 40px;
+      padding: 8px;
+      background-color: var(--theme-background);
+      margin-left: 20px;
+    }
+  }
+
+  .filter-container {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 8px 20px;
+    border-bottom: 1px solid #e0e0e0;
+    width: 120%;
+    background: #fff;
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      .label {
+        font-size: 12px;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: .4px;
+      }
+      .value {
+        font-weight: 700;
+        font-size: 18px;
+        color: #111827;
+      }
+    }
+  }
+
+  .ledger-body {
+    flex: 1;
+    width: calc(100% + 40px);
+    overflow: auto;
+    background: #fff;
+    padding: 16px;
+
+    .ledger-table {
+      width: calc(100% - 40px);
+      margin-left: 20px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+
+      .thead, .tr {
+        display: grid;
+        grid-template-columns: 220px 1fr 140px 140px 160px;
+        align-items: center;
+      }
+
+      .thead {
+        background: #f7f9fc;
+        border-bottom: 1px solid #e5e7eb;
+        .th {
+          padding: 10px 12px;
+          font-weight: 700;
+          color: #374151;
+        }
+        .right { text-align: right; }
+      }
+
+      .tbody {
+        .tr {
+          border-bottom: 1px solid #f0f2f5;
+          &:last-child { border-bottom: none; }
+        }
+        .td {
+          padding: 10px 12px;
+          color: #111827;
+        }
+        .right { text-align: right; }
+        .date { color: #4b5563; }
+        .desc { color: #111827; }
+        .tr.sub .desc { padding-left: 24px; color: #374151; }
+        .tr.sub .date { opacity: 0.5; }
+      }
+    }
+  }
+}

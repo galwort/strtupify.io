@@ -2,7 +2,7 @@ import { Component, HostListener, OnDestroy } from '@angular/core';
 import { ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
 import { UiStateService } from './services/ui-state.service';
 import { environment } from '../environments/environment';
 
@@ -18,10 +18,11 @@ export class AppComponent implements OnDestroy {
   companyLogo = '';
   companyProfileEnabled = false;
   showCompanyProfile = false;
-  currentModule: 'inbox' | 'roles' | 'resumes' | 'boardroom' | 'work' = 'roles';
+  currentModule: 'inbox' | 'roles' | 'resumes' | 'boardroom' | 'work' | 'ledger' = 'roles';
   backIcon: string = 'group_add';
   workEnabled = false;
   inboxEnabled = false;
+  ledgerEnabled = false;
 
   private fbApp = initializeApp(environment.firebase);
   private db = getFirestore(this.fbApp);
@@ -48,7 +49,7 @@ export class AppComponent implements OnDestroy {
     this.ui.currentModule$.subscribe((m) => {
       this.currentModule = m;
       this.backIcon =
-        m === 'inbox' ? 'mail' : m === 'boardroom' ? 'forum' : m === 'roles' ? 'group_add' : m === 'work' ? 'task' : 'badge';
+        m === 'inbox' ? 'mail' : m === 'boardroom' ? 'forum' : m === 'roles' ? 'group_add' : m === 'work' ? 'task' : m === 'ledger' ? 'account_balance' : 'badge';
       if (m === 'inbox') this.inboxEnabled = true;
     });
 
@@ -128,6 +129,7 @@ export class AppComponent implements OnDestroy {
   openRoles() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('roles'); }
   openResumes() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('resumes'); }
   openWork() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('work'); }
+  openLedger() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('ledger'); }
 
   openBackToModule() {
     switch (this.currentModule) {
@@ -151,7 +153,8 @@ export class AppComponent implements OnDestroy {
     if (!companyId) return;
 
     try {
-      const snap = await getDoc(doc(this.db, 'companies', companyId));
+      const ref = doc(this.db, 'companies', companyId);
+      const snap = await getDoc(ref);
       const data = snap.data() as any;
       this.companyLogo = data?.logo || '';
       this.companyProfileEnabled = true;
@@ -162,6 +165,19 @@ export class AppComponent implements OnDestroy {
         );
         this.inboxEnabled = !acceptedSnap.empty;
       } catch {}
+      try {
+        const prevUnsub = (window as any).__companyDocUnsub as (() => void) | undefined;
+        if (prevUnsub) prevUnsub();
+      } catch {}
+      try {
+        const unsub = onSnapshot(ref, (s) => {
+          const d = (s && (s.data() as any)) || {};
+          const le = !!d.ledgerEnabled;
+          this.ledgerEnabled = le;
+          this.ui.setWorkEnabled(this.workEnabled);
+        });
+        (window as any).__companyDocUnsub = unsub;
+      } catch {}
     } catch (e) {}
   }
 
@@ -169,4 +185,3 @@ export class AppComponent implements OnDestroy {
     window.removeEventListener('company-logo-changed', this.logoChangedHandler as EventListener);
   }
 }
-

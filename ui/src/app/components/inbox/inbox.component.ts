@@ -770,11 +770,13 @@ export class InboxComponent implements OnInit, OnDestroy {
       threadId: emailId,
       to: this.meAddress,
       category: 'bank',
+      payrollTotal: total,
+      payrollLines: weekly.map((w) => ({ name: w.name, amount: w.amt })),
     });
     const nextAt = this.computeNextFriday5(this.simDate);
     this.bankSendTime = nextAt.getTime();
     const ref = doc(db, `companies/${this.companyId}`);
-    await updateDoc(ref, { bankNextAt: this.bankSendTime });
+    await updateDoc(ref, { bankNextAt: this.bankSendTime, ledgerEnabled: true });
   }
 
   private checkKickoffEmail(): void {

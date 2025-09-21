@@ -70,6 +70,24 @@
           >
             <span class="material-symbols-outlined"> task </span>
           </button>
+          <button
+            *ngIf="ledgerEnabled && currentModule !== 'ledger'"
+            type="button"
+            class="company-logo"
+            (click)="openLedger()"
+            aria-label="General Ledger"
+          >
+            <span class="material-symbols-outlined"> account_balance </span>
+          </button>
+          <button
+            *ngIf="inboxEnabled && currentModule === 'ledger'"
+            type="button"
+            class="company-logo"
+            (click)="openInbox()"
+            aria-label="Inbox"
+          >
+            <span class="material-symbols-outlined"> mail </span>
+          </button>
         </ng-container>
       </ion-buttons>
     </ion-toolbar>

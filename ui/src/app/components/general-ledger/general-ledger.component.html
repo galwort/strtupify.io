@@ -23,16 +23,16 @@
       <div class="thead">
         <div class="th date">Date</div>
         <div class="th desc">Description</div>
-        <div class="th right">Debit</div>
-        <div class="th right">Credit</div>
+        <div class="th payee">Payee</div>
+        <div class="th right amt">Amount</div>
         <div class="th right">Balance</div>
       </div>
       <div class="tbody">
         <div class="tr" *ngFor="let r of rows" [class.sub]="r.sub">
           <div class="td date">{{ r.date }}</div>
           <div class="td desc">{{ r.description }}</div>
-          <div class="td right">{{ r.debit ? (r.debit | currency: 'USD':'symbol') : '' }}</div>
-          <div class="td right">{{ r.credit ? (r.credit | currency: 'USD':'symbol') : '' }}</div>
+          <div class="td payee">{{ r.payee || '' }}</div>
+          <div class="td right amt" [class.neg]="r.amount < 0">{{ r.amount ? (r.amount | currency: 'USD':'symbol') : '' }}</div>
           <div class="td right">{{ r.balance !== null ? (r.balance | currency: 'USD':'symbol') : '' }}</div>
         </div>
       </div>

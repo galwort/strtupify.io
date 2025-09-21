@@ -1,7 +1,7 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, doc, getDoc, collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, collection, query, where, orderBy, onSnapshot, QuerySnapshot, DocumentData } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 
 const fbApp = getApps().length ? getApps()[0] : initializeApp(environment.firebase);
@@ -10,8 +10,8 @@ const db = getFirestore(fbApp);
 type LedgerRow = {
   date: string;
   description: string;
-  debit: number;
-  credit: number;
+  payee: string;
+  amount: number;
   balance: number | null;
   sub?: boolean;
 };
@@ -44,54 +44,71 @@ export class GeneralLedgerComponent implements OnInit {
 
     const inboxRef = collection(db, `companies/${this.companyId}/inbox`);
     const q = query(inboxRef, where('category', '==', 'bank'), orderBy('timestamp', 'asc'));
-    const bankSnap = await getDocs(q);
+    onSnapshot(q, (snap: QuerySnapshot<DocumentData>) => {
+      const entries = snap.docs.map((d) => {
+        const x = d.data() as any;
+        const ts = String(x.timestamp || '');
+        const msg = String(x.message || '');
+        let total = Number(x.payrollTotal || 0);
+        if (!isFinite(total) || total <= 0) total = this.parseTotalFromMessage(msg);
+        const lines = this.extractLines(x) || this.parseBreakdown(msg);
+        if (!isFinite(total) || total <= 0) total = 0;
+        return { ts, total, lines } as { ts: string; total: number; lines: { name: string; amount: number }[] };
+      });
 
-    const entries = bankSnap.docs.map((d) => {
-      const x = d.data() as any;
-      const ts = String(x.timestamp || '');
-      const msg = String(x.message || '');
-      let total = Number(x.payrollTotal || 0);
-      if (!isFinite(total) || total <= 0) total = this.parseTotalFromMessage(msg);
-      const lines = this.extractLines(x) || this.parseBreakdownLines(msg);
-      if (!isFinite(total) || total <= 0) total = 0;
-      return { ts, total, lines } as { ts: string; total: number; lines: { name: string; amount: number }[] };
-    });
-
-    const rows: LedgerRow[] = [];
-    let running = this.openingCredit;
-    rows.push({
-      date: this.formatDate(data?.founded_at || new Date().toISOString()),
-      description: 'Loan funded',
-      debit: 0,
-      credit: this.openingCredit,
-      balance: running,
-    });
-
-    for (const e of entries) {
-      if (!e.total) continue;
-      running = running - e.total;
+      const rows: LedgerRow[] = [];
+      let running = this.openingCredit;
       rows.push({
-        date: this.formatDate(e.ts),
-        description: 'Payroll batch withdrawal',
-        debit: e.total,
-        credit: 0,
+        date: this.formatDate(data?.founded_at || new Date().toISOString()),
+        description: 'Loan funded',
+        payee: 'Fifth Fourth Bank',
+        amount: this.openingCredit,
         balance: running,
       });
-      for (const li of e.lines) {
+
+      for (const e of entries) {
+        if ((!isFinite(e.total) || e.total <= 0) && e.lines && e.lines.length) {
+          e.total = e.lines.reduce((s, li) => s + (li.amount || 0), 0);
+        }
+        if (!e.total) continue;
+        running = running - e.total;
         rows.push({
-          date: '',
-          description: `Payment for ${li.name}`,
-          debit: li.amount,
-          credit: 0,
-          balance: null,
-          sub: true,
+          date: this.formatDate(e.ts),
+          description: 'Payroll batch withdrawal',
+          payee: 'Fifth Fourth Bank',
+          amount: -e.total,
+          balance: running,
         });
+        for (const li of e.lines) {
+          rows.push({
+            date: '',
+            description: 'Payroll',
+            payee: li.name,
+            amount: -li.amount,
+            balance: null,
+            sub: true,
+          });
+        }
+      }
+      this.totalPayroll = entries.reduce((s, e) => s + (e.total || 0), 0);
+      this.rows = rows;
+      this.currentBalance = running;
+      this.loading = false;
+    });
+  }
+
+  private parseBreakdown(msg: string): { name: string; amount: number }[] {
+    const out: { name: string; amount: number }[] = [];
+    const pattern = /^\s*\$([0-9,.]+)\s+[\u2013\u2014-]\s+Payment for\s+(.+)\s*$/i;
+    for (const line of msg.split(/\r?\n/)) {
+      const m = line.match(pattern);
+      if (m && m[1] && m[2]) {
+        const amt = Number(m[1].replace(/,/g, ''));
+        const name = m[2].trim();
+        if (!isNaN(amt) && name) out.push({ name, amount: amt });
       }
     }
-    this.totalPayroll = entries.reduce((s, e) => s + (e.total || 0), 0);
-    this.rows = rows;
-    this.currentBalance = running;
-    this.loading = false;
+    return out;
   }
 
   private parseTotalFromMessage(msg: string): number {

@@ -71,7 +71,7 @@
 
       .thead, .tr {
         display: grid;
-        grid-template-columns: 220px 1fr 140px 140px 160px;
+        grid-template-columns: 220px 1fr 260px 160px 160px;
         align-items: center;
       }
 
@@ -95,11 +95,13 @@
           padding: 10px 12px;
           color: #111827;
         }
+        .td.amt.neg { color: #b91c1c; }
         .right { text-align: right; }
         .date { color: #4b5563; }
         .desc { color: #111827; }
         .tr.sub .desc { padding-left: 24px; color: #374151; }
         .tr.sub .date { opacity: 0.5; }
+        .tr.sub .payee { padding-left: 24px; color: #374151; }
       }
     }
   }

@@ -105,7 +105,7 @@
           <div class="thread-item" *ngFor="let m of threadMessages">
             <div class="thread-head">
               <span> From: {{ m.sender }}</span>
-              <span> â€¢ {{ m.timestamp | date : "short" }}</span>
+              <span>&nbsp;&bull; {{ m.timestamp | date : "short" }}</span>
             </div>
             <br />
             <div

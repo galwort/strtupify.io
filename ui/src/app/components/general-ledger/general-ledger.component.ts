@@ -151,11 +151,13 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
       this.currentBalance = running;
       this.loading = false;
     });
+  }
 
   ngOnDestroy(): void {
     try { if (this.unsub) this.unsub(); } catch {}
     this.unsub = null;
   }
+
 
 
   private compareTimestamp(a: string, b: string): number {

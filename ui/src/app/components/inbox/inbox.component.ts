@@ -463,7 +463,9 @@ export class InboxComponent implements OnInit, OnDestroy {
     const snack = this.selectedSnack;
     if (!snack) return;
     const quantity = Math.floor(Math.random() * 4) + 2;
-    const totalPrice = (parseFloat(snack.price) * quantity).toFixed(2);
+    const unitPrice = parseFloat(snack.price);
+    const totalAmount = Number((unitPrice * quantity).toFixed(2));
+    const totalPrice = totalAmount.toFixed(2);
     const day = this.simDate.toLocaleString('en-US', { weekday: 'long' });
     const hour = this.simDate.getHours();
     const timeOfDay =
@@ -489,6 +491,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       .replace(/\{QUANTITY\}/g, String(quantity))
       .replace(/\{SNACK_PRICE\}/g, snack.price)
       .replace(/\{TOTAL_PRICE\}/g, totalPrice);
+    const ledgerMemo = `${quantity}x ${snack.name}`;
     const emailId = `supereats-${Date.now()}`;
     setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
       from,
@@ -500,6 +503,13 @@ export class InboxComponent implements OnInit, OnDestroy {
       threadId: emailId,
       to: this.meAddress,
       category: 'supereats',
+      supereatsQuantity: quantity,
+      supereatsUnitPrice: unitPrice,
+      supereatsTotal: totalAmount,
+      ledgerAmount: totalAmount,
+      ledgerMemo,
+      supereats: { snack: snack.name, quantity, unitPrice, total: totalAmount },
+      ledger: { type: 'supereats', amount: totalAmount, memo: ledgerMemo },
     }).then(async () => {
       const nextAt = this.computeNextSuperEats(this.simDate);
       this.superEatsSendTime = nextAt.getTime();

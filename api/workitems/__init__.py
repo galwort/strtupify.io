@@ -35,6 +35,20 @@ def pull_context(company):
     for p in products:
         product = p.to_dict() | {"id": p.id}
         break
+    boardroom = []
+    if product:
+        raw_board = product.get("boardroom") or []
+        for entry in raw_board:
+            if not isinstance(entry, dict):
+                continue
+            boardroom.append(
+                {
+                    "speaker": str(entry.get("speaker", "")),
+                    "message": str((entry.get("msg") or entry.get("message") or "")).strip(),
+                    "stage": str(entry.get("stage", "")),
+                    "timestamp": str(entry.get("at", "")),
+                }
+            )
     employees = []
     for d in (
         company_ref.collection("employees").where("hired", "==", True).stream()
@@ -64,6 +78,7 @@ def pull_context(company):
         "company": c,
         "product": product,
         "employees": employees,
+        "boardroom": boardroom,
     }
 
 
@@ -77,6 +92,24 @@ def llm_plan(ctx):
     first_payment = float(funding.get("first_payment", 0) or 0)
     product_name = (ctx.get("product") or {}).get("product", "")
     product_description = (ctx.get("product") or {}).get("description", "")
+    boardroom_history = []
+    for entry in (ctx.get("boardroom") or []):
+        if not isinstance(entry, dict):
+            continue
+        message = str((entry.get("message") or entry.get("msg") or "")).strip()
+        if not message:
+            continue
+        boardroom_history.append(
+            {
+                "speaker": str(entry.get("speaker", "")),
+                "message": message,
+                "stage": str(entry.get("stage", "")),
+            }
+        )
+    boardroom_transcript = "\n".join(
+        f"{(b.get('speaker', '').strip() or 'Unknown')}: {b.get('message', '')}"
+        for b in boardroom_history
+    )
     employees = ctx.get("employees", [])
     sys = (
         "Create a comprehensive set of work items to deliver the proposed MVP end-to-end. "
@@ -85,6 +118,7 @@ def llm_plan(ctx):
         "complexity is an integer 1-5 (1=trivial, 5=hard). "
         "Use employees' names and titles to assign appropriately, matching skills and seniority. "
         "Cover cross-functional needs (engineering, design, product, data, infra, QA, marketing, launch). "
+        "Ground the plan in the boardroom_history transcript so the tasks reflect the ideas, objections, and decisions the team discussed. "
         "Aim for a complete plan rather than a starter list. Return between 15 and 40 items based on scope and team size. "
         "If funding or loan details are provided, explicitly include early revenue-generation work (pricing, payments, onboarding, billing, go-to-market) so the company can make money quickly and cover bank payments on time. "
         "Keep titles concise and descriptions actionable. No commentary outside the JSON."
@@ -112,6 +146,8 @@ def llm_plan(ctx):
                 }
                 for e in employees
             ],
+            "boardroom_history": boardroom_history,
+            "boardroom_transcript": boardroom_transcript,
         }
     )
     rsp = client.chat.completions.create(

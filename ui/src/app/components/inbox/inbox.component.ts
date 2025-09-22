@@ -16,6 +16,7 @@ import {
   collection,
   query,
   where,
+  runTransaction,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 
@@ -142,6 +143,7 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   private snacks: { name: string; price: string }[] = [];
   private selectedSnack: { name: string; price: string } | null = null;
+  private selectedSnackName: string | null = null;
   private superEatsSendTime: number | null = null;
   private superEatsTemplate:
     | { from?: string; banner?: boolean; body: string }
@@ -151,11 +153,10 @@ export class InboxComponent implements OnInit, OnDestroy {
   private bankTemplate:
     | { from?: string; subject?: string; banner?: boolean; body: string }
     | null = null;
+  private bankProcessing = false;
 
   private kickoffSendTime: number | null = null;
-  private kickoffCreated = false;
   private momSendTime: number | null = null;
-  private momCreated = false;
 
   showDeleted = false;
   private meAddress = '';
@@ -193,9 +194,6 @@ export class InboxComponent implements OnInit, OnDestroy {
 
     this.inboxService
       .ensureWelcomeEmail(this.companyId)
-      .then(() => {
-        this.kickoffSendTime = this.simDate.getTime() + 5 * 60_000;
-      })
       .finally(() => {
         this.inboxService.getInbox(this.companyId).subscribe((emails) => {
           this.allEmails = emails;
@@ -299,6 +297,16 @@ export class InboxComponent implements OnInit, OnDestroy {
         await updateDoc(ref, { bankNextAt: this.bankSendTime });
       }
 
+      if (data.kickoffEmailSent) {
+        this.kickoffSendTime = null;
+      } else if (typeof data.kickoffEmailAt === 'number') {
+        this.kickoffSendTime = data.kickoffEmailAt;
+      } else {
+        const at = this.simDate.getTime() + 5 * 60_000;
+        this.kickoffSendTime = at;
+        try { await updateDoc(ref, { kickoffEmailAt: at, kickoffEmailSent: false }); } catch {}
+      }
+
       if (data.momEmailSent) {
         this.momSendTime = null;
       } else if (data.momEmailAt !== undefined) {
@@ -314,6 +322,12 @@ export class InboxComponent implements OnInit, OnDestroy {
         this.momSendTime = at.getTime();
         await updateDoc(ref, { momEmailAt: this.momSendTime });
       }
+      if (typeof data.snackChoice === 'string' && data.snackChoice.trim()) {
+        this.selectedSnackName = data.snackChoice.trim();
+      } else {
+        this.selectedSnackName = null;
+      }
+      this.ensureSelectedSnack();
       const anyData = snap.data() as any;
       let domain = `${this.companyId}.com`;
       if (anyData && anyData.company_name) {
@@ -333,6 +347,8 @@ export class InboxComponent implements OnInit, OnDestroy {
       const momAt = new Date(start.getTime());
       momAt.setHours(h, m, 0, 0);
       this.momSendTime = momAt.getTime();
+      this.selectedSnack = null;
+      this.selectedSnackName = null;
 
       await setDoc(ref, {
         simTime: this.simDate.getTime(),
@@ -340,6 +356,8 @@ export class InboxComponent implements OnInit, OnDestroy {
         simStarted: true,
         superEatsNextAt: this.superEatsSendTime,
         bankNextAt: this.bankSendTime,
+        kickoffEmailAt: this.simDate.getTime() + 5 * 60_000,
+        kickoffEmailSent: false,
         momEmailAt: this.momSendTime,
         momEmailSent: false,
       });
@@ -398,10 +416,42 @@ export class InboxComponent implements OnInit, OnDestroy {
             return { name: name.trim(), price: price.trim() };
           })
           .filter((s) => s.name && s.price);
-        if (this.snacks.length)
-          this.selectedSnack =
-            this.snacks[Math.floor(Math.random() * this.snacks.length)];
+        this.ensureSelectedSnack();
       });
+  }
+
+  private ensureSelectedSnack(): void {
+    if (!this.snacks.length) return;
+    if (
+      this.selectedSnack &&
+      this.selectedSnackName === this.selectedSnack.name
+    )
+      return;
+
+    if (this.selectedSnackName) {
+      const existing = this.snacks.find(
+        (s) => s.name === this.selectedSnackName
+      );
+      if (existing) {
+        this.selectedSnack = existing;
+        return;
+      }
+      this.selectedSnackName = null;
+    }
+
+    const choice =
+      this.snacks[Math.floor(Math.random() * this.snacks.length)];
+    this.selectedSnack = choice;
+    this.selectedSnackName = choice.name;
+    this.persistSelectedSnack(choice.name).catch(() => {});
+  }
+
+  private async persistSelectedSnack(name: string): Promise<void> {
+    if (!this.companyId) return;
+    const ref = doc(db, `companies/${this.companyId}`);
+    try {
+      await updateDoc(ref, { snackChoice: name });
+    } catch {}
   }
 
   private checkSuperEatsEmail(): void {
@@ -409,12 +459,9 @@ export class InboxComponent implements OnInit, OnDestroy {
     if (this.simDate.getTime() < this.superEatsSendTime) return;
     if (!this.snacks.length) return;
 
-    if (!this.selectedSnack) {
-      this.selectedSnack =
-        this.snacks[Math.floor(Math.random() * this.snacks.length)];
-    }
-
+    this.ensureSelectedSnack();
     const snack = this.selectedSnack;
+    if (!snack) return;
     const quantity = Math.floor(Math.random() * 4) + 2;
     const totalPrice = (parseFloat(snack.price) * quantity).toFixed(2);
     const day = this.simDate.toLocaleString('en-US', { weekday: 'long' });
@@ -717,6 +764,27 @@ export class InboxComponent implements OnInit, OnDestroy {
     if (!this.bankSendTime) return;
     if (this.simDate.getTime() < this.bankSendTime) return;
     if (!this.bankTemplate) return;
+    if (this.bankProcessing) return;
+    this.bankProcessing = true;
+
+    let proceed = false;
+    const companyRef = doc(db, `companies/${this.companyId}`);
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(companyRef);
+        const d = (snap && (snap.data() as any)) || {};
+        const nextAt = typeof d.bankNextAt === 'number' ? d.bankNextAt : this.bankSendTime;
+        const busy = !!d.bankEmailInProgress;
+        if (!nextAt || this.simDate.getTime() < nextAt || busy) return;
+        tx.update(companyRef, { bankEmailInProgress: true });
+        proceed = true;
+        this.bankSendTime = nextAt;
+      });
+    } catch {}
+    if (!proceed) {
+      this.bankProcessing = false;
+      return;
+    }
 
     let employees: { name: string; salary: number }[] = [];
     try {
@@ -734,6 +802,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.bankSendTime = nextAt.getTime();
       const ref = doc(db, `companies/${this.companyId}`);
       await updateDoc(ref, { bankNextAt: this.bankSendTime });
+      this.bankProcessing = false;
       return;
     }
 
@@ -775,73 +844,101 @@ export class InboxComponent implements OnInit, OnDestroy {
     });
     const nextAt = this.computeNextFriday5(this.simDate);
     this.bankSendTime = nextAt.getTime();
-    const ref = doc(db, `companies/${this.companyId}`);
-    await updateDoc(ref, { bankNextAt: this.bankSendTime, ledgerEnabled: true });
+    const ref = companyRef;
+    try {
+      await updateDoc(ref, { bankNextAt: this.bankSendTime, ledgerEnabled: true, bankEmailInProgress: false });
+    } catch {
+      try { await updateDoc(ref, { bankEmailInProgress: false }); } catch {}
+    }
+    this.bankProcessing = false;
   }
 
-  private checkKickoffEmail(): void {
-    if (this.kickoffCreated) return;
+  private async checkKickoffEmail(): Promise<void> {
     if (!this.kickoffSendTime) return;
     if (this.simDate.getTime() < this.kickoffSendTime) return;
-
-    this.kickoffCreated = true;
-
+    const ref = doc(db, `companies/${this.companyId}`);
+    let proceed = false;
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        const d = (snap && (snap.data() as any)) || {};
+        if (d.kickoffEmailSent || d.kickoffEmailInProgress) return;
+        const at = typeof d.kickoffEmailAt === 'number' ? d.kickoffEmailAt : this.kickoffSendTime;
+        if (!at || this.simDate.getTime() < at) return;
+        tx.update(ref, { kickoffEmailInProgress: true });
+        proceed = true;
+      });
+    } catch {}
+    if (!proceed) return;
     this.http
       .post<any>(kickoffUrl, { name: this.companyId })
       .subscribe({
-        next: (email) => {
+        next: async (email) => {
           const emailId = `kickoff-${Date.now()}`;
-          setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
-            from: email.from,
-            subject: email.subject,
-            message: email.body,
-            deleted: false,
-            banner: false,
-            timestamp: this.simDate.toISOString(),
-            threadId: emailId,
-            to: this.meAddress,
-            category: 'kickoff',
-          }).catch(() => {
-            this.kickoffCreated = false;
-          });
+          try {
+            await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+              from: email.from,
+              subject: email.subject,
+              message: email.body,
+              deleted: false,
+              banner: false,
+              timestamp: this.simDate.toISOString(),
+              threadId: emailId,
+              to: this.meAddress,
+              category: 'kickoff',
+            });
+            await updateDoc(ref, { kickoffEmailSent: true, kickoffEmailInProgress: false });
+          } catch {
+            try { await updateDoc(ref, { kickoffEmailInProgress: false }); } catch {}
+          }
         },
-        error: () => {
-          this.kickoffCreated = false;
+        error: async () => {
+          try { await updateDoc(ref, { kickoffEmailInProgress: false }); } catch {}
         },
       });
   }
 
-  private checkMomEmail(): void {
-    if (this.momCreated) return;
+  private async checkMomEmail(): Promise<void> {
     if (!this.momSendTime) return;
     if (this.simDate.getTime() < this.momSendTime) return;
-
-    this.momCreated = true;
-    const snackName = this.selectedSnack?.name || '';
+    const ref = doc(db, `companies/${this.companyId}`);
+    const proceed = await runTransaction<boolean>(db, async (tx) => {
+      const snap = await tx.get(ref);
+      const d = (snap && (snap.data() as any)) || {};
+      if (d.momEmailSent || d.momEmailInProgress) return false;
+      const at = typeof d.momEmailAt === 'number' ? d.momEmailAt : this.momSendTime;
+      if (!at || this.simDate.getTime() < at) return false;
+      tx.update(ref, { momEmailInProgress: true });
+      return true;
+    }).catch(() => false);
+    if (!proceed) return;
+    this.ensureSelectedSnack();
+    if (!this.selectedSnack) return;
+    const snackName = this.selectedSnack.name;
     this.http
       .post<any>(momUrl, { name: this.companyId, snack: snackName })
       .subscribe({
-        next: (email) => {
+        next: async (email) => {
           const emailId = `mom-${Date.now()}`;
-          setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
-            from: email.from,
-            subject: email.subject,
-            message: email.body,
-            deleted: false,
-            banner: false,
-            timestamp: this.simDate.toISOString(),
-            threadId: emailId,
-            to: this.meAddress,
-            category: 'mom',
-          }).then(async () => {
-            const ref = doc(db, `companies/${this.companyId}`);
-            await updateDoc(ref, { momEmailSent: true });
-          }).catch(() => {
-            this.momCreated = false;
-          });
+          try {
+            await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+              from: email.from,
+              subject: email.subject,
+              message: email.body,
+              deleted: false,
+              banner: false,
+              timestamp: this.simDate.toISOString(),
+              threadId: emailId,
+              to: this.meAddress,
+              category: 'mom',
+            });
+            await updateDoc(ref, { momEmailSent: true, momEmailInProgress: false });
+          } catch {
+            try { await updateDoc(ref, { momEmailInProgress: false }); } catch {}
+          }
         },
-        error: () => {
-          this.momCreated = false;
+        error: async () => {
+          try { await updateDoc(ref, { momEmailInProgress: false }); } catch {}
         },
       });
   }

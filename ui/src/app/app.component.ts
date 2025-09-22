@@ -149,7 +149,13 @@ export class AppComponent implements OnDestroy {
     this.companyLogo = '';
     this.companyProfileEnabled = false;
     this.inboxEnabled = false;
+    this.ledgerEnabled = false;
     this.ui.setCompanyProfileEnabled(false);
+    try {
+      const prevUnsub = (window as any).__companyDocUnsub as (() => void) | undefined;
+      if (prevUnsub) prevUnsub();
+      (window as any).__companyDocUnsub = undefined;
+    } catch {}
     if (!companyId) return;
 
     try {
@@ -164,10 +170,6 @@ export class AppComponent implements OnDestroy {
           query(collection(this.db, `companies/${companyId}/products`), where('accepted', '==', true))
         );
         this.inboxEnabled = !acceptedSnap.empty;
-      } catch {}
-      try {
-        const prevUnsub = (window as any).__companyDocUnsub as (() => void) | undefined;
-        if (prevUnsub) prevUnsub();
       } catch {}
       try {
         const unsub = onSnapshot(ref, (s) => {

@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, doc, getDoc, collection, query, where, orderBy, onSnapshot, QuerySnapshot, DocumentData } from 'firebase/firestore';
@@ -23,7 +23,7 @@ type LedgerRow = {
   standalone: true,
   imports: [CommonModule],
 })
-export class GeneralLedgerComponent implements OnInit {
+export class GeneralLedgerComponent implements OnInit, OnDestroy {
   @Input() companyId = '';
 
   loading = true;
@@ -31,6 +31,7 @@ export class GeneralLedgerComponent implements OnInit {
   rows: LedgerRow[] = [];
   totalPayroll = 0;
   currentBalance = 0;
+  private unsub: (() => void) | null = null;
 
   async ngOnInit() {
     if (!this.companyId) return;
@@ -44,7 +45,7 @@ export class GeneralLedgerComponent implements OnInit {
 
     const inboxRef = collection(db, `companies/${this.companyId}/inbox`);
     const q = query(inboxRef, where('category', '==', 'bank'), orderBy('timestamp', 'asc'));
-    onSnapshot(q, (snap: QuerySnapshot<DocumentData>) => {
+    this.unsub = onSnapshot(q, (snap: QuerySnapshot<DocumentData>) => {
       const entries = snap.docs.map((d) => {
         const x = d.data() as any;
         const ts = String(x.timestamp || '');
@@ -95,6 +96,11 @@ export class GeneralLedgerComponent implements OnInit {
       this.currentBalance = running;
       this.loading = false;
     });
+  }
+
+  ngOnDestroy(): void {
+    try { if (this.unsub) this.unsub(); } catch {}
+    this.unsub = null;
   }
 
   private parseBreakdown(msg: string): { name: string; amount: number }[] {

@@ -64,7 +64,7 @@ export class HomePage implements OnInit {
     this.deleteTotal = 0;
     this.deleteDone = 0;
     localStorage.setItem('deletingCompanyId', companyId);
-    await setDoc(doc(db, 'companies', companyId), { deleting: true }, { merge: true });
+    await setDoc(doc(db, 'companies', companyId), { deleting: true, ledgerEnabled: false }, { merge: true });
 
     const countDocs = async (): Promise<number> => {
       let total = 0;

@@ -33,6 +33,7 @@ type WorkItem = {
   blockers?: string[];
   tid?: number;
   completed_at?: number;
+  worked_ms?: number;
 };
 
 const fbApp = getApps().length ? getApps()[0] : initializeApp(environment.firebase);
@@ -86,6 +87,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
           blockers: Array.isArray(x.blockers) ? (x.blockers as string[]) : [],
           tid: Number(x.tid || 0),
           completed_at: Number(x.completed_at || 0),
+          worked_ms: Number(x.worked_ms || 0),
         } as WorkItem;
       });
       this.titleById.clear();
@@ -118,13 +120,21 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   }
 
   progress(it: WorkItem): number {
-    if (!it.assignee_id) return 0;
-    if (!it.started_at || !it.estimated_hours) return 0;
-    const now = new Date(this.simTime);
-    const started = new Date(it.started_at);
-    const h = this.workingHoursBetween(started, now, it.work_start_hour || 10, it.work_end_hour || 20);
-    const pct = Math.min(100, Math.max(0, (h / it.estimated_hours) * 100));
+    if (!it.assignee_id || !it.estimated_hours) return 0;
+    const totalMs = this.totalWorkedMs(it);
+    if (!totalMs) return 0;
+    const hours = totalMs / 3_600_000;
+    const pct = Math.min(100, Math.max(0, (hours / it.estimated_hours) * 100));
     return Math.round(pct);
+  }
+
+  private totalWorkedMs(it: WorkItem): number {
+    const base = Number(it.worked_ms || 0);
+    if (it.status === 'doing' && it.started_at) {
+      const delta = Math.max(0, this.simTime - it.started_at);
+      return base + delta;
+    }
+    return base;
   }
 
   private workingHoursBetween(a: Date, b: Date, startHour: number, endHour: number): number {
@@ -183,16 +193,21 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       }
     }
     const ref = doc(db, `companies/${this.companyId}/workitems/${id}`);
-    const update: any = { status: target };
-    if (target === 'doing' && it.status !== 'doing') {
-      update.started_at = this.simTime;
-    }
-    if (target !== 'doing') {
-      update.started_at = update.started_at || it.started_at || 0;
-    }
-    if (target === 'todo') {
+    const workedMs = this.totalWorkedMs(it);
+    const update: any = { status: target, worked_ms: workedMs };
+    if (target === 'doing') {
+      update.started_at = it.status === 'doing' && it.started_at ? it.started_at : this.simTime;
+    } else {
       update.started_at = 0;
     }
+    it.worked_ms = workedMs;
+    it.status = target;
+    if (target === 'doing') {
+      it.started_at = update.started_at;
+    } else {
+      it.started_at = 0;
+    }
+    this.partition();
     await updateDoc(ref, update);
 
     if (target === 'doing') {
@@ -256,13 +271,16 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   }
 
   async reassign(it: WorkItem, assigneeId: string) {
+    if (it.status === 'done') return;
     const emp = assigneeId ? this.empById.get(assigneeId) : null;
     const ref = doc(db, `companies/${this.companyId}/workitems/${it.id}`);
     if (!emp) {
+      const workedMs = this.totalWorkedMs(it);
       const patch: any = {
         assignee_id: '',
         assignee_name: '',
         assignee_title: '',
+        worked_ms: workedMs,
       };
       if (it.status === 'doing') {
         patch.status = 'todo';
@@ -272,6 +290,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       it.assignee_id = '';
       it.assignee_name = '';
       it.assignee_title = '';
+      it.worked_ms = workedMs;
       if (it.status === 'doing') {
         it.status = 'todo';
         it.started_at = 0;

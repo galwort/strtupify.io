@@ -1,4 +1,4 @@
-﻿import { Component, OnInit, OnDestroy, Input } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
@@ -148,6 +148,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   private superEatsTemplate:
     | { from?: string; banner?: boolean; body: string }
     | null = null;
+  private superEatsProcessing = false;
 
   private bankSendTime: number | null = null;
   private bankTemplate:
@@ -180,7 +181,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         if (typeof d.simTime === 'number') {
           this.simDate = new Date(d.simTime);
           this.updateDisplay();
-          this.checkSuperEatsEmail();
+          void this.checkSuperEatsEmail();
           this.checkKickoffEmail();
           this.checkMomEmail();
           this.checkBankEmail();
@@ -329,6 +330,12 @@ export class InboxComponent implements OnInit, OnDestroy {
       }
       this.ensureSelectedSnack();
       const anyData = snap.data() as any;
+      if (data.superEatsEmailInProgress) {
+        try { await updateDoc(ref, { superEatsEmailInProgress: false }); } catch {}
+      }
+      if (data.bankEmailInProgress) {
+        try { await updateDoc(ref, { bankEmailInProgress: false }); } catch {}
+      }
       let domain = `${this.companyId}.com`;
       if (anyData && anyData.company_name) {
         domain = String(anyData.company_name).replace(/\s+/g, '').toLowerCase() + '.com';
@@ -355,7 +362,9 @@ export class InboxComponent implements OnInit, OnDestroy {
         speed: this.speed,
         simStarted: true,
         superEatsNextAt: this.superEatsSendTime,
+        superEatsEmailInProgress: false,
         bankNextAt: this.bankSendTime,
+        bankEmailInProgress: false,
         kickoffEmailAt: this.simDate.getTime() + 5 * 60_000,
         kickoffEmailSent: false,
         momEmailAt: this.momSendTime,
@@ -381,7 +390,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         this.speed = Math.min(this.speed + this.accelPerTick, this.maxSpeed);
       }
       this.updateDisplay();
-      this.checkSuperEatsEmail();
+      void this.checkSuperEatsEmail();
       this.checkKickoffEmail();
       this.checkMomEmail();
       this.checkBankEmail();
@@ -454,14 +463,39 @@ export class InboxComponent implements OnInit, OnDestroy {
     } catch {}
   }
 
-  private checkSuperEatsEmail(): void {
+  private async checkSuperEatsEmail(): Promise<void> {
     if (!this.superEatsSendTime) return;
     if (this.simDate.getTime() < this.superEatsSendTime) return;
     if (!this.snacks.length) return;
+    if (this.superEatsProcessing) return;
+    this.superEatsProcessing = true;
+
+    const companyRef = doc(db, `companies/${this.companyId}`);
+    let proceed = false;
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(companyRef);
+        const d = (snap && (snap.data() as any)) || {};
+        const nextAt = typeof d.superEatsNextAt === 'number' ? d.superEatsNextAt : this.superEatsSendTime;
+        const busy = !!d.superEatsEmailInProgress;
+        if (!nextAt || this.simDate.getTime() < nextAt || busy) return;
+        tx.update(companyRef, { superEatsEmailInProgress: true });
+        proceed = true;
+        this.superEatsSendTime = nextAt;
+      });
+    } catch {}
+    if (!proceed) {
+      this.superEatsProcessing = false;
+      return;
+    }
 
     this.ensureSelectedSnack();
     const snack = this.selectedSnack;
-    if (!snack) return;
+    if (!snack) {
+      this.superEatsProcessing = false;
+      try { await updateDoc(companyRef, { superEatsEmailInProgress: false }); } catch {}
+      return;
+    }
     const quantity = Math.floor(Math.random() * 4) + 2;
     const unitPrice = parseFloat(snack.price);
     const totalAmount = Number((unitPrice * quantity).toFixed(2));
@@ -477,13 +511,21 @@ export class InboxComponent implements OnInit, OnDestroy {
         ? 'evening'
         : 'night';
     const subject = `Your ${day} ${timeOfDay} order from Super Eats`;
-    if (!(this as any).superEatsTemplate) return;
+    if (!(this as any).superEatsTemplate) {
+      this.superEatsProcessing = false;
+      try { await updateDoc(companyRef, { superEatsEmailInProgress: false }); } catch {}
+      return;
+    }
     const tpl = (this as any).superEatsTemplate as {
       from?: string;
       banner?: boolean;
       body: string;
     };
-    if (!tpl.from || tpl.banner === undefined) return;
+    if (!tpl.from || tpl.banner === undefined) {
+      this.superEatsProcessing = false;
+      try { await updateDoc(companyRef, { superEatsEmailInProgress: false }); } catch {}
+      return;
+    }
     const from = tpl.from;
     const banner = tpl.banner;
     const message = tpl.body
@@ -493,29 +535,36 @@ export class InboxComponent implements OnInit, OnDestroy {
       .replace(/\{TOTAL_PRICE\}/g, totalPrice);
     const ledgerMemo = `${quantity}x ${snack.name}`;
     const emailId = `supereats-${Date.now()}`;
-    setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
-      from,
-      subject,
-      message,
-      deleted: false,
-      banner,
-      timestamp: this.simDate.toISOString(),
-      threadId: emailId,
-      to: this.meAddress,
-      category: 'supereats',
-      supereatsQuantity: quantity,
-      supereatsUnitPrice: unitPrice,
-      supereatsTotal: totalAmount,
-      ledgerAmount: totalAmount,
-      ledgerMemo,
-      supereats: { snack: snack.name, quantity, unitPrice, total: totalAmount },
-      ledger: { type: 'supereats', amount: totalAmount, memo: ledgerMemo },
-    }).then(async () => {
+    try {
+      await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+        from,
+        subject,
+        message,
+        deleted: false,
+        banner,
+        timestamp: this.simDate.toISOString(),
+        threadId: emailId,
+        to: this.meAddress,
+        category: 'supereats',
+        supereatsQuantity: quantity,
+        supereatsUnitPrice: unitPrice,
+        supereatsTotal: totalAmount,
+        ledgerAmount: totalAmount,
+        ledgerMemo,
+        supereats: { snack: snack.name, quantity, unitPrice, total: totalAmount },
+        ledger: { type: 'supereats', amount: totalAmount, memo: ledgerMemo },
+      });
       const nextAt = this.computeNextSuperEats(this.simDate);
       this.superEatsSendTime = nextAt.getTime();
-      const ref = doc(db, `companies/${this.companyId}`);
-      await updateDoc(ref, { superEatsNextAt: this.superEatsSendTime });
-    });
+      await updateDoc(companyRef, {
+        superEatsNextAt: this.superEatsSendTime,
+        superEatsEmailInProgress: false,
+      });
+    } catch {
+      try { await updateDoc(companyRef, { superEatsEmailInProgress: false }); } catch {}
+    } finally {
+      this.superEatsProcessing = false;
+    }
   }
 
   private computeDay2Window(now: Date): { start: Date; end: Date } {
@@ -823,7 +872,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     const total = weekly.reduce((s, w) => s + w.amt, 0);
     const totalStr = `$${total.toFixed(2)}`;
     const breakdown = weekly
-      .map((w) => `$${w.amt.toFixed(2)} – Payment for ${w.name}`)
+      .map((w) => `$${w.amt.toFixed(2)} - Payment for ${w.name}`)
       .join('\n');
 
     const tpl = this.bankTemplate as {
@@ -953,5 +1002,4 @@ export class InboxComponent implements OnInit, OnDestroy {
       });
   }
 }
-
 

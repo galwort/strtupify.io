@@ -41,38 +41,37 @@ export class InboxComponent implements OnInit, OnDestroy {
   private allEmails: Email[] = [];
   selectedEmail: Email | null = null;
 
-
   showReplyBox = false;
   replyText = '';
   sendingReply = false;
   clickedSend = false;
   private pendingReplyTimers: any[] = [];
-  private readonly replyDelayMinMs = 3000; 
-  private readonly replyDelayMaxMs = 12000; 
+  private readonly replyDelayMinMs = 3000;
+  private readonly replyDelayMaxMs = 12000;
   get replySubject(): string {
     const base = this.selectedEmail?.subject || '';
     return base.startsWith('Re:') ? base : `Re: ${base}`;
   }
 
   get threadMessages(): Email[] {
-
-
-
     if (!this.selectedEmail) return [];
     const tid = (this.selectedEmail as any).threadId || this.selectedEmail.id;
     const selectedTs = new Date(this.selectedEmail.timestamp || '').getTime();
     const isValidTs = Number.isFinite(selectedTs);
     const list = this.allEmails.filter((e) => {
-      const sameThread = (((e as any).threadId || e.id) === tid);
+      const sameThread = ((e as any).threadId || e.id) === tid;
       if (!sameThread) return false;
       if (e.id === this.selectedEmail?.id) return false;
-      if (!isValidTs) return false; 
+      if (!isValidTs) return false;
       const ts = new Date(e.timestamp || '').getTime();
-      return Number.isFinite(ts) && ts < selectedTs; 
+      return Number.isFinite(ts) && ts < selectedTs;
     });
     return list
       .slice()
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      .sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
   }
 
   renderEmailBody(text: string | undefined | null): string {
@@ -82,21 +81,21 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   private simpleMarkdown(src: string): string {
     const escape = (s: string) =>
-      s
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
     const formatInline = (s: string) => {
       let out = escape(s);
 
-      out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+      out = out.replace(
+        /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+      );
 
-      out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1<\/strong>');
+      out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 
-      out = out.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2<\/em>');
+      out = out.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
 
-      out = out.replace(/`([^`]+)`/g, '<code>$1<\/code>');
+      out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
       return out;
     };
 
@@ -114,7 +113,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         continue;
       }
       if (inList) {
-        html += '<\/ul>';
+        html += '</ul>';
         inList = false;
       }
       if (line.trim().length === 0) {
@@ -123,19 +122,21 @@ export class InboxComponent implements OnInit, OnDestroy {
         html += formatInline(line) + '<br>';
       }
     }
-    if (inList) html += '<\/ul>';
+    if (inList) html += '</ul>';
     return html;
   }
 
   displayDate = '';
   displayTime = '';
 
+  private readonly speedMultiplier = 10;
+  private readonly baseSpeed = this.speedMultiplier;
   private simDate = new Date();
-  private speed = 1;
-  private readonly maxSpeed = 240;
+  private speed = this.baseSpeed;
+  private readonly maxSpeed = 240 * this.speedMultiplier;
   private readonly tickMs = 250;
-  private readonly accelPerTick = 0.1;
-  private readonly realPhaseMs = 5 * 60_000;
+  private readonly accelPerTick = 0.1 * this.speedMultiplier;
+  private readonly realPhaseMs = (5 * 60_000) / this.speedMultiplier;
   private readonly saveEveryMs = 5000;
   private elapsedSinceStart = 0;
   private elapsedSinceSave = 0;
@@ -145,15 +146,20 @@ export class InboxComponent implements OnInit, OnDestroy {
   private selectedSnack: { name: string; price: string } | null = null;
   private selectedSnackName: string | null = null;
   private superEatsSendTime: number | null = null;
-  private superEatsTemplate:
-    | { from?: string; banner?: boolean; body: string }
-    | null = null;
+  private superEatsTemplate: {
+    from?: string;
+    banner?: boolean;
+    body: string;
+  } | null = null;
   private superEatsProcessing = false;
 
   private bankSendTime: number | null = null;
-  private bankTemplate:
-    | { from?: string; subject?: string; banner?: boolean; body: string }
-    | null = null;
+  private bankTemplate: {
+    from?: string;
+    subject?: string;
+    banner?: boolean;
+    body: string;
+  } | null = null;
   private bankProcessing = false;
 
   private kickoffSendTime: number | null = null;
@@ -176,32 +182,34 @@ export class InboxComponent implements OnInit, OnDestroy {
     await this.loadClockState();
     {
       const ref = doc(db, `companies/${this.companyId}`);
-      const unsub = (await import('firebase/firestore')).onSnapshot(ref, (snap) => {
-        const d = (snap && (snap.data() as any)) || {};
-        if (typeof d.simTime === 'number') {
-          this.simDate = new Date(d.simTime);
-          this.updateDisplay();
-          void this.checkSuperEatsEmail();
-          this.checkKickoffEmail();
-          this.checkMomEmail();
-          this.checkBankEmail();
+      const unsub = (await import('firebase/firestore')).onSnapshot(
+        ref,
+        (snap) => {
+          const d = (snap && (snap.data() as any)) || {};
+          if (typeof d.simTime === 'number') {
+            this.simDate = new Date(d.simTime);
+            this.updateDisplay();
+            void this.checkSuperEatsEmail();
+            this.checkKickoffEmail();
+            this.checkMomEmail();
+            this.checkBankEmail();
+          }
         }
-      });
+      );
       (this as any).__unsubInboxSim = unsub;
     }
     this.loadSnacks();
     this.loadSuperEatsTemplate();
     this.loadBankTemplate();
 
-    this.inboxService
-      .ensureWelcomeEmail(this.companyId)
-      .finally(() => {
-        this.inboxService.getInbox(this.companyId).subscribe((emails) => {
-          this.allEmails = emails;
-          this.inbox = this.sortEmails(this.filteredEmails(this.allEmails));
-          if (!this.selectedEmail && this.inbox.length) this.selectedEmail = this.inbox[0];
-        });
+    this.inboxService.ensureWelcomeEmail(this.companyId).finally(() => {
+      this.inboxService.getInbox(this.companyId).subscribe((emails) => {
+        this.allEmails = emails;
+        this.inbox = this.sortEmails(this.filteredEmails(this.allEmails));
+        if (!this.selectedEmail && this.inbox.length)
+          this.selectedEmail = this.inbox[0];
       });
+    });
   }
 
   ngOnDestroy(): void {
@@ -224,7 +232,9 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.inboxService
       .deleteEmail(this.companyId, this.selectedEmail.id)
       .then(() => {
-        const idx = this.allEmails.findIndex((e) => e.id === this.selectedEmail?.id);
+        const idx = this.allEmails.findIndex(
+          (e) => e.id === this.selectedEmail?.id
+        );
         if (idx >= 0) this.allEmails[idx].deleted = true;
         this.inbox = this.sortEmails(this.filteredEmails(this.allEmails));
         this.selectedEmail = null;
@@ -253,7 +263,9 @@ export class InboxComponent implements OnInit, OnDestroy {
       .call(this.inboxService, this.companyId, this.selectedEmail.id)
       .then(() => {
         if (this.selectedEmail) this.selectedEmail.deleted = newDeletedState;
-        const idx = this.allEmails.findIndex((e) => e.id === this.selectedEmail?.id);
+        const idx = this.allEmails.findIndex(
+          (e) => e.id === this.selectedEmail?.id
+        );
         if (idx >= 0) this.allEmails[idx].deleted = newDeletedState;
         this.inbox = this.sortEmails(this.filteredEmails(this.allEmails));
         this.selectedEmail = null;
@@ -276,11 +288,23 @@ export class InboxComponent implements OnInit, OnDestroy {
       const data = snap.data() as any;
       if (!data || !data.simStarted) {
         this.simDate = new Date();
-        this.speed = 1;
-        try { await updateDoc(ref, { simTime: this.simDate.getTime(), speed: this.speed, simStarted: true }); } catch {}
+        this.speed = this.baseSpeed;
+        try {
+          await updateDoc(ref, {
+            simTime: this.simDate.getTime(),
+            speed: this.speed,
+            simStarted: true,
+          });
+        } catch {}
       } else {
-        if (typeof data.simTime === 'number') this.simDate = new Date(data.simTime);
-        if (typeof data.speed === 'number') this.speed = data.speed;
+        if (typeof data.simTime === 'number')
+          this.simDate = new Date(data.simTime);
+        if (typeof data.speed === 'number') {
+          this.speed = data.speed;
+          if (this.speed < this.baseSpeed) this.speed = this.baseSpeed;
+        } else {
+          this.speed = this.baseSpeed;
+        }
       }
       if (data.superEatsNextAt !== undefined) {
         this.superEatsSendTime = data.superEatsNextAt;
@@ -305,7 +329,9 @@ export class InboxComponent implements OnInit, OnDestroy {
       } else {
         const at = this.simDate.getTime() + 5 * 60_000;
         this.kickoffSendTime = at;
-        try { await updateDoc(ref, { kickoffEmailAt: at, kickoffEmailSent: false }); } catch {}
+        try {
+          await updateDoc(ref, { kickoffEmailAt: at, kickoffEmailSent: false });
+        } catch {}
       }
 
       if (data.momEmailSent) {
@@ -314,7 +340,8 @@ export class InboxComponent implements OnInit, OnDestroy {
         this.momSendTime = data.momEmailAt;
       } else {
         const { start, end } = this.computeDay2Window(this.simDate);
-        const totalMinutes = (this.businessEndHour - this.businessStartHour) * 60 - 1;
+        const totalMinutes =
+          (this.businessEndHour - this.businessStartHour) * 60 - 1;
         const offset = this.randomInt(0, totalMinutes);
         const h = this.businessStartHour + Math.floor(offset / 60);
         const m = offset % 60;
@@ -331,14 +358,20 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.ensureSelectedSnack();
       const anyData = snap.data() as any;
       if (data.superEatsEmailInProgress) {
-        try { await updateDoc(ref, { superEatsEmailInProgress: false }); } catch {}
+        try {
+          await updateDoc(ref, { superEatsEmailInProgress: false });
+        } catch {}
       }
       if (data.bankEmailInProgress) {
-        try { await updateDoc(ref, { bankEmailInProgress: false }); } catch {}
+        try {
+          await updateDoc(ref, { bankEmailInProgress: false });
+        } catch {}
       }
       let domain = `${this.companyId}.com`;
       if (anyData && anyData.company_name) {
-        domain = String(anyData.company_name).replace(/\s+/g, '').toLowerCase() + '.com';
+        domain =
+          String(anyData.company_name).replace(/\s+/g, '').toLowerCase() +
+          '.com';
       }
       this.meAddress = `me@${domain}`;
     } else {
@@ -347,7 +380,8 @@ export class InboxComponent implements OnInit, OnDestroy {
       const firstBankAt = this.computeNextFriday5(this.simDate);
       this.bankSendTime = firstBankAt.getTime();
       const { start } = this.computeDay2Window(this.simDate);
-      const totalMinutes = (this.businessEndHour - this.businessStartHour) * 60 - 1;
+      const totalMinutes =
+        (this.businessEndHour - this.businessStartHour) * 60 - 1;
       const offset = this.randomInt(0, totalMinutes);
       const h = this.businessStartHour + Math.floor(offset / 60);
       const m = offset % 60;
@@ -448,8 +482,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.selectedSnackName = null;
     }
 
-    const choice =
-      this.snacks[Math.floor(Math.random() * this.snacks.length)];
+    const choice = this.snacks[Math.floor(Math.random() * this.snacks.length)];
     this.selectedSnack = choice;
     this.selectedSnackName = choice.name;
     this.persistSelectedSnack(choice.name).catch(() => {});
@@ -476,7 +509,10 @@ export class InboxComponent implements OnInit, OnDestroy {
       await runTransaction(db, async (tx) => {
         const snap = await tx.get(companyRef);
         const d = (snap && (snap.data() as any)) || {};
-        const nextAt = typeof d.superEatsNextAt === 'number' ? d.superEatsNextAt : this.superEatsSendTime;
+        const nextAt =
+          typeof d.superEatsNextAt === 'number'
+            ? d.superEatsNextAt
+            : this.superEatsSendTime;
         const busy = !!d.superEatsEmailInProgress;
         if (!nextAt || this.simDate.getTime() < nextAt || busy) return;
         tx.update(companyRef, { superEatsEmailInProgress: true });
@@ -493,7 +529,9 @@ export class InboxComponent implements OnInit, OnDestroy {
     const snack = this.selectedSnack;
     if (!snack) {
       this.superEatsProcessing = false;
-      try { await updateDoc(companyRef, { superEatsEmailInProgress: false }); } catch {}
+      try {
+        await updateDoc(companyRef, { superEatsEmailInProgress: false });
+      } catch {}
       return;
     }
     const quantity = Math.floor(Math.random() * 4) + 2;
@@ -513,7 +551,9 @@ export class InboxComponent implements OnInit, OnDestroy {
     const subject = `Your ${day} ${timeOfDay} order from Super Eats`;
     if (!(this as any).superEatsTemplate) {
       this.superEatsProcessing = false;
-      try { await updateDoc(companyRef, { superEatsEmailInProgress: false }); } catch {}
+      try {
+        await updateDoc(companyRef, { superEatsEmailInProgress: false });
+      } catch {}
       return;
     }
     const tpl = (this as any).superEatsTemplate as {
@@ -523,7 +563,9 @@ export class InboxComponent implements OnInit, OnDestroy {
     };
     if (!tpl.from || tpl.banner === undefined) {
       this.superEatsProcessing = false;
-      try { await updateDoc(companyRef, { superEatsEmailInProgress: false }); } catch {}
+      try {
+        await updateDoc(companyRef, { superEatsEmailInProgress: false });
+      } catch {}
       return;
     }
     const from = tpl.from;
@@ -551,7 +593,12 @@ export class InboxComponent implements OnInit, OnDestroy {
         supereatsTotal: totalAmount,
         ledgerAmount: totalAmount,
         ledgerMemo,
-        supereats: { snack: snack.name, quantity, unitPrice, total: totalAmount },
+        supereats: {
+          snack: snack.name,
+          quantity,
+          unitPrice,
+          total: totalAmount,
+        },
         ledger: { type: 'supereats', amount: totalAmount, memo: ledgerMemo },
       });
       const nextAt = this.computeNextSuperEats(this.simDate);
@@ -561,7 +608,9 @@ export class InboxComponent implements OnInit, OnDestroy {
         superEatsEmailInProgress: false,
       });
     } catch {
-      try { await updateDoc(companyRef, { superEatsEmailInProgress: false }); } catch {}
+      try {
+        await updateDoc(companyRef, { superEatsEmailInProgress: false });
+      } catch {}
     } finally {
       this.superEatsProcessing = false;
     }
@@ -578,36 +627,32 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   private loadSuperEatsTemplate(): void {
-    this.http
-      .get('emails/supereats.md', { responseType: 'text' })
-      .subscribe({
-        next: (text) => {
-          const parsed = this.parseMarkdownEmail(text);
-          this.superEatsTemplate = {
-            from: parsed.from,
-            banner: parsed.banner,
-            body: parsed.body,
-          };
-        },
-        error: () => {},
-      });
+    this.http.get('emails/supereats.md', { responseType: 'text' }).subscribe({
+      next: (text) => {
+        const parsed = this.parseMarkdownEmail(text);
+        this.superEatsTemplate = {
+          from: parsed.from,
+          banner: parsed.banner,
+          body: parsed.body,
+        };
+      },
+      error: () => {},
+    });
   }
 
   private async loadBankTemplate(): Promise<void> {
-    this.http
-      .get('emails/bank.md', { responseType: 'text' })
-      .subscribe({
-        next: (text) => {
-          const parsed = this.parseMarkdownEmail(text);
-          this.bankTemplate = {
-            from: parsed.from,
-            subject: parsed.subject,
-            banner: parsed.banner,
-            body: parsed.body,
-          };
-        },
-        error: () => {},
-      });
+    this.http.get('emails/bank.md', { responseType: 'text' }).subscribe({
+      next: (text) => {
+        const parsed = this.parseMarkdownEmail(text);
+        this.bankTemplate = {
+          from: parsed.from,
+          subject: parsed.subject,
+          banner: parsed.banner,
+          body: parsed.body,
+        };
+      },
+      error: () => {},
+    });
   }
 
   openReply(): void {
@@ -637,8 +682,11 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.clickedSend = true;
     setTimeout(() => (this.clickedSend = false), 300);
     const baseSubject = this.selectedEmail.subject || '';
-    const subject = baseSubject.startsWith('Re:') ? baseSubject : `Re: ${baseSubject}`;
-    const threadId = (this.selectedEmail as any).threadId || this.selectedEmail.id;
+    const subject = baseSubject.startsWith('Re:')
+      ? baseSubject
+      : `Re: ${baseSubject}`;
+    const threadId =
+      (this.selectedEmail as any).threadId || this.selectedEmail.id;
     try {
       const to = this.selectedEmail.sender || '';
       let category = (this.selectedEmail as any).category || '';
@@ -694,7 +742,8 @@ export class InboxComponent implements OnInit, OnDestroy {
   private filteredEmails(emails: Email[]): Email[] {
     if (this.showDeleted) return emails.filter((e) => !!e.deleted);
     const byInbox = emails.filter((e) => !e.deleted);
-    if (this.showSent) return byInbox.filter((e) => (e as any).sender === this.meAddress);
+    if (this.showSent)
+      return byInbox.filter((e) => (e as any).sender === this.meAddress);
     return byInbox.filter((e) => (e as any).sender !== this.meAddress);
   }
 
@@ -743,7 +792,10 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   private randomInt(minInclusive: number, maxInclusive: number): number {
-    return Math.floor(Math.random() * (maxInclusive - minInclusive + 1)) + minInclusive;
+    return (
+      Math.floor(Math.random() * (maxInclusive - minInclusive + 1)) +
+      minInclusive
+    );
   }
 
   private computeFirstDaySuperEats(now: Date): Date {
@@ -757,7 +809,8 @@ export class InboxComponent implements OnInit, OnDestroy {
     windowEnd.setHours(this.businessEndHour, 0, 0, 0);
 
     const pickRandomInWindow = (baseDay: Date): Date => {
-      const totalMinutes = (this.businessEndHour - this.businessStartHour) * 60 - 1;
+      const totalMinutes =
+        (this.businessEndHour - this.businessStartHour) * 60 - 1;
       const offset = this.randomInt(0, totalMinutes);
       const h = this.businessStartHour + Math.floor(offset / 60);
       const m = offset % 60;
@@ -780,7 +833,8 @@ export class InboxComponent implements OnInit, OnDestroy {
       const nextDay = new Date(windowStart.getTime() + 24 * 60 * 60 * 1000);
       return pickRandomInWindow(nextDay);
     }
-    const offsetMin = this.randomInt(Math.max(minutesNow + 1, startMin), endMin) - startMin;
+    const offsetMin =
+      this.randomInt(Math.max(minutesNow + 1, startMin), endMin) - startMin;
     const h = this.businessStartHour + Math.floor(offsetMin / 60);
     const m = offsetMin % 60;
     const t = new Date(windowStart.getTime());
@@ -789,9 +843,11 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   private computeNextSuperEats(after: Date): Date {
-    const deltaDays = this.nextMinDays + Math.random() * (this.nextMaxDays - this.nextMinDays);
+    const deltaDays =
+      this.nextMinDays + Math.random() * (this.nextMaxDays - this.nextMinDays);
     const base = new Date(after.getTime() + deltaDays * 24 * 60 * 60 * 1000);
-    const totalMinutes = (this.businessEndHour - this.businessStartHour) * 60 - 1;
+    const totalMinutes =
+      (this.businessEndHour - this.businessStartHour) * 60 - 1;
     const offset = this.randomInt(0, totalMinutes);
     const h = this.businessStartHour + Math.floor(offset / 60);
     const m = offset % 60;
@@ -810,10 +866,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     let target = new Date(this.startOfDay(d).getTime());
     target.setDate(target.getDate() + daysUntilFriday);
     target.setHours(5, 0, 0, 0);
-    if (
-      daysUntilFriday === 0 &&
-      (hour > 5 || (hour === 5 && minute >= 0))
-    ) {
+    if (daysUntilFriday === 0 && (hour > 5 || (hour === 5 && minute >= 0))) {
       target = new Date(target.getTime() + 7 * 24 * 60 * 60 * 1000);
     }
     return target;
@@ -832,7 +885,8 @@ export class InboxComponent implements OnInit, OnDestroy {
       await runTransaction(db, async (tx) => {
         const snap = await tx.get(companyRef);
         const d = (snap && (snap.data() as any)) || {};
-        const nextAt = typeof d.bankNextAt === 'number' ? d.bankNextAt : this.bankSendTime;
+        const nextAt =
+          typeof d.bankNextAt === 'number' ? d.bankNextAt : this.bankSendTime;
         const busy = !!d.bankEmailInProgress;
         if (!nextAt || this.simDate.getTime() < nextAt || busy) return;
         tx.update(companyRef, { bankEmailInProgress: true });
@@ -852,7 +906,10 @@ export class InboxComponent implements OnInit, OnDestroy {
       const snap = await getDocs(q);
       employees = snap.docs
         .map((d) => d.data() as any)
-        .map((e) => ({ name: String(e.name || ''), salary: Number(e.salary || 0) }))
+        .map((e) => ({
+          name: String(e.name || ''),
+          salary: Number(e.salary || 0),
+        }))
         .filter((e) => e.name);
     } catch {}
 
@@ -905,9 +962,15 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.bankSendTime = nextAt.getTime();
     const ref = companyRef;
     try {
-      await updateDoc(ref, { bankNextAt: this.bankSendTime, ledgerEnabled: true, bankEmailInProgress: false });
+      await updateDoc(ref, {
+        bankNextAt: this.bankSendTime,
+        ledgerEnabled: true,
+        bankEmailInProgress: false,
+      });
     } catch {
-      try { await updateDoc(ref, { bankEmailInProgress: false }); } catch {}
+      try {
+        await updateDoc(ref, { bankEmailInProgress: false });
+      } catch {}
     }
     this.bankProcessing = false;
   }
@@ -922,20 +985,23 @@ export class InboxComponent implements OnInit, OnDestroy {
         const snap = await tx.get(ref);
         const d = (snap && (snap.data() as any)) || {};
         if (d.kickoffEmailSent || d.kickoffEmailInProgress) return;
-        const at = typeof d.kickoffEmailAt === 'number' ? d.kickoffEmailAt : this.kickoffSendTime;
+        const at =
+          typeof d.kickoffEmailAt === 'number'
+            ? d.kickoffEmailAt
+            : this.kickoffSendTime;
         if (!at || this.simDate.getTime() < at) return;
         tx.update(ref, { kickoffEmailInProgress: true });
         proceed = true;
       });
     } catch {}
     if (!proceed) return;
-    this.http
-      .post<any>(kickoffUrl, { name: this.companyId })
-      .subscribe({
-        next: async (email) => {
-          const emailId = `kickoff-${Date.now()}`;
-          try {
-            await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+    this.http.post<any>(kickoffUrl, { name: this.companyId }).subscribe({
+      next: async (email) => {
+        const emailId = `kickoff-${Date.now()}`;
+        try {
+          await setDoc(
+            doc(db, `companies/${this.companyId}/inbox/${emailId}`),
+            {
               from: email.from,
               subject: email.subject,
               message: email.body,
@@ -945,16 +1011,24 @@ export class InboxComponent implements OnInit, OnDestroy {
               threadId: emailId,
               to: this.meAddress,
               category: 'kickoff',
-            });
-            await updateDoc(ref, { kickoffEmailSent: true, kickoffEmailInProgress: false });
-          } catch {
-            try { await updateDoc(ref, { kickoffEmailInProgress: false }); } catch {}
-          }
-        },
-        error: async () => {
-          try { await updateDoc(ref, { kickoffEmailInProgress: false }); } catch {}
-        },
-      });
+            }
+          );
+          await updateDoc(ref, {
+            kickoffEmailSent: true,
+            kickoffEmailInProgress: false,
+          });
+        } catch {
+          try {
+            await updateDoc(ref, { kickoffEmailInProgress: false });
+          } catch {}
+        }
+      },
+      error: async () => {
+        try {
+          await updateDoc(ref, { kickoffEmailInProgress: false });
+        } catch {}
+      },
+    });
   }
 
   private async checkMomEmail(): Promise<void> {
@@ -965,7 +1039,8 @@ export class InboxComponent implements OnInit, OnDestroy {
       const snap = await tx.get(ref);
       const d = (snap && (snap.data() as any)) || {};
       if (d.momEmailSent || d.momEmailInProgress) return false;
-      const at = typeof d.momEmailAt === 'number' ? d.momEmailAt : this.momSendTime;
+      const at =
+        typeof d.momEmailAt === 'number' ? d.momEmailAt : this.momSendTime;
       if (!at || this.simDate.getTime() < at) return false;
       tx.update(ref, { momEmailInProgress: true });
       return true;
@@ -980,26 +1055,35 @@ export class InboxComponent implements OnInit, OnDestroy {
         next: async (email) => {
           const emailId = `mom-${Date.now()}`;
           try {
-            await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
-              from: email.from,
-              subject: email.subject,
-              message: email.body,
-              deleted: false,
-              banner: false,
-              timestamp: this.simDate.toISOString(),
-              threadId: emailId,
-              to: this.meAddress,
-              category: 'mom',
+            await setDoc(
+              doc(db, `companies/${this.companyId}/inbox/${emailId}`),
+              {
+                from: email.from,
+                subject: email.subject,
+                message: email.body,
+                deleted: false,
+                banner: false,
+                timestamp: this.simDate.toISOString(),
+                threadId: emailId,
+                to: this.meAddress,
+                category: 'mom',
+              }
+            );
+            await updateDoc(ref, {
+              momEmailSent: true,
+              momEmailInProgress: false,
             });
-            await updateDoc(ref, { momEmailSent: true, momEmailInProgress: false });
           } catch {
-            try { await updateDoc(ref, { momEmailInProgress: false }); } catch {}
+            try {
+              await updateDoc(ref, { momEmailInProgress: false });
+            } catch {}
           }
         },
         error: async () => {
-          try { await updateDoc(ref, { momEmailInProgress: false }); } catch {}
+          try {
+            await updateDoc(ref, { momEmailInProgress: false });
+          } catch {}
         },
       });
   }
 }
-

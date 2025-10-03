@@ -20,19 +20,20 @@ export class ClockComponent implements OnChanges, OnDestroy {
   displayDate = '';
   displayTime = '';
 
+  private readonly speedMultiplier = 10;
+  private readonly baseSpeed = this.speedMultiplier;
+  private readonly maxSpeed = 240 * this.speedMultiplier;
+  private readonly accelPerTick = 0.1 * this.speedMultiplier;
+  private readonly realPhaseMs = (5 * 60_000) / this.speedMultiplier;
   private simTime = Date.now();
-  private speed = 8;
-  private readonly tickMs = 150;
+  private speed = this.baseSpeed;
+  private readonly tickMs = 250;
   private unsub: (() => void) | null = null;
   private unsubItems: (() => void) | null = null;
   private intervalId: any;
   private readonly saveEveryMs = 1000;
   private elapsedSinceSave = 0;
-  // Real seconds per simulated minute schedule:
-  // 1st minute: 60s, 2nd: 40s, 3rd: 20s, then 1s thereafter
-  private readonly minuteScheduleSec = [60, 40, 20, 1];
-  private scheduleIdx = 0;
-  private simMsIntoStep = 0;
+  private elapsedSinceStart = 0;
   private items: Array<{
     id: string;
     status: string;
@@ -73,9 +74,13 @@ export class ClockComponent implements OnChanges, OnDestroy {
     this.unsub = onSnapshot(ref, (snap: DocumentSnapshot<DocumentData>) => {
       const data = (snap && (snap.data() as any)) || {};
       const st = Number(data.simTime || Date.now());
-      const sp = Number(data.speed || 8);
+      const sp = Number(data.speed);
       this.simTime = Number.isFinite(st) ? st : Date.now();
-      this.speed = Number.isFinite(sp) && sp > 0 ? sp : 1;
+      if (Number.isFinite(sp) && sp >= this.baseSpeed) {
+        this.speed = sp;
+      } else {
+        this.speed = this.baseSpeed;
+      }
       this.updateDisplay();
       // Only run the clock after Inbox has started the simulation
       if (!data.simStarted) {
@@ -118,32 +123,16 @@ export class ClockComponent implements OnChanges, OnDestroy {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
-    // Initialize schedule from current speed if it matches; otherwise start at first step
-    const currentSecPerMin = 60 / (this.speed || 1);
-    const idx = this.minuteScheduleSec.findIndex((s) => Math.abs(s - currentSecPerMin) < 1e-6);
-    if (idx >= 0) {
-      this.scheduleIdx = idx;
-    } else {
-      this.scheduleIdx = 0;
-      this.speed = 60 / this.minuteScheduleSec[this.scheduleIdx];
-    }
-    this.simMsIntoStep = 0;
+    if (this.speed < this.baseSpeed) this.speed = this.baseSpeed;
+    this.elapsedSinceStart = 0;
 
     const ref = doc(db, `companies/${this.companyId}`);
     this.intervalId = setInterval(async () => {
       const advance = this.speed * this.tickMs;
       this.simTime += advance;
-      this.simMsIntoStep += advance;
-
-      while (this.simMsIntoStep >= 60_000) {
-        this.simMsIntoStep -= 60_000;
-        if (this.scheduleIdx < this.minuteScheduleSec.length - 1) {
-          this.scheduleIdx += 1;
-          this.speed = 60 / this.minuteScheduleSec[this.scheduleIdx];
-        } else {
-          this.scheduleIdx = this.minuteScheduleSec.length - 1;
-          this.speed = 60 / this.minuteScheduleSec[this.scheduleIdx];
-        }
+      this.elapsedSinceStart += this.tickMs;
+      if (this.elapsedSinceStart >= this.realPhaseMs && this.speed < this.maxSpeed) {
+        this.speed = Math.min(this.speed + this.accelPerTick, this.maxSpeed);
       }
 
       this.updateDisplay();

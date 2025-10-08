@@ -11,20 +11,32 @@ import { AuthService } from '../../services/auth.service';
 export class RegisterPage implements OnInit {
   email: string = '';
   password: string = '';
+  username: string = '';
+  errorMessage = '';
+  isSubmitting = false;
 
   constructor(private router: Router, private authService: AuthService) {}
 
   ngOnInit() {}
 
-  register() {
-    this.authService
-      .register(this.email, this.password)
-      .then(() => {
-        this.router.navigate(['/login']);
-      })
-      .catch((error) => {
-        console.error(error);
-      });
+  async register() {
+    this.errorMessage = '';
+    if (!this.email || !this.password || !this.username) {
+      this.errorMessage = 'Please provide an email, password, and username.';
+      return;
+    }
+
+    this.isSubmitting = true;
+    try {
+      await this.authService.register(this.email, this.password, this.username);
+      this.router.navigate(['/login']);
+    } catch (error: any) {
+      console.error(error);
+      this.errorMessage =
+        error?.message || 'Unable to register. Please try again later.';
+    } finally {
+      this.isSubmitting = false;
+    }
   }
 
   navigateTo(page: string) {

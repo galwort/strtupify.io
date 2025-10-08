@@ -2,7 +2,8 @@ import { Component, HostListener, OnDestroy } from '@angular/core';
 import { ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, getDoc, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, collection, getDocs, query, where, onSnapshot, updateDoc, setDoc, arrayUnion } from 'firebase/firestore';
+import { getAuth, onAuthStateChanged, Unsubscribe } from 'firebase/auth';
 import { UiStateService } from './services/ui-state.service';
 import { environment } from '../environments/environment';
 
@@ -23,9 +24,15 @@ export class AppComponent implements OnDestroy {
   workEnabled = false;
   inboxEnabled = false;
   ledgerEnabled = false;
+  showBrandLogo = true;
+  showAccountButton = false;
+  isHomeRoute = false;
+  isAccountRoute = false;
+  private isAuthenticated = false;
 
   private fbApp = initializeApp(environment.firebase);
   private db = getFirestore(this.fbApp);
+  private authUnsub: Unsubscribe | null = null;
 
   private logoChangedHandler = (e: Event) => {
     try {
@@ -54,6 +61,13 @@ export class AppComponent implements OnDestroy {
     });
 
     window.addEventListener('company-logo-changed', this.logoChangedHandler as EventListener);
+
+    const auth = getAuth(this.fbApp);
+    this.isAuthenticated = !!auth.currentUser;
+    this.authUnsub = onAuthStateChanged(auth, (user) => {
+      this.isAuthenticated = !!user;
+      this.updateCompanyContext();
+    });
   }
 
   @HostListener('document:keydown', ['$event'])
@@ -142,6 +156,11 @@ export class AppComponent implements OnDestroy {
     }
   }
 
+  openAccount() {
+    this.ui.setShowCompanyProfile(false);
+    this.router.navigate(['/account']);
+  }
+
   private async updateCompanyContext() {
     const m = this.router.url.match(/\/company\/([^\/]+)/);
     const companyId = m ? m[1] : null;
@@ -151,6 +170,11 @@ export class AppComponent implements OnDestroy {
     this.inboxEnabled = false;
     this.ledgerEnabled = false;
     this.ui.setCompanyProfileEnabled(false);
+    const currentUrl = this.router.url || '';
+    this.isHomeRoute = currentUrl === '/home' || currentUrl.startsWith('/home?');
+    this.isAccountRoute = currentUrl === '/account' || currentUrl.startsWith('/account/');
+    this.showBrandLogo = !this.isHomeRoute;
+    this.showAccountButton = this.isAuthenticated && !this.hideMenu && !this.isAccountRoute;
     try {
       const prevUnsub = (window as any).__companyDocUnsub as (() => void) | undefined;
       if (prevUnsub) prevUnsub();
@@ -159,9 +183,40 @@ export class AppComponent implements OnDestroy {
     if (!companyId) return;
 
     try {
+      const user = getAuth(this.fbApp).currentUser;
+      if (!user) {
+        this.router.navigate(['/login']);
+        return;
+      }
+
       const ref = doc(this.db, 'companies', companyId);
       const snap = await getDoc(ref);
+      if (!snap.exists()) {
+        this.router.navigate(['/home']);
+        return;
+      }
       const data = snap.data() as any;
+      let members: string[] = Array.isArray(data?.memberIds) ? [...data.memberIds] : [];
+      const ownerId: string | undefined = data?.ownerId;
+      if (!members.includes(user.uid)) {
+        if (ownerId && ownerId === user.uid) {
+          members = [...members, user.uid];
+          await updateDoc(ref, {
+            memberIds: members,
+            ownerEmail: data?.ownerEmail || user.email || null,
+          });
+          await setDoc(
+            doc(this.db, 'users', user.uid),
+            {
+              companyIds: arrayUnion(companyId),
+            },
+            { merge: true }
+          );
+        } else {
+          this.router.navigate(['/home']);
+          return;
+        }
+      }
       this.companyLogo = data?.logo || '';
       this.companyProfileEnabled = true;
       this.ui.setCompanyProfileEnabled(true);
@@ -185,5 +240,9 @@ export class AppComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     window.removeEventListener('company-logo-changed', this.logoChangedHandler as EventListener);
+    if (this.authUnsub) {
+      this.authUnsub();
+      this.authUnsub = null;
+    }
   }
 }

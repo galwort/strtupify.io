@@ -12,12 +12,15 @@ import {
   getDoc,
   serverTimestamp,
   updateDoc,
+  arrayUnion,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 import { firstValueFrom } from 'rxjs';
+import { getAuth } from 'firebase/auth';
 
 export const app = initializeApp(environment.firebase);
 export const db = getFirestore(app);
+const auth = getAuth(app);
 
 @Component({
   selector: 'app-application',
@@ -130,6 +133,11 @@ export class ApplicationPage implements OnInit {
     const loading = await this.loadingController.create();
     await loading.present();
     try {
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('You must be signed in to accept funding.');
+      }
+
       let cleanedName = this.companyName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
       let uniqueName = cleanedName || 'company';
       let counter = 2;
@@ -148,7 +156,17 @@ export class ApplicationPage implements OnInit {
         simTime: Date.now(),
         created: serverTimestamp(),
         updated: serverTimestamp(),
+        ownerId: user.uid,
+        ownerEmail: user.email || null,
+        memberIds: [user.uid],
       });
+      await setDoc(
+        doc(db, 'users', user.uid),
+        {
+          companyIds: arrayUnion(uniqueName),
+        },
+        { merge: true }
+      );
       const roles = Array.isArray(this.pendingRoles) ? this.pendingRoles : [];
       for (const role of roles) {
         await addDoc(collection(db, `companies/${uniqueName}/roles`), {

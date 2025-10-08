@@ -1,0 +1,73 @@
+<ion-content>
+  <ng-container *ngIf="!loading && viewModel as vm; else accountState">
+    <div class="page-container">
+      <div class="header">
+        <div class="title">Account</div>
+      </div>
+
+      <div class="account-content">
+        <section class="profile-container">
+          <div class="top-row">
+            <div class="logo">
+              <span class="material-symbols-outlined"> account_circle </span>
+            </div>
+          </div>
+          <h1 class="name">
+            {{ vm.profile?.username || vm.user.displayName || 'Your Account' }}
+          </h1>
+          <p class="description">{{ vm.user.email }}</p>
+
+          <div class="section">
+            <div class="row">
+              <div class="label">Display Name</div>
+              <div class="value">
+                {{ vm.user.displayName || vm.profile?.loginUsername || '—' }}
+              </div>
+            </div>
+            <div class="row">
+              <div class="label">Email</div>
+              <div class="value">{{ vm.user.email || '—' }}</div>
+            </div>
+            <div class="row">
+              <div class="label">Account Created</div>
+              <div class="value">
+                {{ vm.user.metadata.creationTime | date: 'medium' }}
+              </div>
+            </div>
+            <div class="row">
+              <div class="label">Last Sign In</div>
+              <div class="value">
+                {{ vm.user.metadata.lastSignInTime | date: 'medium' }}
+              </div>
+            </div>
+            <div class="row">
+              <div class="label">Companies</div>
+              <div class="value">{{ vm.profile?.companyIds?.length || 0 }}</div>
+            </div>
+          </div>
+        </section>
+
+        <div class="actions">
+          <p *ngIf="errorMessage" class="error">{{ errorMessage }}</p>
+          <button
+            type="button"
+            class="sign-out"
+            (click)="signOut()"
+            [disabled]="signingOut"
+          >
+            {{ signingOut ? 'Signing out…' : 'Sign out' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <ng-template #accountState>
+    <div class="account-state">
+      <div class="spinner" *ngIf="loading"></div>
+      <p *ngIf="loading">Loading your account…</p>
+      <p *ngIf="!loading">No account information available.</p>
+      <p *ngIf="errorMessage" class="error">{{ errorMessage }}</p>
+    </div>
+  </ng-template>
+</ion-content>

@@ -1,5 +1,5 @@
 <ion-content>
-  <div class="page-container">
+  <div class="page-container" *ngIf="accessResolved">
     <app-roles
       (loadingStateChange)="handleLoadingState($event)"
       [hidden]="showLoading || showResumes || showBoardroom || showInbox || showCompanyProfile || showWork || showLedger"

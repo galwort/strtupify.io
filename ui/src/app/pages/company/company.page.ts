@@ -14,11 +14,15 @@ import {
   onSnapshot,
   QuerySnapshot,
   DocumentData,
+  setDoc,
+  arrayUnion,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
+import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 
 export const app = initializeApp(environment.firebase);
 export const db = getFirestore(app);
+const auth = getAuth(app);
 
 @Component({
   selector: 'app-company',
@@ -37,6 +41,8 @@ export class CompanyPage implements OnInit {
   completedTasks = 0;
   companyId = '';
   showCompanyProfile = false;
+  private currentUser: User | null = null;
+  accessResolved = false;
 
   constructor(private router: Router, private ui: UiStateService) {}
 
@@ -47,6 +53,19 @@ export class CompanyPage implements OnInit {
       this.showLoading = false;
       return;
     }
+
+    const resolvedUser = await this.resolveCurrentUser();
+    if (!resolvedUser) {
+      if (auth.currentUser) {
+        this.router.navigate(['/home']);
+      } else {
+        this.router.navigate(['/login']);
+      }
+      this.showLoading = false;
+      return;
+    }
+    this.currentUser = resolvedUser;
+    this.accessResolved = true;
 
     this.ui.setCurrentModule('roles');
 
@@ -170,6 +189,83 @@ export class CompanyPage implements OnInit {
       await updateDoc(ref, { founded_at: todayIso });
     } catch {
 
+    }
+  }
+
+  private async resolveCurrentUser(): Promise<User | null> {
+    const existing = auth.currentUser;
+    if (existing) {
+      const hasAccess = await this.ensureCompanyAccess(existing);
+      return hasAccess ? existing : null;
+    }
+
+    return new Promise<User | null>((resolve) => {
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        unsubscribe();
+        if (user) {
+          const hasAccess = await this.ensureCompanyAccess(user);
+          resolve(hasAccess ? user : null);
+          return;
+        }
+        resolve(null);
+      });
+    });
+  }
+
+  private async ensureCompanyAccess(user: User): Promise<boolean> {
+    try {
+      const ref = doc(db, 'companies', this.companyId);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) {
+        return false;
+      }
+      const data = (snap.data() as any) || {};
+      let members: string[] = Array.isArray(data.memberIds)
+        ? [...data.memberIds]
+        : [];
+
+      const ownerId: string | undefined = data.ownerId;
+      if (!members.length && ownerId) {
+        members = [ownerId];
+      }
+
+      if (members.includes(user.uid)) {
+        if (ownerId && ownerId === user.uid && (!data.memberIds || data.memberIds.length === 0)) {
+          await updateDoc(ref, {
+            memberIds: [user.uid],
+            ownerEmail: data.ownerEmail || user.email || null,
+          });
+          await setDoc(
+            doc(db, 'users', user.uid),
+            {
+              companyIds: arrayUnion(this.companyId),
+            },
+            { merge: true }
+          );
+        }
+        return true;
+      }
+
+      if (!ownerId || ownerId === user.uid) {
+        members = [...new Set([...members, user.uid])];
+        await updateDoc(ref, {
+          ownerId: ownerId || user.uid,
+          ownerEmail: data.ownerEmail || user.email || null,
+          memberIds: members,
+        });
+        await setDoc(
+          doc(db, 'users', user.uid),
+          {
+            companyIds: arrayUnion(this.companyId),
+          },
+          { merge: true }
+        );
+        return true;
+      }
+
+      return false;
+    } catch {
+      return false;
     }
   }
 }

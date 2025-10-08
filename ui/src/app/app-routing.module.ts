@@ -44,11 +44,18 @@ const routes: Routes = [
     canActivate: [AuthenticatedGuard],
   },
   {
+    path: 'account',
+    loadChildren: () =>
+      import('./pages/account/account.module').then((m) => m.AccountPageModule),
+    canActivate: [AuthenticatedGuard],
+  },
+  {
     path: 'portfolio',
     loadChildren: () =>
       import('./pages/portfolio/portfolio.module').then(
         (m) => m.PortfolioPageModule
       ),
+    canActivate: [AuthenticatedGuard],
   },
 ];
 

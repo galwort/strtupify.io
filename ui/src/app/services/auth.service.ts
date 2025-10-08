@@ -1,7 +1,8 @@
-import { Injectable } from '@angular/core';
+import { EnvironmentInjector, Injectable, runInInjectionContext } from '@angular/core';
 import { AngularFireAuth } from '@angular/fire/compat/auth';
 import firebase from 'firebase/compat/app';
-import { Observable } from 'rxjs';
+import 'firebase/compat/firestore';
+import { Observable, firstValueFrom } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { AngularFirestore } from '@angular/fire/compat/firestore';
 
@@ -11,21 +12,44 @@ import { AngularFirestore } from '@angular/fire/compat/firestore';
 export class AuthService {
   constructor(
     private afAuth: AngularFireAuth,
-    private firestore: AngularFirestore
+    private firestore: AngularFirestore,
+    private environmentInjector: EnvironmentInjector
   ) {}
 
-  login(
+  async login(
     email: string,
     password: string
   ): Promise<firebase.auth.UserCredential> {
-    return this.afAuth.signInWithEmailAndPassword(email, password);
+    const credential = await this.afAuth.signInWithEmailAndPassword(
+      email,
+      password
+    );
+    if (credential.user) {
+      await this.createUserIfNotExists(credential.user);
+    }
+    return credential;
   }
 
-  register(
+  async register(
     email: string,
-    password: string
+    password: string,
+    displayName?: string | null
   ): Promise<firebase.auth.UserCredential> {
-    return this.afAuth.createUserWithEmailAndPassword(email, password);
+    const credential = await this.afAuth.createUserWithEmailAndPassword(
+      email,
+      password
+    );
+
+    const user = credential.user;
+    if (user) {
+      const nextDisplayName = displayName?.trim() || user.displayName || null;
+      if (nextDisplayName && user.displayName !== nextDisplayName) {
+        await user.updateProfile({ displayName: nextDisplayName });
+      }
+      await this.createUserIfNotExists(user, nextDisplayName || undefined);
+    }
+
+    return credential;
   }
 
   async loginWithGoogle(): Promise<void> {
@@ -38,17 +62,23 @@ export class AuthService {
     }
   }
 
-  async createUserIfNotExists(user: firebase.User): Promise<void> {
-    const userRef = this.firestore.collection('users').doc(user.uid);
+  async createUserIfNotExists(
+    user: firebase.User,
+    fallbackDisplayName?: string
+  ): Promise<void> {
+    const userRef = runInInjectionContext(this.environmentInjector, () =>
+      this.firestore.doc(`users/${user.uid}`)
+    );
 
     try {
-      const doc = await userRef.get().toPromise();
+      const doc = await firstValueFrom(userRef.get());
 
       if (doc && !doc.exists) {
         await userRef.set({
           email: user.email,
-          loginUsername: user.displayName,
-          username: user.displayName,
+          loginUsername: user.displayName || fallbackDisplayName || '',
+          username: user.displayName || fallbackDisplayName || '',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         });
       }
     } catch (error) {

@@ -2,7 +2,12 @@
   <div *ngIf="!hideMenu" class="sidebar">
     <ion-toolbar>
       <ion-buttons class="buttons">
-        <a class="logo" [routerLink]="['/home']" aria-label="Home">
+        <a
+          *ngIf="showBrandLogo"
+          class="logo"
+          [routerLink]="['/home']"
+          aria-label="Home"
+        >
           <img src="assets/favicon.svg" alt="strtupify.io" />
         </a>
 
@@ -89,6 +94,16 @@
             <span class="material-symbols-outlined"> mail </span>
           </button>
         </ng-container>
+
+        <button
+          *ngIf="showAccountButton"
+          type="button"
+          class="company-logo account"
+          (click)="openAccount()"
+          aria-label="Account"
+        >
+          <span class="material-symbols-outlined"> account_circle </span>
+        </button>
       </ion-buttons>
     </ion-toolbar>
   </div>

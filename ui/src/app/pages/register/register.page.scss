@@ -59,7 +59,8 @@ label {
 }
 
 input[type="text"],
-input[type="password"] {
+input[type="password"],
+input[type="email"] {
   width: 100%;
   padding: 0.75rem;
   background-color: white;
@@ -91,6 +92,17 @@ input:focus {
 .login-btn:hover {
   border: 1.5px solid var(--theme-accent);
   box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.login-btn[disabled] {
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.error {
+  color: #d93025;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
 }
 
 .checkbox-group {

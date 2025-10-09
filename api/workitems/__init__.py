@@ -1,11 +1,16 @@
 import azure.functions as func
 import firebase_admin
+import logging
+import math
+import time
 from json import dumps, loads
+from typing import Any, Dict, List, Tuple
+
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
-from firebase_admin import credentials, initialize_app, firestore
+from firebase_admin import credentials, firestore, initialize_app
 from openai import AzureOpenAI
-import time
+from pydantic import RootModel
 
 vault_url = "https://kv-strtupifyio.vault.azure.net/"
 credential = DefaultAzureCredential()
@@ -14,8 +19,11 @@ secret_client = SecretClient(vault_url=vault_url, credential=credential)
 endpoint = secret_client.get_secret("AIEndpoint").value
 api_key = secret_client.get_secret("AIKey").value
 deployment = secret_client.get_secret("AIDeploymentMini").value
-client = AzureOpenAI(
+plan_client = AzureOpenAI(
     api_version="2023-07-01-preview", azure_endpoint=endpoint, api_key=api_key
+)
+structured_client = AzureOpenAI(
+    api_version="2024-05-01-preview", azure_endpoint=endpoint, api_key=api_key
 )
 
 firestore_sdk = secret_client.get_secret("FirebaseSDK").value
@@ -25,6 +33,188 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 
+MAX_EMPLOYEES = 25
+MAX_SKILLS_PER_EMPLOYEE = 12
+MAX_WORKITEMS = 60
+MIN_RATE = 0.1
+MAX_RATE = 5.0
+
+logger = logging.getLogger("workitems_llm")
+
+
+class RateAssignments(RootModel[Dict[str, Dict[str, float]]]):
+    pass
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _clamp_rate(value: Any) -> float:
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return MIN_RATE
+    if not math.isfinite(num):
+        return MIN_RATE
+    return max(MIN_RATE, min(MAX_RATE, num))
+
+
+def _hours_from_rate(rate: float) -> int:
+    pct = max(MIN_RATE, min(MAX_RATE, rate))
+    return max(1, int(round(100.0 / pct)))
+
+
+def _prepare_employees_for_rates(raw_employees: List[Dict[str, Any]]) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+    employees_by_id: Dict[str, Dict[str, Any]] = {}
+    ordered: List[Dict[str, Any]] = []
+    for emp in raw_employees or []:
+        emp_id = str(emp.get("id") or "").strip()
+        if not emp_id:
+            continue
+        skills_list: List[Dict[str, Any]] = []
+        for skill in (emp.get("skills") or [])[:MAX_SKILLS_PER_EMPLOYEE]:
+            title = str((skill or {}).get("skill") or "").strip()
+            if not title:
+                continue
+            lvl_raw = (skill or {}).get("level", 5)
+            try:
+                lvl = int(lvl_raw)
+            except (TypeError, ValueError):
+                lvl = 5
+            lvl = max(1, min(10, lvl))
+            skills_list.append({"skill": title, "level": lvl})
+        if not skills_list:
+            skills_list.append({"skill": "generalist", "level": 5})
+        record = {
+            "id": emp_id,
+            "name": str(emp.get("name") or "").strip(),
+            "title": str(emp.get("title") or "").strip(),
+            "skills": skills_list,
+        }
+        employees_by_id[emp_id] = record
+        ordered.append({"id": emp_id, "title": record["title"], "skills": skills_list})
+        if len(ordered) >= MAX_EMPLOYEES:
+            break
+    return employees_by_id, ordered
+
+
+def _build_rate_payload(employees_payload: List[Dict[str, Any]], workitems_payload: List[Dict[str, Any]]) -> Dict[str, Any]:
+    return {
+        "employees": employees_payload,
+        "workitems": [
+            {
+                "id": itm["id"],
+                "title": itm["title"],
+                "description": itm["description"],
+                "category": itm["category"],
+                "complexity": max(1, min(5, _safe_int(itm.get("complexity"), 3))),
+            }
+            for itm in workitems_payload
+        ],
+        "instructions": (
+            "For every work item, provide a productivity rate for every employee based on alignment. "
+            "Higher rate means faster completion. Rates must be between 0.1 and 5.0. "
+            "Output must be strict JSON where each top-level key is the work item id and each value is an object mapping employee id to a float rate."
+        ),
+        "rate_scale": "percentage of work completed per simulated hour",
+    }
+
+
+def _call_rate_assignments(payload: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
+    if not payload.get("employees") or not payload.get("workitems"):
+        return {}
+    system = (
+        "You are an expert workforce planner. "
+        "Return ONLY valid JSON with no explanations. "
+        "JSON must be an object mapping work item ids to objects mapping employee ids to float productivity rates."
+        f" Rates must be between {MIN_RATE} and {MAX_RATE}. Always include every employee for each work item."
+    )
+    user = dumps(payload)
+    response = structured_client.responses.parse(
+        model=deployment,
+        input=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+        temperature=0.2,
+        top_p=0.9,
+        max_output_tokens=2048,
+        text_format=RateAssignments,
+    )
+    assignments = response.output_parsed.root
+    return {
+        wid: {eid: _clamp_rate(rate) for eid, rate in (employees or {}).items()}
+        for wid, employees in assignments.items()
+    }
+
+
+def _fallback_assignments(workitems_payload: List[Dict[str, Any]], employees_by_id: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, float]]:
+    if not employees_by_id or not workitems_payload:
+        return {}
+    default_rate = 1.0
+    return {wi["id"]: {emp_id: default_rate for emp_id in employees_by_id.keys()} for wi in workitems_payload}
+
+
+def _apply_llm_rates(company_ref, created_items: List[Dict[str, Any]], raw_employees: List[Dict[str, Any]]):
+    if not created_items:
+        return
+    employees_by_id, employees_payload = _prepare_employees_for_rates(raw_employees)
+    if not employees_payload:
+        return
+    workitems_payload: List[Dict[str, Any]] = []
+    for item in created_items[:MAX_WORKITEMS]:
+        workitems_payload.append(
+            {
+                "id": item["doc_id"],
+                "title": item["title"],
+                "description": item["description"],
+                "category": item["category"],
+                "complexity": item.get("complexity", 3),
+            }
+        )
+    if not workitems_payload:
+        return
+    try:
+        payload = _build_rate_payload(employees_payload, workitems_payload)
+        assignments = _call_rate_assignments(payload)
+    except Exception as exc:
+        logger.exception("LLM rate generation failed during workitem bootstrap: %s", exc)
+        assignments = {}
+    if not assignments:
+        assignments = _fallback_assignments(workitems_payload, employees_by_id)
+    work_ref = company_ref.collection("workitems")
+    for item in created_items:
+        doc_id = item["doc_id"]
+        rates = assignments.get(doc_id)
+        if not rates:
+            continue
+        normalized = {emp_id: _clamp_rate(rate) for emp_id, rate in rates.items() if emp_id in employees_by_id}
+        if not normalized:
+            continue
+        rounded_rates = {emp_id: round(val, 4) for emp_id, val in normalized.items()}
+        best_emp, best_rate = max(rounded_rates.items(), key=lambda pair: pair[1])
+        est_hours = _hours_from_rate(best_rate)
+        update_doc: Dict[str, Any] = {
+            "rate_source": "llm_structured",
+            "rate_per_hour": best_rate,
+            "estimated_hours": est_hours,
+            "updated": firestore.SERVER_TIMESTAMP,
+            "llm_rates.rates": rounded_rates,
+            "llm_rates.assigned_employee_id": best_emp,
+            "llm_rates.assigned_rate": best_rate,
+            "llm_rates.rate_units": "percent_per_hour",
+            "llm_rates.model": deployment,
+            "llm_rates.generated": firestore.SERVER_TIMESTAMP,
+            "llm_rates.updated": firestore.SERVER_TIMESTAMP,
+        }
+        status = str(item.get("status") or "").lower()
+        if status != "done":
+            update_doc["assignee_id"] = best_emp
+        try:
+            work_ref.document(doc_id).update(update_doc)
+        except Exception as exc:
+            logger.debug("failed to update work item %s with LLM rates: %s", doc_id, exc)
 def pull_context(company):
     company_ref = db.collection("companies").document(company)
     c = company_ref.get().to_dict() or {}
@@ -150,7 +340,7 @@ def llm_plan(ctx):
             "boardroom_transcript": boardroom_transcript,
         }
     )
-    rsp = client.chat.completions.create(
+    rsp = plan_client.chat.completions.create(
         model=deployment,
         response_format={"type": "json_object"},
         messages=[{"role": "system", "content": sys}, {"role": "user", "content": user}],
@@ -254,6 +444,7 @@ def ensure_items(company, ctx, items, start_at):
             "category": cat,
             "complexity": cx,
             "assignee_name": nm,
+            "assignee_id": emp.get("id", ""),
         })
     def reserve_tids(n):
         tr = db.transaction()
@@ -294,27 +485,26 @@ def ensure_items(company, ctx, items, start_at):
             if len(blockers) >= 3:
                 break
         blockers_by_idx[j] = blockers
+    created_items: List[Dict[str, Any]] = []
     for idx, wi in enumerate(normalized):
         assignee_name = wi.get("assignee_name", "")
         emp = emps_by_name.get(assignee_name) or {}
-        emp_id = emp.get("id", "")
+        emp_id = str(wi.get("assignee_id") or emp.get("id") or "")
         emp_level = level_avg(emp)
         cx = int(wi.get("complexity", 3))
         est = estimate_hours(cx, emp_level)
         tid = start_tid + idx
         doc_id = str(tid)
-        work_ref.document(str(doc_id)).set(
+        fallback_rate = round(100.0 / max(1, est), 4)
+        work_ref.document(doc_id).set(
             {
                 "tid": tid,
                 "title": wi.get("title", ""),
                 "description": wi.get("description", ""),
                 "assignee_id": emp_id,
-                "assignee_name": assignee_name,
-                "assignee_title": emp.get("title", ""),
                 "category": wi.get("category", ""),
-                "complexity": cx,
                 "estimated_hours": est,
-                "rate_per_hour": round(100.0 / max(1, est), 4),
+                "rate_per_hour": fallback_rate,
                 "status": "todo",
                 "work_start_hour": 10,
                 "work_end_hour": 20,
@@ -323,6 +513,21 @@ def ensure_items(company, ctx, items, start_at):
                 "updated": firestore.SERVER_TIMESTAMP,
             }
         )
+        created_items.append(
+            {
+                "doc_id": doc_id,
+                "title": wi.get("title", ""),
+                "description": wi.get("description", ""),
+                "category": wi.get("category", ""),
+                "complexity": cx,
+                "status": "todo",
+                "assignee_id": emp_id,
+            }
+        )
+    try:
+        _apply_llm_rates(company_ref, created_items, ctx.get("employees", []))
+    except Exception as exc:
+        logger.exception("Failed to apply structured rates after creating work items: %s", exc)
     company_ref.set({"work_enabled": True, "work_created_at": firestore.SERVER_TIMESTAMP}, merge=True)
 
 

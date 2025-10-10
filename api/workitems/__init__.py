@@ -6,11 +6,12 @@ import time
 from json import dumps, loads
 from typing import Any, Dict, List, Tuple
 
+from enum import Enum
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from firebase_admin import credentials, firestore, initialize_app
 from openai import OpenAI
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, create_model
 
 vault_url = "https://kv-strtupifyio.vault.azure.net/"
 credential = DefaultAzureCredential()
@@ -45,21 +46,9 @@ MAX_RATE = 5.0
 logger = logging.getLogger("workitems_llm")
 
 
-class RateCell(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    employee_id: str
-    rate: float
-
-
-class WorkItemRates(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    workitem_id: str
-    employees: List[RateCell]
-
-
 class RateAssignments(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    assignments: List[WorkItemRates]
+    assignments: List[Dict[str, Any]]
 
 
 def _safe_int(value: Any, default: int = 0) -> int:
@@ -136,8 +125,9 @@ def _build_rate_payload(
             for itm in workitems_payload
         ],
         "instructions": (
-            "For every work item, return an object with workitem_id and a list named employees. "
-            "Each employees entry has employee_id and rate. "
+            "For every work item return an object with fields workitem_id and employees. "
+            "employees is an array that lists every employee exactly once. "
+            "Each entry has fields employee_id and rate. "
             "Rate must be between 0.1 and 5.0."
         ),
         "rate_scale": "percentage of work completed per simulated hour",
@@ -147,11 +137,42 @@ def _build_rate_payload(
 def _call_rate_assignments(payload: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
     if not payload.get("employees") or not payload.get("workitems"):
         return {}
+    employee_ids = [str(e["id"]) for e in payload.get("employees", [])]
+    workitem_ids = [str(w["id"]) for w in payload.get("workitems", [])]
+    EmpEnum = Enum("EmpEnum", {f"e_{i}": v for i, v in enumerate(employee_ids)})
+    WorkEnum = Enum("WorkEnum", {f"w_{i}": v for i, v in enumerate(workitem_ids)})
+
+    class SOModel(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+
+    RateCellDyn = create_model(
+        "RateCellDyn",
+        __base__=SOModel,
+        employee_id=(EmpEnum, ...),
+        rate=(float, Field(..., ge=MIN_RATE, le=MAX_RATE)),
+    )
+    WorkItemRatesDyn = create_model(
+        "WorkItemRatesDyn",
+        __base__=SOModel,
+        workitem_id=(WorkEnum, ...),
+        employees=(
+            List[RateCellDyn],
+            Field(..., min_length=len(employee_ids), max_length=len(employee_ids)),
+        ),
+    )
+    RateAssignmentsDyn = create_model(
+        "RateAssignmentsDyn",
+        __base__=SOModel,
+        assignments=(
+            List[WorkItemRatesDyn],
+            Field(..., min_length=len(workitem_ids), max_length=len(workitem_ids)),
+        ),
+    )
     system = (
         "You are an expert workforce planner. "
         "Return only JSON that conforms to the schema. "
         f"Rates must be between {MIN_RATE} and {MAX_RATE}. "
-        "For each work item include workitem_id and an employees array of objects with employee_id and rate."
+        "For each work item include workitem_id and an employees array that contains every employee exactly once."
     )
     user = dumps(payload)
     completion = structured_client.beta.chat.completions.parse(
@@ -162,17 +183,23 @@ def _call_rate_assignments(payload: Dict[str, Any]) -> Dict[str, Dict[str, float
         ],
         temperature=0.2,
         top_p=0.9,
-        max_tokens=2048,
-        response_format=RateAssignments,
+        max_tokens=8192,
+        response_format=RateAssignmentsDyn,
     )
     parsed = completion.choices[0].message.parsed
-    assignments_list = parsed.assignments if isinstance(parsed, RateAssignments) else []
+    assignments_list = getattr(parsed, "assignments", [])
     mapped: Dict[str, Dict[str, float]] = {}
     for row in assignments_list:
         emp_map: Dict[str, float] = {}
         for cell in row.employees:
-            emp_map[cell.employee_id] = cell.rate
-        mapped[row.workitem_id] = emp_map
+            emp_map[str(cell.employee_id.value)] = float(cell.rate)
+        mapped[str(row.workitem_id.value)] = emp_map
+    for wid in workitem_ids:
+        if wid not in mapped:
+            mapped[wid] = {}
+        for eid in employee_ids:
+            if eid not in mapped[wid]:
+                mapped[wid][eid] = 1.0
     return {
         wid: {eid: _clamp_rate(rate) for eid, rate in (emps or {}).items()}
         for wid, emps in mapped.items()
@@ -355,11 +382,11 @@ def llm_plan(ctx):
         "Return strict JSON with key 'workitems' as a list. Each item must have: "
         "title, description, assignee_name, category, complexity. "
         "complexity is an integer 1 to 5. "
-        "Use employees names and titles to assign appropriately. "
+        "Use employees names and titles to assign appropriately, matching skills and seniority. "
         "Cover cross functional needs. "
-        "Ground the plan in the boardroom_history transcript. "
-        "Aim for a complete plan. "
-        "If funding or loan details are provided, include early revenue work. "
+        "Ground the plan in the boardroom_history transcript so the tasks reflect the ideas, objections, and decisions the team discussed. "
+        "Aim for a complete plan rather than a starter list. Return between 15 and 40 items based on scope and team size. "
+        "If funding or loan details are provided, explicitly include early revenue generation work so the company can make money quickly. "
         "Keep titles concise and descriptions actionable. No commentary outside the JSON."
     )
     user = dumps(

@@ -47,17 +47,20 @@
     font-size: 12px;
     text-transform: uppercase;
     font-weight: 600;
+    padding: 2px 10px;
+    border-radius: 999px;
+    color: #fff;
 
     &.bandwidth {
-      color: #f2c94c;
+      background: #f2c94c;
     }
 
     &.active {
-      color: #27ae60;
+      background: #27ae60;
     }
 
     &.burnout {
-      color: #eb5757;
+      background: #eb5757;
     }
   }
 }

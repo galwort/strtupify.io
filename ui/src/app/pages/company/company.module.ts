@@ -16,6 +16,7 @@ import { InboxComponent } from 'src/app/components/inbox/inbox.component';
 import { CompanyProfileComponent } from 'src/app/components/company-profile/company-profile.component';
 import { WorkItemsComponent } from 'src/app/components/work-items/work-items.component';
 import { GeneralLedgerComponent } from 'src/app/components/general-ledger/general-ledger.component';
+import { HumanResourcesComponent } from 'src/app/components/human-resources/human-resources.component';
 
 @NgModule({
   imports: [
@@ -31,6 +32,7 @@ import { GeneralLedgerComponent } from 'src/app/components/general-ledger/genera
     CompanyProfileComponent,
     WorkItemsComponent,
     GeneralLedgerComponent,
+    HumanResourcesComponent,
   ],
   declarations: [CompanyPage],
 })

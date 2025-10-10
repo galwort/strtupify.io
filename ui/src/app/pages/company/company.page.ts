@@ -37,6 +37,7 @@ export class CompanyPage implements OnInit {
   showInbox = false;
   showWork = false;
   showLedger = false;
+  showHr = false;
   totalTasks = 0;
   completedTasks = 0;
   companyId = '';
@@ -79,7 +80,16 @@ export class CompanyPage implements OnInit {
       this.showBoardroom = m === 'boardroom';
       this.showResumes = m === 'resumes';
       this.showLedger = m === 'ledger';
+      this.showHr = m === 'hr';
       if (m === 'roles') {
+        this.showWork = false;
+        this.showInbox = false;
+        this.showBoardroom = false;
+        this.showResumes = false;
+        this.showLedger = false;
+        this.showHr = false;
+      }
+      if (m === 'hr') {
         this.showWork = false;
         this.showInbox = false;
         this.showBoardroom = false;
@@ -140,6 +150,7 @@ export class CompanyPage implements OnInit {
     this.totalTasks = e.totalTasks;
     this.completedTasks = e.completedTasks;
     this.showResumes = e.showResumes;
+    this.showHr = false;
     if (!this.showLoading && !this.showBoardroom && !this.showInbox) {
       this.ui.setCurrentModule(this.showResumes ? 'resumes' : 'roles');
     }
@@ -149,6 +160,7 @@ export class CompanyPage implements OnInit {
     this.showLoading = false;
     this.showResumes = false;
     this.showBoardroom = true;
+    this.showHr = false;
     this.ui.setCompanyProfileEnabled(true);
     this.ui.setCurrentModule('boardroom');
   }
@@ -157,6 +169,7 @@ export class CompanyPage implements OnInit {
     this.showBoardroom = false;
     this.showInbox = true;
     this.showWork = false;
+    this.showHr = false;
     this.ui.setCompanyProfileEnabled(true);
     this.ui.setCurrentModule('inbox');
 

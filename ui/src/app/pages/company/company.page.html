@@ -2,7 +2,7 @@
   <div class="page-container" *ngIf="accessResolved">
     <app-roles
       (loadingStateChange)="handleLoadingState($event)"
-      [hidden]="showLoading || showResumes || showBoardroom || showInbox || showCompanyProfile || showWork || showLedger"
+      [hidden]="showLoading || showResumes || showBoardroom || showInbox || showCompanyProfile || showWork || showLedger || showHr"
     ></app-roles>
 
     <app-loading
@@ -40,5 +40,9 @@
       *ngIf="showLedger && !showCompanyProfile"
       [companyId]="companyId"
     ></app-general-ledger>
+    <app-human-resources
+      *ngIf="showHr && !showCompanyProfile"
+      [companyId]="companyId"
+    ></app-human-resources>
   </div>
 </ion-content>

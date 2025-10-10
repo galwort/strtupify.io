@@ -19,11 +19,12 @@ export class AppComponent implements OnDestroy {
   companyLogo = '';
   companyProfileEnabled = false;
   showCompanyProfile = false;
-  currentModule: 'inbox' | 'roles' | 'resumes' | 'boardroom' | 'work' | 'ledger' = 'roles';
+  currentModule: 'inbox' | 'roles' | 'resumes' | 'boardroom' | 'work' | 'ledger' | 'hr' = 'roles';
   backIcon: string = 'group_add';
   workEnabled = false;
   inboxEnabled = false;
   ledgerEnabled = false;
+  hrEnabled = false;
   showBrandLogo = true;
   showAccountButton = false;
   isHomeRoute = false;
@@ -56,7 +57,19 @@ export class AppComponent implements OnDestroy {
     this.ui.currentModule$.subscribe((m) => {
       this.currentModule = m;
       this.backIcon =
-        m === 'inbox' ? 'mail' : m === 'boardroom' ? 'forum' : m === 'roles' ? 'group_add' : m === 'work' ? 'task' : m === 'ledger' ? 'account_balance' : 'badge';
+        m === 'inbox'
+          ? 'mail'
+          : m === 'boardroom'
+          ? 'forum'
+          : m === 'roles'
+          ? 'group_add'
+          : m === 'work'
+          ? 'task'
+          : m === 'ledger'
+          ? 'account_balance'
+          : m === 'hr'
+          ? 'diversity_3'
+          : 'badge';
       if (m === 'inbox') this.inboxEnabled = true;
     });
 
@@ -67,6 +80,10 @@ export class AppComponent implements OnDestroy {
     this.authUnsub = onAuthStateChanged(auth, (user) => {
       this.isAuthenticated = !!user;
       this.updateCompanyContext();
+    });
+
+    this.ui.hrEnabled$.subscribe((enabled) => {
+      this.hrEnabled = enabled;
     });
   }
 
@@ -144,9 +161,11 @@ export class AppComponent implements OnDestroy {
   openResumes() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('resumes'); }
   openWork() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('work'); }
   openLedger() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('ledger'); }
+  openHR() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('hr'); }
 
   openBackToModule() {
     switch (this.currentModule) {
+      case 'hr': return this.openHR();
       case 'roles': return this.openRoles();
       case 'resumes': return this.openResumes();
       case 'boardroom': return this.openBoardroom();
@@ -169,7 +188,9 @@ export class AppComponent implements OnDestroy {
     this.companyProfileEnabled = false;
     this.inboxEnabled = false;
     this.ledgerEnabled = false;
+    this.hrEnabled = false;
     this.ui.setCompanyProfileEnabled(false);
+    this.ui.setHrEnabled(false);
     const currentUrl = this.router.url || '';
     this.isHomeRoute = currentUrl === '/home' || currentUrl.startsWith('/home?');
     this.isAccountRoute = currentUrl === '/account' || currentUrl.startsWith('/account/');

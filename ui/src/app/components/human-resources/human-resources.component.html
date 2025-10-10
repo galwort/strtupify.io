@@ -1,0 +1,26 @@
+<div class="content-container">
+  <div class="header">
+    <div class="title">Human Resources</div>
+  </div>
+
+  <div *ngIf="!employees.length" class="empty-state">
+    No active employees yet.
+  </div>
+
+  <div *ngFor="let emp of employees" class="employee-card">
+    <div class="card-head">
+      <div class="name">{{ emp.name }}</div>
+      <div class="status" [ngClass]="statusClass(emp)">{{ statusLabel(emp) }}</div>
+    </div>
+    <div class="subtitle">{{ emp.title }}</div>
+    <div class="progress-bar" [ngClass]="statusClass(emp)">
+      <div
+        class="progress-fill"
+        [style.width.%]="emp.stress"
+        [class.full-skill]="emp.stress >= 100"
+        [ngClass]="statusClass(emp)"
+      ></div>
+    </div>
+    <div class="meta">Tasks in progress: {{ emp.load }}</div>
+  </div>
+</div>

@@ -1,8 +1,19 @@
 ﻿import { Component, Input, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, doc, onSnapshot, DocumentData, DocumentSnapshot, collection, onSnapshot as onColSnapshot, QuerySnapshot, updateDoc } from 'firebase/firestore';
+import {
+  getFirestore,
+  doc,
+  onSnapshot,
+  DocumentData,
+  DocumentSnapshot,
+  collection,
+  onSnapshot as onColSnapshot,
+  QuerySnapshot,
+  updateDoc,
+} from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
+import { getStressMultiplier, isBurnedOut } from '../../services/stress.service';
 
 const fbApp = getApps().length ? getApps()[0] : initializeApp(environment.firebase);
 const db = getFirestore(fbApp);
@@ -44,6 +55,11 @@ export class ClockComponent implements OnChanges, OnDestroy {
     assignee_id?: string;
   }> = [];
   private completedIds = new Set<string>();
+  private unsubEmployees: (() => void) | null = null;
+  private employeeStress = new Map<
+    string,
+    { stress: number; status: 'Active' | 'Burnout'; multiplier: number }
+  >();
 
   ngOnChanges(changes: SimpleChanges): void {
     if ('companyId' in changes) {
@@ -54,6 +70,8 @@ export class ClockComponent implements OnChanges, OnDestroy {
   ngOnDestroy(): void {
     if (this.unsub) this.unsub();
     if (this.intervalId) clearInterval(this.intervalId);
+    if (this.unsubItems) this.unsubItems();
+    if (this.unsubEmployees) this.unsubEmployees();
   }
 
   private resubscribe(): void {
@@ -68,6 +86,10 @@ export class ClockComponent implements OnChanges, OnDestroy {
     if (this.unsubItems) {
       this.unsubItems();
       this.unsubItems = null;
+    }
+    if (this.unsubEmployees) {
+      this.unsubEmployees();
+      this.unsubEmployees = null;
     }
     if (!this.companyId) return;
     const ref = doc(db, `companies/${this.companyId}`);
@@ -116,6 +138,18 @@ export class ClockComponent implements OnChanges, OnDestroy {
 
       this.checkAutoComplete();
     });
+
+    const employeesRef = collection(db, `companies/${this.companyId}/employees`);
+    this.unsubEmployees = onColSnapshot(employeesRef, (snap: QuerySnapshot<DocumentData>) => {
+      this.employeeStress.clear();
+      snap.docs.forEach((d) => {
+        const data = (d.data() as any) || {};
+        const stress = Number(data.stress || 0);
+        const status: 'Active' | 'Burnout' = String(data.status || 'Active') === 'Burnout' ? 'Burnout' : 'Active';
+        const multiplier = getStressMultiplier(stress, status);
+        this.employeeStress.set(d.id, { stress, status, multiplier });
+      });
+    });
   }
 
   private startClock(): void {
@@ -163,6 +197,8 @@ export class ClockComponent implements OnChanges, OnDestroy {
       if (it.status === 'done') continue;
       if (it.status !== 'doing') continue;
       if (!it.assignee_id) continue;
+      const emp = this.employeeStress.get(it.assignee_id);
+      if (emp && isBurnedOut(emp.status)) continue;
       if (!it.started_at || !it.estimated_hours) continue;
       const pct = this.progressFor(it);
       if (pct >= 100 && !this.completedIds.has(it.id)) {
@@ -180,13 +216,19 @@ export class ClockComponent implements OnChanges, OnDestroy {
     estimated_hours: number;
     work_start_hour?: number;
     work_end_hour?: number;
+    assignee_id?: string;
   }): number {
     const now = new Date(this.simTime);
     const started = new Date(it.started_at);
     const startH = Number(it.work_start_hour ?? 10);
     const endH = Number(it.work_end_hour ?? 20);
     const hours = this.workingHoursBetween(started, now, startH, endH);
-    const pct = Math.min(100, Math.max(0, (hours / it.estimated_hours) * 100));
+    const emp = it.assignee_id ? this.employeeStress.get(it.assignee_id) : undefined;
+    if (emp && isBurnedOut(emp.status)) return 0;
+    const multiplier = emp ? emp.multiplier : 1;
+    const needed = it.estimated_hours * multiplier;
+    if (!needed || !isFinite(needed)) return 0;
+    const pct = Math.min(100, Math.max(0, (hours / needed) * 100));
     return Math.round(pct);
   }
 

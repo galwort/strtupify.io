@@ -9,21 +9,25 @@ from typing import Any, Dict, List, Tuple
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from firebase_admin import credentials, firestore, initialize_app
-from openai import AzureOpenAI
-from pydantic import RootModel
+from openai import OpenAI
+from pydantic import BaseModel, ConfigDict
 
 vault_url = "https://kv-strtupifyio.vault.azure.net/"
 credential = DefaultAzureCredential()
 secret_client = SecretClient(vault_url=vault_url, credential=credential)
 
-endpoint = secret_client.get_secret("AIEndpoint").value
+endpoint = secret_client.get_secret("AIEndpoint").value.rstrip("/")
 api_key = secret_client.get_secret("AIKey").value
 deployment = secret_client.get_secret("AIDeploymentMini").value
-plan_client = AzureOpenAI(
-    api_version="2023-07-01-preview", azure_endpoint=endpoint, api_key=api_key
+base_url = f"{endpoint}/openai/v1/"
+API_VERSION = "2024-08-01-preview"
+plan_client = OpenAI(
+    api_key=api_key,
+    base_url=base_url,
 )
-structured_client = AzureOpenAI(
-    api_version="2024-05-01-preview", azure_endpoint=endpoint, api_key=api_key
+structured_client = OpenAI(
+    api_key=api_key,
+    base_url=base_url,
 )
 
 firestore_sdk = secret_client.get_secret("FirebaseSDK").value
@@ -31,7 +35,6 @@ cred = credentials.Certificate(loads(firestore_sdk))
 if not firebase_admin._apps:
     initialize_app(cred)
 db = firestore.client()
-
 
 MAX_EMPLOYEES = 25
 MAX_SKILLS_PER_EMPLOYEE = 12
@@ -42,8 +45,21 @@ MAX_RATE = 5.0
 logger = logging.getLogger("workitems_llm")
 
 
-class RateAssignments(RootModel[Dict[str, Dict[str, float]]]):
-    pass
+class RateCell(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    employee_id: str
+    rate: float
+
+
+class WorkItemRates(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    workitem_id: str
+    employees: List[RateCell]
+
+
+class RateAssignments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    assignments: List[WorkItemRates]
 
 
 def _safe_int(value: Any, default: int = 0) -> int:
@@ -68,7 +84,9 @@ def _hours_from_rate(rate: float) -> int:
     return max(1, int(round(100.0 / pct)))
 
 
-def _prepare_employees_for_rates(raw_employees: List[Dict[str, Any]]) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+def _prepare_employees_for_rates(
+    raw_employees: List[Dict[str, Any]],
+) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
     employees_by_id: Dict[str, Dict[str, Any]] = {}
     ordered: List[Dict[str, Any]] = []
     for emp in raw_employees or []:
@@ -102,7 +120,9 @@ def _prepare_employees_for_rates(raw_employees: List[Dict[str, Any]]) -> Tuple[D
     return employees_by_id, ordered
 
 
-def _build_rate_payload(employees_payload: List[Dict[str, Any]], workitems_payload: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _build_rate_payload(
+    employees_payload: List[Dict[str, Any]], workitems_payload: List[Dict[str, Any]]
+) -> Dict[str, Any]:
     return {
         "employees": employees_payload,
         "workitems": [
@@ -116,9 +136,9 @@ def _build_rate_payload(employees_payload: List[Dict[str, Any]], workitems_paylo
             for itm in workitems_payload
         ],
         "instructions": (
-            "For every work item, provide a productivity rate for every employee based on alignment. "
-            "Higher rate means faster completion. Rates must be between 0.1 and 5.0. "
-            "Output must be strict JSON where each top-level key is the work item id and each value is an object mapping employee id to a float rate."
+            "For every work item, return an object with workitem_id and a list named employees. "
+            "Each employees entry has employee_id and rate. "
+            "Rate must be between 0.1 and 5.0."
         ),
         "rate_scale": "percentage of work completed per simulated hour",
     }
@@ -129,34 +149,53 @@ def _call_rate_assignments(payload: Dict[str, Any]) -> Dict[str, Dict[str, float
         return {}
     system = (
         "You are an expert workforce planner. "
-        "Return ONLY valid JSON with no explanations. "
-        "JSON must be an object mapping work item ids to objects mapping employee ids to float productivity rates."
-        f" Rates must be between {MIN_RATE} and {MAX_RATE}. Always include every employee for each work item."
+        "Return only JSON that conforms to the schema. "
+        f"Rates must be between {MIN_RATE} and {MAX_RATE}. "
+        "For each work item include workitem_id and an employees array of objects with employee_id and rate."
     )
     user = dumps(payload)
-    response = structured_client.responses.parse(
+    completion = structured_client.beta.chat.completions.parse(
         model=deployment,
-        input=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
         temperature=0.2,
         top_p=0.9,
-        max_output_tokens=2048,
-        text_format=RateAssignments,
+        max_tokens=2048,
+        response_format=RateAssignments,
     )
-    assignments = response.output_parsed.root
+    parsed = completion.choices[0].message.parsed
+    assignments_list = parsed.assignments if isinstance(parsed, RateAssignments) else []
+    mapped: Dict[str, Dict[str, float]] = {}
+    for row in assignments_list:
+        emp_map: Dict[str, float] = {}
+        for cell in row.employees:
+            emp_map[cell.employee_id] = cell.rate
+        mapped[row.workitem_id] = emp_map
     return {
-        wid: {eid: _clamp_rate(rate) for eid, rate in (employees or {}).items()}
-        for wid, employees in assignments.items()
+        wid: {eid: _clamp_rate(rate) for eid, rate in (emps or {}).items()}
+        for wid, emps in mapped.items()
     }
 
 
-def _fallback_assignments(workitems_payload: List[Dict[str, Any]], employees_by_id: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, float]]:
+def _fallback_assignments(
+    workitems_payload: List[Dict[str, Any]], employees_by_id: Dict[str, Dict[str, Any]]
+) -> Dict[str, Dict[str, float]]:
     if not employees_by_id or not workitems_payload:
         return {}
     default_rate = 1.0
-    return {wi["id"]: {emp_id: default_rate for emp_id in employees_by_id.keys()} for wi in workitems_payload}
+    return {
+        wi["id"]: {emp_id: default_rate for emp_id in employees_by_id.keys()}
+        for wi in workitems_payload
+    }
 
 
-def _apply_llm_rates(company_ref, created_items: List[Dict[str, Any]], raw_employees: List[Dict[str, Any]]):
+def _apply_llm_rates(
+    company_ref,
+    created_items: List[Dict[str, Any]],
+    raw_employees: List[Dict[str, Any]],
+):
     if not created_items:
         return
     employees_by_id, employees_payload = _prepare_employees_for_rates(raw_employees)
@@ -179,7 +218,9 @@ def _apply_llm_rates(company_ref, created_items: List[Dict[str, Any]], raw_emplo
         payload = _build_rate_payload(employees_payload, workitems_payload)
         assignments = _call_rate_assignments(payload)
     except Exception as exc:
-        logger.exception("LLM rate generation failed during workitem bootstrap: %s", exc)
+        logger.exception(
+            "LLM rate generation failed during workitem bootstrap: %s", exc
+        )
         assignments = {}
     if not assignments:
         assignments = _fallback_assignments(workitems_payload, employees_by_id)
@@ -189,7 +230,11 @@ def _apply_llm_rates(company_ref, created_items: List[Dict[str, Any]], raw_emplo
         rates = assignments.get(doc_id)
         if not rates:
             continue
-        normalized = {emp_id: _clamp_rate(rate) for emp_id, rate in rates.items() if emp_id in employees_by_id}
+        normalized = {
+            emp_id: _clamp_rate(rate)
+            for emp_id, rate in rates.items()
+            if emp_id in employees_by_id
+        }
         if not normalized:
             continue
         rounded_rates = {emp_id: round(val, 4) for emp_id, val in normalized.items()}
@@ -214,13 +259,15 @@ def _apply_llm_rates(company_ref, created_items: List[Dict[str, Any]], raw_emplo
         try:
             work_ref.document(doc_id).update(update_doc)
         except Exception as exc:
-            logger.debug("failed to update work item %s with LLM rates: %s", doc_id, exc)
+            logger.debug(
+                "failed to update work item %s with LLM rates: %s", doc_id, exc
+            )
+
+
 def pull_context(company):
     company_ref = db.collection("companies").document(company)
     c = company_ref.get().to_dict() or {}
-    products = (
-        company_ref.collection("products").where("accepted", "==", True).get()
-    )
+    products = company_ref.collection("products").where("accepted", "==", True).get()
     product = None
     for p in products:
         product = p.to_dict() | {"id": p.id}
@@ -234,15 +281,15 @@ def pull_context(company):
             boardroom.append(
                 {
                     "speaker": str(entry.get("speaker", "")),
-                    "message": str((entry.get("msg") or entry.get("message") or "")).strip(),
+                    "message": str(
+                        (entry.get("msg") or entry.get("message") or "")
+                    ).strip(),
                     "stage": str(entry.get("stage", "")),
                     "timestamp": str(entry.get("at", "")),
                 }
             )
     employees = []
-    for d in (
-        company_ref.collection("employees").where("hired", "==", True).stream()
-    ):
+    for d in company_ref.collection("employees").where("hired", "==", True).stream():
         emp_raw = d.to_dict() | {"id": d.id}
         for k in ["created", "updated", "hired"]:
             if k in emp_raw:
@@ -258,10 +305,12 @@ def pull_context(company):
                     sd.pop("updated")
                 except Exception:
                     pass
-            skills.append({
-                "skill": sd.get("skill"),
-                "level": sd.get("level", 5),
-            })
+            skills.append(
+                {
+                    "skill": sd.get("skill"),
+                    "level": sd.get("level", 5),
+                }
+            )
         emp_raw["skills"] = skills
         employees.append(emp_raw)
     return {
@@ -283,7 +332,7 @@ def llm_plan(ctx):
     product_name = (ctx.get("product") or {}).get("product", "")
     product_description = (ctx.get("product") or {}).get("description", "")
     boardroom_history = []
-    for entry in (ctx.get("boardroom") or []):
+    for entry in ctx.get("boardroom") or []:
         if not isinstance(entry, dict):
             continue
         message = str((entry.get("message") or entry.get("msg") or "")).strip()
@@ -302,15 +351,15 @@ def llm_plan(ctx):
     )
     employees = ctx.get("employees", [])
     sys = (
-        "Create a comprehensive set of work items to deliver the proposed MVP end-to-end. "
+        "Create a comprehensive set of work items to deliver the proposed MVP end to end. "
         "Return strict JSON with key 'workitems' as a list. Each item must have: "
         "title, description, assignee_name, category, complexity. "
-        "complexity is an integer 1-5 (1=trivial, 5=hard). "
-        "Use employees' names and titles to assign appropriately, matching skills and seniority. "
-        "Cover cross-functional needs (engineering, design, product, data, infra, QA, marketing, launch). "
-        "Ground the plan in the boardroom_history transcript so the tasks reflect the ideas, objections, and decisions the team discussed. "
-        "Aim for a complete plan rather than a starter list. Return between 15 and 40 items based on scope and team size. "
-        "If funding or loan details are provided, explicitly include early revenue-generation work (pricing, payments, onboarding, billing, go-to-market) so the company can make money quickly and cover bank payments on time. "
+        "complexity is an integer 1 to 5. "
+        "Use employees names and titles to assign appropriately. "
+        "Cover cross functional needs. "
+        "Ground the plan in the boardroom_history transcript. "
+        "Aim for a complete plan. "
+        "If funding or loan details are provided, include early revenue work. "
         "Keep titles concise and descriptions actionable. No commentary outside the JSON."
     )
     user = dumps(
@@ -330,7 +379,10 @@ def llm_plan(ctx):
                     "name": e.get("name"),
                     "title": e.get("title"),
                     "skills": [
-                        {"skill": (s or {}).get("skill"), "level": (s or {}).get("level", 5)}
+                        {
+                            "skill": (s or {}).get("skill"),
+                            "level": (s or {}).get("level", 5),
+                        }
                         for s in (e.get("skills", []) or [])
                     ],
                 }
@@ -343,7 +395,10 @@ def llm_plan(ctx):
     rsp = plan_client.chat.completions.create(
         model=deployment,
         response_format={"type": "json_object"},
-        messages=[{"role": "system", "content": sys}, {"role": "user", "content": user}],
+        messages=[
+            {"role": "system", "content": sys},
+            {"role": "user", "content": user},
+        ],
     )
     try:
         data = loads(rsp.choices[0].message.content)
@@ -388,7 +443,7 @@ def ensure_items(company, ctx, items, start_at):
                 fallback.append(
                     {
                         "title": "Implement core feature",
-                        "description": "Deliver the first user-facing capability",
+                        "description": "Deliver the first user facing capability",
                         "assignee_name": e.get("name"),
                         "category": "Engineering",
                         "complexity": 4,
@@ -438,16 +493,20 @@ def ensure_items(company, ctx, items, start_at):
         emp = emps_by_name.get(nm) or {}
         if not emp:
             nm = ""
-        normalized.append({
-            "title": t,
-            "description": d,
-            "category": cat,
-            "complexity": cx,
-            "assignee_name": nm,
-            "assignee_id": emp.get("id", ""),
-        })
+        normalized.append(
+            {
+                "title": t,
+                "description": d,
+                "category": cat,
+                "complexity": cx,
+                "assignee_name": nm,
+                "assignee_id": emp.get("id", ""),
+            }
+        )
+
     def reserve_tids(n):
         tr = db.transaction()
+
         @firestore.transactional
         def txn(transaction, n):
             snap = company_ref.get(transaction=transaction)
@@ -455,16 +514,33 @@ def ensure_items(company, ctx, items, start_at):
             start = int(data.get("work_next_tid") or 1)
             transaction.set(company_ref, {"work_next_tid": start + n}, merge=True)
             return start
+
         return txn(tr, n)
+
     start_tid = reserve_tids(len(normalized)) if normalized else 0
     doc_ids = [str(start_tid + i) for i in range(len(normalized))]
+
     def rank(cat: str) -> int:
         c = (cat or "").lower()
         if "product" in c:
             return 0
         if "design" in c:
             return 1
-        if any(k in c for k in ["engineer", "eng", "dev", "frontend", "backend", "data", "infra", "ops", "platform", "security"]):
+        if any(
+            k in c
+            for k in [
+                "engineer",
+                "eng",
+                "dev",
+                "frontend",
+                "backend",
+                "data",
+                "infra",
+                "ops",
+                "platform",
+                "security",
+            ]
+        ):
             return 2
         if any(k in c for k in ["qa", "test"]):
             return 3
@@ -473,6 +549,7 @@ def ensure_items(company, ctx, items, start_at):
         if any(k in c for k in ["launch", "release"]):
             return 5
         return 2
+
     blockers_by_idx = {}
     for j, wj in enumerate(normalized):
         rj = rank(wj.get("category", ""))
@@ -527,8 +604,13 @@ def ensure_items(company, ctx, items, start_at):
     try:
         _apply_llm_rates(company_ref, created_items, ctx.get("employees", []))
     except Exception as exc:
-        logger.exception("Failed to apply structured rates after creating work items: %s", exc)
-    company_ref.set({"work_enabled": True, "work_created_at": firestore.SERVER_TIMESTAMP}, merge=True)
+        logger.exception(
+            "Failed to apply structured rates after creating work items: %s", exc
+        )
+    company_ref.set(
+        {"work_enabled": True, "work_created_at": firestore.SERVER_TIMESTAMP},
+        merge=True,
+    )
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
@@ -541,7 +623,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(dumps({"error": "missing company"}), status_code=400)
     ctx = pull_context(company)
     if not ctx.get("product"):
-        return func.HttpResponse(dumps({"error": "no accepted product"}), status_code=400)
+        return func.HttpResponse(
+            dumps({"error": "no accepted product"}), status_code=400
+        )
     cdoc = db.collection("companies").document(company).get().to_dict() or {}
     start_at = int(cdoc.get("simTime") or int(time.time() * 1000))
     existing = (
@@ -554,7 +638,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     if existing:
         try:
             if len(existing) > 0:
-                return func.HttpResponse(dumps({"ok": True, "skipped": True}), mimetype="application/json")
+                return func.HttpResponse(
+                    dumps({"ok": True, "skipped": True}), mimetype="application/json"
+                )
         except Exception:
             pass
     planned = llm_plan(ctx)

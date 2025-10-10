@@ -8,17 +8,21 @@ import firebase_admin
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from firebase_admin import credentials, firestore, initialize_app
-from openai import AzureOpenAI
-from pydantic import RootModel
+from openai import OpenAI
+from pydantic import BaseModel, ConfigDict
 
 vault_url = "https://kv-strtupifyio.vault.azure.net/"
 credential = DefaultAzureCredential()
 secret_client = SecretClient(vault_url=vault_url, credential=credential)
 
-endpoint = secret_client.get_secret("AIEndpoint").value
+endpoint = secret_client.get_secret("AIEndpoint").value.rstrip("/")
 api_key = secret_client.get_secret("AIKey").value
 deployment = secret_client.get_secret("AIDeploymentMini").value
-client = AzureOpenAI(api_version="2024-05-01-preview", azure_endpoint=endpoint, api_key=api_key)
+API_VERSION = "2024-08-01-preview"
+client = OpenAI(
+    api_key=api_key,
+    base_url=f"{endpoint}/openai/v1/",
+)
 
 firestore_sdk = secret_client.get_secret("FirebaseSDK").value
 cred = credentials.Certificate(loads(firestore_sdk))
@@ -35,8 +39,21 @@ MIN_RATE = 0.1
 MAX_RATE = 5.0
 
 
-class RateAssignments(RootModel[Dict[str, Dict[str, float]]]):
-    pass
+class RateCell(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    employee_id: str
+    rate: float
+
+
+class WorkItemRates(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    workitem_id: str
+    employees: List[RateCell]
+
+
+class RateAssignments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    assignments: List[WorkItemRates]
 
 
 def _safe_int(value: Any, default: int = 0) -> int:
@@ -61,7 +78,9 @@ def _hours_from_rate(rate: float) -> int:
     return max(1, int(round(100.0 / pct)))
 
 
-def _load_employees(company_ref) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+def _load_employees(
+    company_ref,
+) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
     employees: Dict[str, Dict[str, Any]] = {}
     ordered: List[Dict[str, Any]] = []
     try:
@@ -131,7 +150,9 @@ def _load_workitems(company_ref, include_done: bool = False) -> List[Dict[str, A
     return items
 
 
-def _build_llm_payload(employees: List[Dict[str, Any]], workitems: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _build_llm_payload(
+    employees: List[Dict[str, Any]], workitems: List[Dict[str, Any]]
+) -> Dict[str, Any]:
     return {
         "employees": [
             {
@@ -152,9 +173,9 @@ def _build_llm_payload(employees: List[Dict[str, Any]], workitems: List[Dict[str
             for itm in workitems
         ],
         "instructions": (
-            "For every work item, provide a productivity rate for every employee based on alignment. "
-            "Higher rate means faster completion. Rates must be between 0.1 and 5.0. "
-            "Output must be strict JSON where each top-level key is the work item id and each value is an object mapping employee id to a float rate."
+            "For every work item, return an object with workitem_id and a list named employees. "
+            "Each employees entry has employee_id and rate. "
+            "Rate must be between 0.1 and 5.0."
         ),
         "rate_scale": "percentage of work completed per simulated hour",
     }
@@ -165,41 +186,65 @@ def _call_llm(payload: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
         return {}
     system = (
         "You are an expert workforce planner. "
-        "Return ONLY valid JSON with no explanations. "
-        "JSON must be an object mapping work item ids to objects mapping employee ids to float productivity rates."
-        f" Rates must be between {MIN_RATE} and {MAX_RATE}. Always include every employee for each work item."
+        "Return only JSON that conforms to the schema. "
+        f"Rates must be between {MIN_RATE} and {MAX_RATE}. "
+        "For each work item include workitem_id and an employees array of objects with employee_id and rate."
     )
     user = dumps(payload)
-    response = client.responses.parse(
+    completion = client.beta.chat.completions.parse(
         model=deployment,
-        input=[
+        messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
         temperature=0.2,
         top_p=0.9,
-        max_output_tokens=2048,
-        text_format=RateAssignments,
+        max_tokens=2048,
+        response_format=RateAssignments,
     )
-    assignments = response.output_parsed.root
-    return {wid: {eid: _clamp_rate(rate) for eid, rate in (employees or {}).items()} for wid, employees in assignments.items()}
+    parsed = completion.choices[0].message.parsed
+    assignments_list = parsed.assignments if isinstance(parsed, RateAssignments) else []
+    mapped: Dict[str, Dict[str, float]] = {}
+    for row in assignments_list:
+        emp_map: Dict[str, float] = {}
+        for cell in row.employees:
+            emp_map[cell.employee_id] = cell.rate
+        mapped[row.workitem_id] = emp_map
+    return {
+        wid: {eid: _clamp_rate(rate) for eid, rate in (emps or {}).items()}
+        for wid, emps in mapped.items()
+    }
 
 
-def _fallback_assignments(workitems: List[Dict[str, Any]], employees: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, float]]:
+def _fallback_assignments(
+    workitems: List[Dict[str, Any]], employees: Dict[str, Dict[str, Any]]
+) -> Dict[str, Dict[str, float]]:
     if not employees or not workitems:
         return {}
     default_rate = 1.0
-    return {wi["id"]: {emp_id: default_rate for emp_id in employees.keys()} for wi in workitems}
+    return {
+        wi["id"]: {emp_id: default_rate for emp_id in employees.keys()}
+        for wi in workitems
+    }
 
 
-def _apply_assignments(company_ref, workitems: List[Dict[str, Any]], employees: Dict[str, Dict[str, Any]], assignments: Dict[str, Dict[str, float]]) -> List[Dict[str, Any]]:
+def _apply_assignments(
+    company_ref,
+    workitems: List[Dict[str, Any]],
+    employees: Dict[str, Dict[str, Any]],
+    assignments: Dict[str, Dict[str, float]],
+) -> List[Dict[str, Any]]:
     summaries: List[Dict[str, Any]] = []
     for wi in workitems:
         work_id = wi["id"]
         rates = assignments.get(work_id)
         if not rates:
             continue
-        normalized = {emp_id: _clamp_rate(rate) for emp_id, rate in rates.items() if emp_id in employees}
+        normalized = {
+            emp_id: _clamp_rate(rate)
+            for emp_id, rate in rates.items()
+            if emp_id in employees
+        }
         if not normalized:
             continue
         best_emp, best_rate = max(normalized.items(), key=lambda pair: pair[1])
@@ -246,14 +291,26 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         body = {}
     company_id = str((body or {}).get("company") or "").strip()
     if not company_id:
-        return func.HttpResponse(dumps({"error": "missing company"}), status_code=400, mimetype="application/json")
+        return func.HttpResponse(
+            dumps({"error": "missing company"}),
+            status_code=400,
+            mimetype="application/json",
+        )
     company_ref = db.collection("companies").document(company_id)
     employees_by_id, employees_list = _load_employees(company_ref)
     if not employees_list:
-        return func.HttpResponse(dumps({"error": "no employees"}), status_code=404, mimetype="application/json")
+        return func.HttpResponse(
+            dumps({"error": "no employees"}),
+            status_code=404,
+            mimetype="application/json",
+        )
     workitems = _load_workitems(company_ref)
     if not workitems:
-        return func.HttpResponse(dumps({"error": "no workitems"}), status_code=404, mimetype="application/json")
+        return func.HttpResponse(
+            dumps({"error": "no workitems"}),
+            status_code=404,
+            mimetype="application/json",
+        )
     payload = _build_llm_payload(employees_list, workitems)
     used_fallback = False
     try:
@@ -276,6 +333,3 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         ),
         mimetype="application/json",
     )
-
-
-

@@ -10,8 +10,4 @@ Please check for typos or confirm the recipient exists.
 
 A manual directory lookup fee of $[[AMOUNT_DOLLARS]] has been charged to your strtupify.io account.
 
-[[PREVIOUS_NOTE]]
-
-[[PREVIEW_BLOCK]]
-
 -- mailer-daemon@strtupify.io

@@ -129,30 +129,12 @@ export class ReplyRouterService {
     timestamp?: string;
   }): Promise<void> {
     const meAddress = await this.getMeAddress(opts.companyId);
-    const { amountCents, multiplier, previousCents } =
+    const { amountCents } =
       await this.incrementMailerDaemonCharge(opts.companyId);
     let subject = opts.subject
       ? `Undeliverable: ${opts.subject}`
       : 'Undeliverable: (no subject)';
     const amountDollars = (amountCents / 100).toFixed(2);
-    const previousDollars =
-      previousCents > 0 ? (previousCents / 100).toFixed(2) : null;
-
-    let preview = '';
-    const trimmedMessage = (opts.message || '').trim();
-    if (trimmedMessage) {
-      const normalizedMessage = trimmedMessage.replace(/\s+/g, ' ').trim();
-      preview =
-        normalizedMessage.length > 160
-          ? normalizedMessage.slice(0, 157) + '...'
-          : normalizedMessage;
-    }
-
-
-    const previousNote =
-      previousCents > 0 && previousDollars
-        ? `The previous fee was $${previousDollars}. This time it was randomly multiplied by ${multiplier}x (values range from 2x to 10x) under our Address Accuracy Incentive policy.`
-        : 'This first lookup costs $0.05. Every subsequent undeliverable message multiplies the fee by a random factor between 2x and 10x.';
 
     const explanationLines = [
       `We're sorry, but your message to ${opts.to} could not be delivered because the address was not found.`,
@@ -161,13 +143,7 @@ export class ReplyRouterService {
       'Please check for typos or confirm the recipient actually works here.',
       '',
       `A manual directory lookup fee of $${amountDollars} has been charged to your Startupify account.`,
-      '',
-      previousNote,
     ];
-
-    if (preview) {
-      explanationLines.push('', `Original message preview: ${preview}`);
-    }
 
     explanationLines.push(
       '',
@@ -184,8 +160,6 @@ export class ReplyRouterService {
       SUBJECT: subject,
       TO: opts.to,
       AMOUNT_DOLLARS: amountDollars,
-      PREVIOUS_NOTE: previousNote,
-      PREVIEW_BLOCK: preview ? `Original message preview: ${preview}` : '',
     };
 
     let from = 'mailer-daemon@strtupify.io';

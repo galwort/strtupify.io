@@ -131,7 +131,7 @@ export class ReplyRouterService {
     const meAddress = await this.getMeAddress(opts.companyId);
     const { amountCents, multiplier, previousCents } =
       await this.incrementMailerDaemonCharge(opts.companyId);
-    const subject = opts.subject
+    let subject = opts.subject
       ? `Undeliverable: ${opts.subject}`
       : 'Undeliverable: (no subject)';
     const amountDollars = (amountCents / 100).toFixed(2);
@@ -149,6 +149,11 @@ export class ReplyRouterService {
     }
 
 
+    const previousNote =
+      previousCents > 0 && previousDollars
+        ? `The previous fee was $${previousDollars}. This time it was randomly multiplied by ${multiplier}x (values range from 2x to 10x) under our Address Accuracy Incentive policy.`
+        : 'This first lookup costs $0.05. Every subsequent undeliverable message multiplies the fee by a random factor between 2x and 10x.';
+
     const explanationLines = [
       `We're sorry, but your message to ${opts.to} could not be delivered because the address was not found.`,
       '',
@@ -156,17 +161,9 @@ export class ReplyRouterService {
       'Please check for typos or confirm the recipient actually works here.',
       '',
       `A manual directory lookup fee of $${amountDollars} has been charged to your Startupify account.`,
+      '',
+      previousNote,
     ];
-
-    if (previousCents > 0 && previousDollars) {
-      explanationLines.push(
-        `The previous fee was $${previousDollars}. This time it was randomly multiplied by ${multiplier}x (values range from 2x to 10x) under our Address Accuracy Incentive policy.`
-      );
-    } else {
-      explanationLines.push(
-        'This first lookup costs $0.05. Every subsequent undeliverable message multiplies the fee by a random factor between 2x and 10x.'
-      );
-    }
 
     if (preview) {
       explanationLines.push('', `Original message preview: ${preview}`);
@@ -181,15 +178,39 @@ export class ReplyRouterService {
       '-- mailer-daemon@strtupify.io'
     );
 
-    const body = explanationLines.join('\n');
+    const fallbackBody = explanationLines.join('\n');
+
+    const templateContext: Record<string, string> = {
+      SUBJECT: subject,
+      TO: opts.to,
+      AMOUNT_DOLLARS: amountDollars,
+      PREVIOUS_NOTE: previousNote,
+      PREVIEW_BLOCK: preview ? `Original message preview: ${preview}` : '',
+    };
+
+    let from = 'mailer-daemon@strtupify.io';
+    let banner = false;
+    let deleted = false;
+    let body = fallbackBody;
+
+    try {
+      const template = await this.loadTemplate('emails/mailer-daemon.md');
+      const rendered = this.renderTemplate(template, templateContext);
+      if (rendered.from) from = rendered.from;
+      if (rendered.subject) subject = rendered.subject;
+      if (typeof rendered.banner === 'boolean') banner = rendered.banner;
+      if (typeof rendered.deleted === 'boolean') deleted = rendered.deleted;
+      if (rendered.body) body = rendered.body;
+    } catch {}
+
     const emailId = `mailer-daemon-${Date.now()}`;
     const payload: any = {
-      from: 'mailer-daemon@strtupify.io',
+      from,
       to: meAddress,
       subject,
       message: body,
-      deleted: false,
-      banner: false,
+      deleted,
+      banner,
       timestamp: opts.timestamp || new Date().toISOString(),
       threadId: opts.threadId,
       category: 'mailer-daemon',
@@ -301,6 +322,26 @@ export class ReplyRouterService {
         error: (err) => reject(err),
       });
     });
+  }
+
+  private renderTemplate(
+    template: { from?: string; subject?: string; banner?: boolean; deleted?: boolean; body: string },
+    context: Record<string, string>
+  ): { from?: string; subject?: string; banner?: boolean; deleted?: boolean; body: string } {
+    const replacePlaceholders = (value?: string): string | undefined => {
+      if (typeof value !== 'string') return value;
+      return value.replace(/\[\[\s*([A-Za-z0-9_]+)\s*\]\]/g, (_: string, key: string) => {
+        const normalized = key.trim().toUpperCase();
+        return context[normalized] ?? '';
+      });
+    };
+    return {
+      from: replacePlaceholders(template.from),
+      subject: replacePlaceholders(template.subject),
+      banner: template.banner,
+      deleted: template.deleted,
+      body: replacePlaceholders(template.body) || '',
+    };
   }
 
   private parseMarkdownEmail(text: string): {

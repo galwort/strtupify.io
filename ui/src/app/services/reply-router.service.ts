@@ -86,6 +86,159 @@ export class ReplyRouterService {
     }
   }
 
+  async handleOutbound(opts: {
+    companyId: string;
+    to: string;
+    subject: string;
+    message: string;
+    threadId: string;
+    parentId: string;
+    timestamp?: string;
+  }): Promise<void> {
+    const normalized = (opts.to || '').trim().toLowerCase();
+    if (!normalized) return;
+    if (normalized === 'vlad@strtupify.io') {
+      await this.handleReply({
+        companyId: opts.companyId,
+        category: 'vlad',
+        threadId: opts.threadId,
+        subject: opts.subject,
+        parentId: opts.parentId,
+        timestamp: opts.timestamp,
+      });
+      return;
+    }
+    await this.sendMailerDaemonBounce({
+      companyId: opts.companyId,
+      to: opts.to,
+      subject: opts.subject,
+      message: opts.message,
+      threadId: opts.threadId,
+      parentId: opts.parentId,
+      timestamp: opts.timestamp,
+    });
+  }
+
+  private async sendMailerDaemonBounce(opts: {
+    companyId: string;
+    to: string;
+    subject: string;
+    message: string;
+    threadId: string;
+    parentId: string;
+    timestamp?: string;
+  }): Promise<void> {
+    const meAddress = await this.getMeAddress(opts.companyId);
+    const { amountCents, multiplier, previousCents } =
+      await this.incrementMailerDaemonCharge(opts.companyId);
+    const subject = opts.subject
+      ? `Undeliverable: ${opts.subject}`
+      : 'Undeliverable: (no subject)';
+    const amountDollars = (amountCents / 100).toFixed(2);
+    const previousDollars =
+      previousCents > 0 ? (previousCents / 100).toFixed(2) : null;
+
+    let preview = '';
+    const trimmedMessage = (opts.message || '').trim();
+    if (trimmedMessage) {
+      const normalizedMessage = trimmedMessage.replace(/\s+/g, ' ').trim();
+      preview =
+        normalizedMessage.length > 160
+          ? normalizedMessage.slice(0, 157) + '...'
+          : normalizedMessage;
+    }
+
+
+    const explanationLines = [
+      `We're sorry, but your message to ${opts.to} could not be delivered because the address was not found.`,
+      '',
+      'Remote server responded: 550 5.1.1 Recipient address not found',
+      'Please check for typos or confirm the recipient actually works here.',
+      '',
+      `A manual directory lookup fee of $${amountDollars} has been charged to your Startupify account.`,
+    ];
+
+    if (previousCents > 0 && previousDollars) {
+      explanationLines.push(
+        `The previous fee was $${previousDollars}. This time it was randomly multiplied by ${multiplier}x (values range from 2x to 10x) under our Address Accuracy Incentive policy.`
+      );
+    } else {
+      explanationLines.push(
+        'This first lookup costs $0.05. Every subsequent undeliverable message multiplies the fee by a random factor between 2x and 10x.'
+      );
+    }
+
+    if (preview) {
+      explanationLines.push('', `Original message preview: ${preview}`);
+    }
+
+    explanationLines.push(
+      '',
+      'Why the charge? Vlad insists each failed delivery triggers a manual diagnostic where he lovingly glares at the mail server. Apparently that is billable time.',
+      '',
+      "No further action is required. Your original message has been quarantined for 48 hours before being recycled into training data for Vlad's clock project.",
+      '',
+      '-- mailer-daemon@strtupify.io'
+    );
+
+    const body = explanationLines.join('\n');
+    const emailId = `mailer-daemon-${Date.now()}`;
+    const payload: any = {
+      from: 'mailer-daemon@strtupify.io',
+      to: meAddress,
+      subject,
+      message: body,
+      deleted: false,
+      banner: false,
+      timestamp: opts.timestamp || new Date().toISOString(),
+      threadId: opts.threadId,
+      category: 'mailer-daemon',
+    };
+    if (opts.parentId) {
+      payload.parentId = opts.parentId;
+    }
+    await setDoc(
+      doc(db, `companies/${opts.companyId}/inbox/${emailId}`),
+      payload
+    );
+  }
+
+  private async incrementMailerDaemonCharge(
+    companyId: string
+  ): Promise<{ amountCents: number; multiplier: number; previousCents: number }> {
+    try {
+      const ref = doc(db, `companies/${companyId}`);
+      const snap = await getDoc(ref);
+      const data = snap.exists() ? ((snap.data() as any) || {}) : {};
+      const previous =
+        typeof data.mailerDaemonChargeCents === 'number'
+          ? Math.max(0, Math.round(data.mailerDaemonChargeCents))
+          : 0;
+      let multiplier = 1;
+      let next = 5;
+      if (previous > 0) {
+        multiplier = this.randomInt(2, 10);
+        next = Math.max(1, Math.round(previous * multiplier));
+      }
+      await setDoc(
+        ref,
+        {
+          mailerDaemonChargeCents: next,
+          mailerDaemonChargeMultiplier: multiplier,
+          mailerDaemonChargeUpdatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+      return { amountCents: next, multiplier, previousCents: previous };
+    } catch {
+      return { amountCents: 5, multiplier: 1, previousCents: 0 };
+    }
+  }
+
+  private randomInt(min: number, max: number): number {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
   private async getReplyBody(companyId: string, replyId: string): Promise<string> {
     try {
       if (!replyId) return '';

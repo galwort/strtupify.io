@@ -190,6 +190,76 @@
         }
       }
 
+      .compose-container {
+        background: #f7f9fc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 16px;
+        max-width: 720px;
+        margin: 0 auto 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+
+        .compose-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .compose-title {
+          font-size: 20px;
+          font-weight: 600;
+        }
+
+        .compose-field {
+          display: flex;
+          flex-direction: column;
+
+          label {
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 6px;
+          }
+
+          .field-value {
+            background: #fff;
+            border: 1px solid #cfd8e3;
+            border-radius: 6px;
+            padding: 8px 10px;
+            color: #111;
+          }
+
+          input,
+          textarea {
+            width: 100%;
+            border: 1px solid #cfd8e3;
+            border-radius: 6px;
+            padding: 10px;
+            font-family: inherit;
+            font-size: 14px;
+            color: #111;
+            background: #fff;
+          }
+
+          textarea {
+            min-height: 140px;
+            resize: vertical;
+          }
+        }
+
+        .compose-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .compose-error {
+          color: #b91c1c;
+          font-size: 13px;
+        }
+      }
+
       .email-content {
         .email-body {
           white-space: normal;

@@ -164,6 +164,36 @@ export class InboxService {
     return setDoc(doc(db, `companies/${companyId}/inbox/${emailId}`), payload).then(() => emailId);
   }
 
+  sendEmail(
+    companyId: string,
+    opts: {
+      threadId: string;
+      subject: string;
+      message: string;
+      from: string;
+      to: string;
+      category?: string;
+      timestamp?: string;
+    }
+  ): Promise<string> {
+    const emailId = `outbound-${Date.now()}`;
+    const payload: any = {
+      from: opts.from || 'You',
+      to: opts.to || '',
+      subject: opts.subject || '',
+      message: opts.message,
+      deleted: false,
+      banner: false,
+      timestamp: opts.timestamp || new Date().toISOString(),
+      threadId: opts.threadId,
+      category: opts.category || undefined,
+    };
+    return setDoc(
+      doc(db, `companies/${companyId}/inbox/${emailId}`),
+      payload
+    ).then(() => emailId);
+  }
+
   private parseMarkdownEmail(text: string): {
     from?: string;
     subject?: string;

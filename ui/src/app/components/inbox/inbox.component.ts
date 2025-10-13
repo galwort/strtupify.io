@@ -45,6 +45,13 @@ export class InboxComponent implements OnInit, OnDestroy {
   replyText = '';
   sendingReply = false;
   clickedSend = false;
+  showComposeBox = false;
+  composeTo = '';
+  composeSubject = '';
+  composeBody = '';
+  sendingCompose = false;
+  composeClicked = false;
+  composeError = '';
   private pendingReplyTimers: any[] = [];
   private readonly replyDelayMinMs = 3000;
   private readonly replyDelayMaxMs = 12000;
@@ -166,7 +173,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   private momSendTime: number | null = null;
 
   showDeleted = false;
-  private meAddress = '';
+  meAddress = '';
   showSent = false;
 
   constructor(
@@ -224,6 +231,8 @@ export class InboxComponent implements OnInit, OnDestroy {
   selectEmail(email: Email): void {
     this.selectedEmail = email;
     this.showReplyBox = false;
+    this.showComposeBox = false;
+    this.composeError = '';
     this.replyText = '';
   }
 
@@ -243,6 +252,8 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   archiveEmails(): void {
     this.showDeleted = !this.showDeleted;
+    this.showComposeBox = false;
+    this.composeError = '';
     this.inboxService
       .getInbox(this.companyId, this.showDeleted)
       .subscribe((emails) => {
@@ -657,6 +668,8 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   openReply(): void {
     if (!this.selectedEmail) return;
+    this.showComposeBox = false;
+    this.composeError = '';
     this.showReplyBox = true;
     this.replyText = '';
   }
@@ -669,8 +682,99 @@ export class InboxComponent implements OnInit, OnDestroy {
     }
   }
 
+  openCompose(): void {
+    this.showReplyBox = false;
+    this.composeError = '';
+    this.selectedEmail = null;
+    this.composeTo = '';
+    this.composeSubject = '';
+    this.composeBody = '';
+    this.sendingCompose = false;
+    this.composeClicked = false;
+    this.showComposeBox = true;
+  }
+
+  closeCompose(): void {
+    this.showComposeBox = false;
+    if (!this.sendingCompose) {
+      this.composeTo = '';
+      this.composeSubject = '';
+      this.composeBody = '';
+    }
+    this.composeClicked = false;
+    this.composeError = '';
+  }
+
+  onComposeKeydown(event: KeyboardEvent): void {
+    if ((event.ctrlKey || (event as any).metaKey) && event.key === 'Enter') {
+      event.preventDefault();
+      event.stopPropagation();
+      this.sendCompose();
+    }
+  }
+
+  async sendCompose(): Promise<void> {
+    if (this.sendingCompose) return;
+    const to = (this.composeTo || '').trim();
+    const subject = (this.composeSubject || '').trim();
+    const message = (this.composeBody || '').trim();
+    this.composeError = '';
+    if (!to) {
+      this.composeError = 'Recipient is required.';
+      return;
+    }
+    if (!this.isValidEmailAddress(to)) {
+      this.composeError = 'Please enter a valid email address.';
+      return;
+    }
+    if (!message) {
+      this.composeError = 'Message body cannot be empty.';
+      return;
+    }
+    this.sendingCompose = true;
+    this.composeClicked = true;
+    setTimeout(() => (this.composeClicked = false), 300);
+    const resolvedSubject = subject || '(no subject)';
+    const threadId = this.createThreadId('outbound');
+    const timestamp = this.simDate.toISOString();
+    try {
+      const category = this.resolveRecipientCategory(to);
+      const emailId = await this.inboxService.sendEmail(this.companyId, {
+        threadId,
+        subject: resolvedSubject,
+        message,
+        from: this.meAddress,
+        to,
+        category,
+        timestamp,
+      });
+      await this.replyRouter.handleOutbound({
+        companyId: this.companyId,
+        to,
+        subject: resolvedSubject,
+        message,
+        threadId,
+        parentId: emailId,
+        timestamp,
+      });
+      this.showComposeBox = false;
+      this.composeTo = '';
+      this.composeSubject = '';
+      this.composeBody = '';
+      this.composeError = '';
+      this.selectedEmail = null;
+    } catch (err) {
+      console.error('Failed to send email', err);
+      this.composeError = 'We could not send your message. Please try again.';
+    } finally {
+      this.sendingCompose = false;
+    }
+  }
+
   toggleSent(): void {
     this.showSent = !this.showSent;
+    this.showComposeBox = false;
+    this.composeError = '';
     this.inbox = this.sortEmails(this.filteredEmails(this.allEmails));
     this.selectedEmail = null;
   }
@@ -737,6 +841,25 @@ export class InboxComponent implements OnInit, OnDestroy {
       console.error('Failed to send reply', e);
       this.sendingReply = false;
     }
+  }
+
+  private resolveRecipientCategory(address: string): string {
+    const normalized = (address || '').trim().toLowerCase();
+    if (normalized === 'vlad@strtupify.io') {
+      return 'vlad';
+    }
+    return 'outbound';
+  }
+
+  private isValidEmailAddress(address: string): boolean {
+    if (!address) return false;
+    const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+    return emailRegex.test(address);
+  }
+
+  private createThreadId(prefix: string): string {
+    const seed = Math.random().toString(36).slice(2, 8);
+    return `${prefix}-${Date.now()}-${seed}`;
   }
 
   private filteredEmails(emails: Email[]): Email[] {

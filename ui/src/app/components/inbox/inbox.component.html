@@ -1,9 +1,9 @@
-﻿<div class="content-container">
+<div class="content-container">
   <div class="header">
     <div class="title">Inbox</div>
   </div>
   <div class="filter-container">
-    <button class="filter-btn">
+    <button class="filter-btn" (click)="openCompose()">
       <span class="material-symbols-outlined">add</span>
       <span class="label">NEW EMAIL</span>
     </button>
@@ -45,77 +45,140 @@
         <div class="timestamp">{{ email.timestamp | date : "short" }}</div>
       </div>
     </div>
-    <div class="email-preview" *ngIf="selectedEmail">
+    <div class="email-preview" *ngIf="selectedEmail || showComposeBox">
+      <ng-container *ngIf="showComposeBox; else emailReadView">
+        <div class="compose-container">
+          <div class="compose-header">
+            <div class="compose-title">New Message</div>
+            <button class="btn" type="button" (click)="closeCompose()">
+              <span class="material-symbols-outlined">close</span>
+              <span>Close</span>
+            </button>
+          </div>
+          <div class="compose-field">
+            <label>From</label>
+            <div class="field-value">{{ meAddress }}</div>
+          </div>
+          <div class="compose-field">
+            <label for="compose-to">To</label>
+            <input
+              id="compose-to"
+              type="email"
+              [(ngModel)]="composeTo"
+              placeholder="name@example.com"
+            />
+          </div>
+          <div class="compose-field">
+            <label for="compose-subject">Subject</label>
+            <input
+              id="compose-subject"
+              type="text"
+              [(ngModel)]="composeSubject"
+              placeholder="Subject"
+            />
+          </div>
+          <div class="compose-field">
+            <label for="compose-body">Message</label>
+            <textarea
+              id="compose-body"
+              rows="8"
+              [(ngModel)]="composeBody"
+              placeholder="Write your message..."
+              (keydown)="onComposeKeydown($event)"
+            ></textarea>
+          </div>
+          <div class="compose-actions">
+            <button
+              class="btn btn-primary"
+              id="send-compose-btn"
+              type="button"
+              (click)="sendCompose()"
+              [class.sending]="sendingCompose"
+              [class.clicked]="composeClicked"
+              [disabled]="sendingCompose"
+            >
+              <span class="material-symbols-outlined">send</span>
+              <span>Send</span>
+            </button>
+            <button class="btn" type="button" (click)="closeCompose()">
+              <span class="material-symbols-outlined">close</span>
+              <span>Cancel</span>
+            </button>
+          </div>
+          <div class="compose-error" *ngIf="composeError">{{ composeError }}</div>
+        </div>
+      </ng-container>
+      <ng-template #emailReadView>
+        <div *ngIf="showReplyBox" class="reply-composer">
+          <div class="row">
+            <span class="label">To</span
+            ><span class="value">{{ selectedEmail?.sender }}</span>
+          </div>
+          <div class="row">
+            <span class="label">Subject</span
+            ><span class="value">{{ replySubject }}</span>
+          </div>
+          <textarea
+            [(ngModel)]="replyText"
+            rows="6"
+            placeholder="Write your reply..."
+            class="reply-textarea"
+            (keydown)="onReplyKeydown($event)"
+          ></textarea>
+          <div class="actions">
+            <button
+              class="btn btn-primary"
+              id="send-reply-btn"
+              (click)="sendReply()"
+              [class.sending]="sendingReply"
+              [class.clicked]="clickedSend"
+              [disabled]="sendingReply"
+            >
+              <span class="material-symbols-outlined">send</span>
+              <span>Send</span>
+            </button>
+            <button class="btn" (click)="showReplyBox = false">
+              <span class="material-symbols-outlined">close</span>
+              <span>Cancel</span>
+            </button>
+          </div>
+          <div class="original-sep">----- Original message -----</div>
+        </div>
 
-      <div *ngIf="showReplyBox" class="reply-composer">
-        <div class="row">
-          <span class="label">To</span
-          ><span class="value">{{ selectedEmail.sender }}</span>
-        </div>
-        <div class="row">
-          <span class="label">Subject</span
-          ><span class="value">{{ replySubject }}</span>
-        </div>
-        <textarea
-          [(ngModel)]="replyText"
-          rows="6"
-          placeholder="Write your reply..."
-          class="reply-textarea"
-          (keydown)="onReplyKeydown($event)"
-        ></textarea>
-        <div class="actions">
-          <button
-            class="btn btn-primary"
-            id="send-reply-btn"
-            (click)="sendReply()"
-            [class.sending]="sendingReply"
-            [class.clicked]="clickedSend"
-            [disabled]="sendingReply"
-          >
-            <span class="material-symbols-outlined">send</span>
-            <span>Send</span>
-          </button>
-          <button class="btn" (click)="showReplyBox = false">
-            <span class="material-symbols-outlined">close</span>
-            <span>Cancel</span>
-          </button>
-        </div>
-        <div class="original-sep">----- Original message -----</div>
-      </div>
-
-
-      <div class="email-content">
-        <h2>{{ selectedEmail.subject }}</h2>
-        <h4>From: {{ selectedEmail.sender }}</h4>
-        <div class="timestamp">
-          {{ selectedEmail.timestamp | date : "short" }}
-        </div>
-        <img *ngIf="selectedEmail.banner && selectedEmail.category === 'supereats'" src="assets/notubereats.png" class="banner-img" />
-        <img *ngIf="selectedEmail.banner && selectedEmail.category === 'bank'" src="assets/notfifththird.png" class="banner-img" />
-        <img *ngIf="selectedEmail.banner && !selectedEmail.category" src="assets/notubereats.png" class="banner-img" />
-        <div
-          class="email-body"
-          [innerHTML]="renderEmailBody(selectedEmail.body)"
-        ></div>
-        <br />
-        <br />
-        <div *ngIf="threadMessages.length" class="thread-chain">
-          <div class="original-sep">----- Previous messages -----</div>
+        <div class="email-content">
+          <h2>{{ selectedEmail?.subject }}</h2>
+          <h4>From: {{ selectedEmail?.sender }}</h4>
+          <div class="timestamp">
+            {{ selectedEmail?.timestamp | date : "short" }}
+          </div>
+          <img *ngIf="selectedEmail?.banner && selectedEmail?.category === 'supereats'" src="assets/notubereats.png" class="banner-img" />
+          <img *ngIf="selectedEmail?.banner && selectedEmail?.category === 'bank'" src="assets/notfifththird.png" class="banner-img" />
+          <img *ngIf="selectedEmail?.banner && !selectedEmail?.category" src="assets/notubereats.png" class="banner-img" />
+          <div
+            class="email-body"
+            [innerHTML]="renderEmailBody(selectedEmail?.body)"
+          ></div>
           <br />
-          <div class="thread-item" *ngFor="let m of threadMessages">
-            <div class="thread-head">
-              <span> From: {{ m.sender }}</span>
-              <span>&nbsp;&bull; {{ m.timestamp | date : "short" }}</span>
+          <br />
+          <div *ngIf="threadMessages.length" class="thread-chain">
+            <div class="original-sep">----- Previous messages -----</div>
+            <br />
+            <div class="thread-item" *ngFor="let m of threadMessages">
+              <div class="thread-head">
+                <span> From: {{ m.sender }}</span>
+                <span>&nbsp;&bull; {{ m.timestamp | date : "short" }}</span>
+              </div>
+              <br />
+              <div
+                class="thread-body"
+                [innerHTML]="renderEmailBody(m.body)"
+              ></div>
+              <br />
             </div>
-            <br />
-            <div
-              class="thread-body"
-              [innerHTML]="renderEmailBody(m.body)"
-            ></div>
-            <br />
           </div>
         </div>
-      </div>
+      </ng-template>
     </div>
   </div>
 </div>
+

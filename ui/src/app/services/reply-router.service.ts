@@ -1,7 +1,19 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, doc, getDoc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  getDocs,
+  collection,
+  query,
+  where,
+  limit,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 
 const fbApp = getApps().length ? getApps()[0] : initializeApp(environment.firebase);
@@ -81,6 +93,145 @@ export class ReplyRouterService {
             })
             .toPromise();
         } catch {}
+      }
+      return;
+    }
+    if (cat === 'workitem-help') {
+      if (!opts.parentId) return;
+      const replyText = await this.getReplyBody(opts.companyId, opts.parentId);
+      if (!replyText) return;
+
+      const parentSnap = await getDoc(doc(db, `companies/${opts.companyId}/inbox/${opts.parentId}`));
+      if (!parentSnap.exists()) return;
+      const parent = (parentSnap.data() as any) || {};
+      const workitemId = String(parent.workitemId || parent.workitem_id || '').trim();
+      if (!workitemId) return;
+
+      const product = await this.getAcceptedProduct(opts.companyId, parent);
+      const workitemCtx = await this.getWorkitemContext(opts.companyId, workitemId, parent);
+      const workerName = String(parent.senderName || parent.workerName || workitemCtx.assigneeName || 'Teammate');
+      const workerTitle = String(parent.senderTitle || parent.workerTitle || workitemCtx.assigneeTitle || 'Contributor');
+      const thread = await this.getThreadItems(opts.companyId, opts.threadId);
+
+      const reviewPayload = {
+        company: opts.companyId,
+        product,
+        workitem: {
+          id: workitemId,
+          title: workitemCtx.title,
+          description: workitemCtx.description,
+          category: workitemCtx.category,
+        },
+        worker: {
+          name: workerName,
+          title: workerTitle,
+        },
+        email: {
+          subject: String(parent.subject || workitemCtx.subject || `Need input: ${workitemCtx.title}`),
+          body: String(parent.message || workitemCtx.body || ''),
+          question: String(parent.assistQuestion || parent.question || ''),
+          pause_reason: String(parent.assistPauseReason || workitemCtx.pauseReason || ''),
+          tone: String(parent.assistTone || ''),
+        },
+        reply: {
+          text: replyText,
+          thread,
+        },
+      };
+
+      let review: any = null;
+      try {
+        review = await this.http
+          .post('https://fa-strtupifyio.azurewebsites.net/api/workitem_assist_review', reviewPayload)
+          .toPromise();
+      } catch (err) {
+        console.error('assist review failed', err);
+      }
+      if (!review || !review.ok) return;
+
+      const multiplier = Number(review.multiplier);
+      if (!Number.isFinite(multiplier) || multiplier <= 0) return;
+      const helpfulness = String(review.helpfulness || '');
+      const reasoning = String(review.reasoning || '');
+      const followUp = (review.follow_up || {}) as any;
+      const confidence = Number(review.confidence);
+      const improvements = Array.isArray(review.improvements)
+        ? (review.improvements as any[]).filter((x) => typeof x === 'string')
+        : [];
+
+      const workitemRef = doc(db, `companies/${opts.companyId}/workitems/${workitemId}`);
+      const workitemSnap = await getDoc(workitemRef);
+      const workitemData = (workitemSnap.data() as any) || {};
+      const baseRateRaw = Number(workitemData.rate_per_hour || 1);
+      const assignedRateRaw = Number(
+        (workitemData.llm_rates && workitemData.llm_rates.assigned_rate) || baseRateRaw
+      );
+      const baseRate = Number.isFinite(assignedRateRaw) && assignedRateRaw > 0 ? assignedRateRaw : Math.max(baseRateRaw, 0.1);
+      let nextRate = baseRate * multiplier;
+      if (!Number.isFinite(nextRate) || nextRate <= 0) nextRate = baseRate;
+      nextRate = Math.max(0.1, Math.min(5, Math.round(nextRate * 10000) / 10000));
+      const estimatedHours = Math.max(1, Math.round(100 / nextRate));
+      const simTime = await this.getCompanySimTime(opts.companyId);
+
+      const updatePayload: Record<string, any> = {
+        assist_status: 'resolved',
+        assist_multiplier: multiplier,
+        assist_last_multiplier: multiplier,
+        assist_resolved_at: simTime,
+        assist_helpfulness: helpfulness,
+        assist_reasoning: reasoning,
+        assist_improvements: improvements,
+        rate_per_hour: nextRate,
+        estimated_hours: estimatedHours,
+        started_at: simTime,
+        updated: serverTimestamp(),
+        'llm_rates.assigned_rate': nextRate,
+        'llm_rates.updated': serverTimestamp(),
+      };
+      if (workitemCtx.assigneeId) {
+        updatePayload['llm_rates.assigned_employee_id'] = workitemCtx.assigneeId;
+        updatePayload[`llm_rates.rates.${workitemCtx.assigneeId}`] = nextRate;
+      }
+      if (Number.isFinite(confidence)) updatePayload['assist_confidence'] = confidence;
+
+      await updateDoc(workitemRef, updatePayload);
+
+      const evaluationStamp = new Date(simTime).toISOString();
+      await setDoc(
+        doc(db, `companies/${opts.companyId}/inbox/${opts.parentId}`),
+        {
+          assistMultiplier: multiplier,
+          assistHelpfulness: helpfulness,
+          assistReasoning: reasoning,
+          assistConfidence: Number.isFinite(confidence) ? confidence : null,
+          assistImprovements: improvements,
+          assistEvaluatedAt: evaluationStamp,
+        },
+        { merge: true }
+      );
+
+      const followBody = typeof followUp.body === 'string' ? followUp.body : '';
+      if (followBody.trim().length) {
+        const followSubject = typeof followUp.subject === 'string' && followUp.subject
+          ? followUp.subject
+          : `Re: ${opts.subject || parent.subject || workitemCtx.title}`;
+        const followId = `assist-follow-${Date.now()}`;
+        await setDoc(doc(db, `companies/${opts.companyId}/inbox/${followId}`), {
+          from: parent.from || this.buildWorkerAddress(workerName, opts.companyId),
+          to: parent.to || (await this.getMeAddress(opts.companyId)),
+          subject: followSubject,
+          message: followBody,
+          deleted: false,
+          banner: false,
+          timestamp: evaluationStamp,
+          threadId: opts.threadId,
+          parentId: opts.parentId,
+          category: 'workitem-help',
+          workitemId,
+          assistId: parent.assistId || parent.assist_id || opts.threadId,
+          assistMultiplier: multiplier,
+          assistHelpfulness: helpfulness,
+        });
       }
       return;
     }
@@ -232,6 +383,111 @@ export class ReplyRouterService {
 
   private randomInt(min: number, max: number): number {
     return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  private async getAcceptedProduct(
+    companyId: string,
+    parent: any
+  ): Promise<{ name: string; description: string }> {
+    const fromParentName =
+      (parent && (parent.productName || parent.assistProductName || parent.assist_product_name)) || '';
+    const fromParentDescription =
+      (parent && (parent.productDescription || parent.assistProductDescription || parent.assist_product_description)) || '';
+    const name = String(fromParentName || '').trim();
+    const description = String(fromParentDescription || '').trim();
+    if (name && description) {
+      return { name, description };
+    }
+    try {
+      const productsRef = collection(db, `companies/${companyId}/products`);
+      const snap = await getDocs(query(productsRef, where('accepted', '==', true), limit(1)));
+      if (!snap.empty) {
+        const data = (snap.docs[0].data() as any) || {};
+        const prodName = String(data.product || data.name || '').trim();
+        const prodDescription = String(data.description || '').trim();
+        if (prodName || prodDescription) {
+          return {
+            name: prodName || name || 'Product',
+            description: prodDescription || description || '',
+          };
+        }
+      }
+    } catch (err) {
+      console.error('failed to load accepted product', err);
+    }
+    return {
+      name: name || 'Product',
+      description: description,
+    };
+  }
+
+  private async getWorkitemContext(
+    companyId: string,
+    workitemId: string,
+    parent: any
+  ): Promise<{
+    title: string;
+    description: string;
+    category: string;
+    assigneeId?: string;
+    assigneeName?: string;
+    assigneeTitle?: string;
+    subject?: string;
+    body?: string;
+    pauseReason?: string;
+  }> {
+    try {
+      const ref = doc(db, `companies/${companyId}/workitems/${workitemId}`);
+      const snap = await getDoc(ref);
+      const data = (snap.data() as any) || {};
+      return {
+        title: String(parent.assistWorkitemTitle || parent.assist_workitem_title || data.title || `Work Item ${workitemId}`),
+        description: String(
+          parent.assistWorkitemDescription ||
+            parent.assist_workitem_description ||
+            data.description ||
+            ''
+        ),
+        category: String(data.category || ''),
+        assigneeId: data.assignee_id ? String(data.assignee_id) : undefined,
+        assigneeName: parent.senderName || parent.workerName || data.assignee_name || undefined,
+        assigneeTitle: parent.senderTitle || parent.workerTitle || data.assignee_title || undefined,
+        subject: String(parent.subject || data.subject || ''),
+        body: String(parent.message || ''),
+        pauseReason: String(parent.assistPauseReason || data.assist_pause_reason || ''),
+      };
+    } catch (err) {
+      console.error('failed to load workitem context', err);
+      return {
+        title: String(parent.assistWorkitemTitle || `Work Item ${workitemId}`),
+        description: String(parent.assistWorkitemDescription || ''),
+        category: '',
+        assigneeId: undefined,
+        assigneeName: parent.senderName || undefined,
+        assigneeTitle: parent.senderTitle || undefined,
+        subject: String(parent.subject || ''),
+        body: String(parent.message || ''),
+        pauseReason: String(parent.assistPauseReason || ''),
+      };
+    }
+  }
+
+  private async getCompanySimTime(companyId: string): Promise<number> {
+    try {
+      const snap = await getDoc(doc(db, `companies/${companyId}`));
+      const data = (snap.data() as any) || {};
+      const value = Number(data.simTime || Date.now());
+      return Number.isFinite(value) && value > 0 ? value : Date.now();
+    } catch {
+      return Date.now();
+    }
+  }
+
+  private buildWorkerAddress(name: string, companyId: string): string {
+    const normalized = (name || 'teammate').toLowerCase().replace(/[^a-z0-9]+/g, '.');
+    const local = normalized.replace(/^\.+|\.+$/g, '') || 'teammate';
+    const domain = `${companyId.replace(/[^a-z0-9]/gi, '').toLowerCase() || 'strtupify'}.com`;
+    return `${local}@${domain}`;
   }
 
   private async getReplyBody(companyId: string, replyId: string): Promise<string> {

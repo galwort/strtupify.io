@@ -1,0 +1,18 @@
+{
+  "bindings": [
+    {
+      "authLevel": "anonymous",
+      "type": "httpTrigger",
+      "direction": "in",
+      "name": "req",
+      "methods": ["post"],
+      "route": "workitem_assist_review"
+    },
+    {
+      "type": "http",
+      "direction": "out",
+      "name": ""
+    }
+  ],
+  "scriptFile": "__init__.py"
+}

@@ -9,10 +9,12 @@ import {
   QuerySnapshot,
   doc,
   onSnapshot as onDocSnapshot,
+  setDoc,
   updateDoc,
   getDocs,
   query,
   where,
+  limit,
   serverTimestamp,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
@@ -52,6 +54,23 @@ type WorkItem = {
   completed_at?: number;
   worked_ms?: number;
   llm_rates?: LlmRates;
+  assist_status?: string;
+  assist_last_sent_at?: number;
+  assist_thread_id?: string;
+  assist_email_id?: string;
+  assist_question?: string;
+  assist_summary?: string;
+  assist_pause_reason?: string;
+  assist_sender_name?: string;
+  assist_sender_title?: string;
+  assist_confidence?: number;
+  assist_multiplier?: number;
+  assist_last_multiplier?: number;
+  assist_resolved_at?: number;
+  assist_product_name?: string;
+  assist_product_description?: string;
+  assist_workitem_title?: string;
+  assist_workitem_description?: string;
 };
 
 type HireSummary = {
@@ -63,6 +82,11 @@ type HireSummary = {
   status: 'Active' | 'Burnout';
   load: number;
   multiplier: number;
+};
+
+type ProductInfo = {
+  name: string;
+  description: string;
 };
 
 const fbApp = getApps().length ? getApps()[0] : initializeApp(environment.firebase);
@@ -99,6 +123,19 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   private rateRefreshCooldownMs = 12_000;
   private lastPersistedStress = new Map<string, { stress: number; status: 'Active' | 'Burnout' }>();
   private hrActivated = false;
+  private companyName = '';
+  private companyDomain = '';
+  private productInfo: ProductInfo | null = null;
+  private productInfoLoaded = false;
+  private lastAssistCheckWall = 0;
+  private assistCheckCooldownMs = 3000;
+  private assistDelayMinMs = 6 * 60 * 1000;
+  private assistDelayMaxMs = 18 * 60 * 1000;
+  private assistChance = 0.4;
+  private assistProgressCeiling = 85;
+  private assistEligibility = new Map<string, boolean>();
+  private assistDelayById = new Map<string, number>();
+  private assistInFlight = new Set<string>();
 
   constructor(private ui: UiStateService) {}
 
@@ -133,6 +170,10 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
         const assignedEmployeeId = llmRaw && typeof llmRaw.assigned_employee_id === 'string' ? llmRaw.assigned_employee_id : '';
         const assignedRateRaw = llmRaw ? Number(llmRaw.assigned_rate) : Number.NaN;
         const assignedRate = Number.isFinite(assignedRateRaw) ? assignedRateRaw : undefined;
+        const assistStatus = typeof x.assist_status === 'string' ? String(x.assist_status) : '';
+        const assistLastSent = toMillis(x.assist_last_sent_at);
+        const assistResolvedAt = toMillis(x.assist_resolved_at);
+        const assistConf = Number(x.assist_confidence);
         const llmRates: LlmRates | undefined = ratesMap || assignedEmployeeId || assignedRate
           ? {
               rates: ratesMap ? ratesMap : {},
@@ -163,6 +204,23 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
           worked_ms: Number(x.worked_ms || 0),
           rate_per_hour: Number(x.rate_per_hour || 0),
           llm_rates: llmRates,
+          assist_status: assistStatus,
+          assist_last_sent_at: assistLastSent,
+          assist_thread_id: typeof x.assist_thread_id === 'string' ? String(x.assist_thread_id) : undefined,
+          assist_email_id: typeof x.assist_email_id === 'string' ? String(x.assist_email_id) : undefined,
+          assist_question: typeof x.assist_question === 'string' ? String(x.assist_question) : undefined,
+          assist_summary: typeof x.assist_summary === 'string' ? String(x.assist_summary) : undefined,
+          assist_pause_reason: typeof x.assist_pause_reason === 'string' ? String(x.assist_pause_reason) : undefined,
+          assist_sender_name: typeof x.assist_sender_name === 'string' ? String(x.assist_sender_name) : undefined,
+          assist_sender_title: typeof x.assist_sender_title === 'string' ? String(x.assist_sender_title) : undefined,
+          assist_confidence: Number.isFinite(assistConf) ? assistConf : undefined,
+          assist_multiplier: Number.isFinite(Number(x.assist_multiplier)) ? Number(x.assist_multiplier) : undefined,
+          assist_last_multiplier: Number.isFinite(Number(x.assist_last_multiplier)) ? Number(x.assist_last_multiplier) : undefined,
+          assist_resolved_at: assistResolvedAt,
+          assist_product_name: typeof x.assist_product_name === 'string' ? String(x.assist_product_name) : undefined,
+          assist_product_description: typeof x.assist_product_description === 'string' ? String(x.assist_product_description) : undefined,
+          assist_workitem_title: typeof x.assist_workitem_title === 'string' ? String(x.assist_workitem_title) : undefined,
+          assist_workitem_description: typeof x.assist_workitem_description === 'string' ? String(x.assist_workitem_description) : undefined,
         } as WorkItem;
       });
       this.titleById.clear();
@@ -170,6 +228,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       this.partition();
       this.scheduleRateGeneration();
       this.recomputeStress();
+      void this.checkAssistanceNeeds();
     });
 
     this.unsubCompany = onDocSnapshot(doc(db, `companies/${this.companyId}`), (snapshot) => {
@@ -177,10 +236,18 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       this.simTime = Number(x.simTime || Date.now());
       this.speed = Number(x.speed || 8);
       if (this.speed <= 0) this.speed = 1;
+      if (typeof x.company_name === 'string' && x.company_name.trim().length) {
+        this.companyName = x.company_name;
+        this.companyDomain = this.normalizeDomain(this.companyName);
+      }
+      if (!this.companyDomain) {
+        this.companyDomain = this.normalizeDomain(this.companyId);
+      }
       this.startLocalClock();
     });
 
     void this.loadHires();
+    void this.ensureProductInfo();
   }
 
   ngOnDestroy(): void {
@@ -196,6 +263,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       .filter((i) => i.status === 'doing' || i.status === 'in_progress')
       .sort(order);
     this.done = this.items.filter((i) => i.status === 'done').sort(order);
+    this.pruneAssistTracking();
   }
 
   progress(it: WorkItem): number {
@@ -223,8 +291,13 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
 
   private startLocalClock() {
     if (this.intervalId) clearInterval(this.intervalId);
+    let assistTick = 0;
     this.intervalId = setInterval(() => {
       this.simTime = this.simTime + this.speed * this.tickMs;
+      assistTick++;
+      if (assistTick % 8 === 0) {
+        void this.checkAssistanceNeeds();
+      }
     }, this.tickMs);
   }
 
@@ -234,6 +307,242 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     const now = Date.now();
     if (!force && now - this.lastRateRefresh < this.rateRefreshCooldownMs) return;
     void this.requestRatesFromLlm();
+  }
+
+  private normalizeDomain(source: string): string {
+    const normalized = (source || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const base = normalized || this.companyId.toLowerCase();
+    return `${base}.com`;
+  }
+
+  private getFounderAddress(): string {
+    if (!this.companyDomain) {
+      this.companyDomain = this.normalizeDomain(this.companyName || this.companyId);
+    }
+    return `me@${this.companyDomain}`;
+  }
+
+  private buildWorkerAddress(name: string): string {
+    const normalized = (name || 'teammate').toLowerCase().replace(/[^a-z0-9]+/g, '.');
+    const localPart = normalized.replace(/^\.+|\.+$/g, '') || 'teammate';
+    const domain = this.companyDomain || this.normalizeDomain(this.companyName || this.companyId);
+    return `${localPart}@${domain}`;
+  }
+
+  private async ensureProductInfo(): Promise<void> {
+    if (!this.companyId) return;
+    if (this.productInfo || this.productInfoLoaded) return;
+    try {
+      const productsRef = collection(db, `companies/${this.companyId}/products`);
+      const snap = await getDocs(query(productsRef, where('accepted', '==', true), limit(1)));
+      if (!snap.empty) {
+        const docSnap = snap.docs[0];
+        const data = (docSnap.data() as any) || {};
+        const name = String(data.product || data.name || '').trim();
+        const description = String(data.description || '').trim();
+        if (name && description) {
+          this.productInfo = { name, description };
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load product info', err);
+    } finally {
+      if (!this.productInfo) {
+        const fallbackName = this.companyName || this.companyId || 'Flagship Product';
+        this.productInfo = {
+          name: fallbackName,
+          description: `Key initiative the team is building at ${fallbackName}.`,
+        };
+      }
+      this.productInfoLoaded = true;
+    }
+  }
+
+  private createAssistThreadId(workitemId: string): string {
+    const seed = Math.random().toString(36).slice(2, 8);
+    return `assist-${workitemId}-${Date.now()}-${seed}`;
+  }
+
+  private ensureAssistEligibility(it: WorkItem): boolean {
+    if (!it || !it.id) return false;
+    if (it.assist_last_sent_at) return false;
+    const eligibility = this.assistEligibility.get(it.id);
+    if (eligibility === false) return false;
+    if (eligibility === undefined) {
+      const eligible = Math.random() < this.assistChance;
+      this.assistEligibility.set(it.id, eligible);
+      return eligible;
+    }
+    return true;
+  }
+
+  private getAssistDelay(it: WorkItem): number | null {
+    if (!this.ensureAssistEligibility(it)) return null;
+    if (this.assistDelayById.has(it.id)) {
+      return this.assistDelayById.get(it.id) ?? null;
+    }
+    const min = Math.max(0, this.assistDelayMinMs);
+    const max = Math.max(min, this.assistDelayMaxMs);
+    const delay = min === max ? min : Math.round(min + Math.random() * (max - min));
+    this.assistDelayById.set(it.id, delay);
+    return delay;
+  }
+
+  private shouldTriggerAssistance(it: WorkItem): boolean {
+    if (!it || it.status !== 'doing') return false;
+    if (!it.assignee_id) return false;
+    if (this.assistInFlight.has(it.id)) return false;
+    const status = String(it.assist_status || '').toLowerCase();
+    if (status === 'pending' || status === 'awaiting_reply') return false;
+    if (it.assist_last_sent_at) return false;
+    const startedAt = Number(it.started_at || 0);
+    if (!startedAt) return false;
+
+    const delayTarget = this.getAssistDelay(it);
+    if (delayTarget === null) return false;
+
+    const elapsed = Math.max(0, this.simTime - startedAt);
+    if (elapsed < delayTarget) return false;
+
+    const progressPct = this.progress(it);
+    if (progressPct >= this.assistProgressCeiling) return false;
+
+    return true;
+  }
+
+  private async checkAssistanceNeeds(force = false): Promise<void> {
+    if (!this.companyId || !this.doing.length) return;
+    if (!this.productInfo) await this.ensureProductInfo();
+    if (!this.productInfo) return;
+    const now = Date.now();
+    if (!force && now - this.lastAssistCheckWall < this.assistCheckCooldownMs) return;
+    this.lastAssistCheckWall = now;
+    for (const it of this.doing) {
+      if (!this.shouldTriggerAssistance(it)) continue;
+      await this.triggerAssistanceEmail(it);
+      break;
+    }
+  }
+
+  private async triggerAssistanceEmail(it: WorkItem): Promise<void> {
+    if (!this.companyId || !this.productInfo) return;
+    const assignee = it.assignee_id ? this.empById.get(it.assignee_id) : null;
+    if (!assignee) return;
+    this.assistInFlight.add(it.id);
+    const totalWorked = this.totalWorkedMs(it);
+    const payload = {
+      company: this.companyId,
+      product: this.productInfo,
+      workitem: {
+        id: it.id,
+        title: it.title,
+        description: it.description,
+        category: it.category,
+        assignee: { name: assignee.name, title: assignee.title },
+      },
+    };
+    try {
+      const resp = await fetch('https://fa-strtupifyio.azurewebsites.net/api/workitem_assist_email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!resp.ok) throw new Error(`assist email failed: ${resp.status}`);
+      const data = await resp.json();
+      const email = (data?.email || {}) as any;
+      const senderName = typeof email.sender_name === 'string' && email.sender_name ? email.sender_name : assignee.name;
+      const senderTitle = typeof email.sender_title === 'string' && email.sender_title ? email.sender_title : assignee.title;
+      const fromAddress = typeof email.from === 'string' && email.from ? email.from : this.buildWorkerAddress(senderName);
+      const subject = typeof email.subject === 'string' && email.subject ? email.subject : `Need input on ${it.title}`;
+      const body = typeof email.body === 'string' && email.body ? email.body : `${senderName} paused work on ${it.title} and needs your guidance.`;
+      const question = typeof email.question === 'string' ? email.question : '';
+      const summary = typeof data?.summary === 'string' ? data.summary : '';
+      const pauseReason = typeof email.pause_reason === 'string' ? email.pause_reason : '';
+      const confidenceRaw = Number(email.confidence);
+      const timestampIso = new Date(this.simTime).toISOString();
+      const threadId = this.createAssistThreadId(it.id);
+      const emailId = `${threadId}-email`;
+
+      await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+        from: fromAddress,
+        to: this.getFounderAddress(),
+        subject,
+        message: body,
+        deleted: false,
+        banner: false,
+        timestamp: timestampIso,
+        threadId,
+        category: 'workitem-help',
+        workitemId: it.id,
+        assistId: threadId,
+        assistQuestion: question,
+        assistSummary: summary,
+        assistPauseReason: pauseReason,
+        assistConfidence: Number.isFinite(confidenceRaw) ? confidenceRaw : null,
+        senderName,
+        senderTitle,
+        assistWorkitemTitle: it.title,
+        assistWorkitemDescription: it.description,
+        productName: this.productInfo?.name,
+        productDescription: this.productInfo?.description,
+      });
+
+      const updatePayload: Record<string, any> = {
+        assist_status: 'pending',
+        assist_last_sent_at: this.simTime,
+        assist_thread_id: threadId,
+        assist_email_id: emailId,
+        assist_question: question,
+        assist_summary: summary,
+        assist_pause_reason: pauseReason,
+        assist_sender_name: senderName,
+        assist_sender_title: senderTitle,
+        assist_product_name: this.productInfo?.name || '',
+        assist_product_description: this.productInfo?.description || '',
+        assist_workitem_title: it.title,
+        assist_workitem_description: it.description,
+        worked_ms: totalWorked,
+        started_at: 0,
+        updated: serverTimestamp(),
+      };
+      if (Number.isFinite(confidenceRaw)) updatePayload['assist_confidence'] = confidenceRaw;
+      await updateDoc(doc(db, `companies/${this.companyId}/workitems/${it.id}`), updatePayload);
+
+      it.assist_status = 'pending';
+      it.assist_last_sent_at = this.simTime;
+      it.assist_thread_id = threadId;
+      it.assist_email_id = emailId;
+      it.assist_question = question;
+      it.assist_summary = summary;
+      it.assist_pause_reason = pauseReason;
+      it.assist_sender_name = senderName;
+      it.assist_sender_title = senderTitle;
+      it.assist_confidence = Number.isFinite(confidenceRaw) ? confidenceRaw : undefined;
+      it.assist_product_name = this.productInfo?.name || it.assist_product_name;
+      it.assist_product_description = this.productInfo?.description || it.assist_product_description;
+      it.assist_workitem_title = it.title;
+      it.assist_workitem_description = it.description;
+      it.started_at = 0;
+      it.worked_ms = totalWorked;
+      this.partition();
+      this.assistDelayById.delete(it.id);
+      this.assistEligibility.delete(it.id);
+    } catch (err) {
+      console.error('Failed to create assistance email', err);
+    } finally {
+      this.assistInFlight.delete(it.id);
+    }
+  }
+
+  private pruneAssistTracking() {
+    if (!this.assistDelayById.size && !this.assistEligibility.size) return;
+    const activeIds = new Set(this.doing.map((x) => x.id));
+    for (const id of Array.from(this.assistDelayById.keys())) {
+      if (!activeIds.has(id)) this.assistDelayById.delete(id);
+    }
+    for (const id of Array.from(this.assistEligibility.keys())) {
+      if (!activeIds.has(id)) this.assistEligibility.delete(id);
+    }
   }
 
   private async requestRatesFromLlm() {
@@ -320,6 +629,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
 
     if (target === 'doing') {
       this.scheduleRateGeneration(true);
+      void this.checkAssistanceNeeds(true);
     }
   }
 

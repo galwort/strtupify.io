@@ -79,6 +79,16 @@
       border-radius: 4px;
       font-size: 1rem;
       color: var(--theme-text);
+      transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+
+    input:-webkit-autofill,
+    textarea:-webkit-autofill {
+      box-shadow: 0 0 0 1000px white inset !important;
+      -webkit-box-shadow: 0 0 0 1000px white inset !important;
+      -webkit-text-fill-color: var(--theme-text) !important;
+      border: 1.5px solid var(--theme-primary) !important;
+      background-color: white !important;
     }
 
     input {

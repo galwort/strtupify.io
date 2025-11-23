@@ -37,10 +37,13 @@ export class ClockComponent implements OnChanges, OnDestroy {
   private readonly accelPerTick = 0.1 * this.speedMultiplier;
   private readonly realPhaseMs = (5 * 60_000) / this.speedMultiplier;
   private simTime = Date.now();
+  private displaySimMs = this.simTime;
   private speed = this.baseSpeed;
   private readonly tickMs = 250;
   private readonly tickMinDelayMs = 8000;
   private readonly tickMaxDelayMs = 13000;
+  private readonly minDisplayAnimMs = 200;
+  private readonly maxDisplayAnimMs = 1500;
   private unsub: (() => void) | null = null;
   private unsubItems: (() => void) | null = null;
   private tickTimer: any;
@@ -50,6 +53,8 @@ export class ClockComponent implements OnChanges, OnDestroy {
   private elapsedSinceSave = 0;
   private elapsedSinceStart = 0;
   private lastTickWall = Date.now();
+  private displayAnimFrame: number | null = null;
+  private displayAnimCancelAt: number | null = null;
   private items: Array<{
     id: string;
     status: string;
@@ -76,6 +81,11 @@ export class ClockComponent implements OnChanges, OnDestroy {
     if (this.unsub) this.unsub();
     this.clockActive = false;
     if (this.tickTimer) clearTimeout(this.tickTimer);
+    if (this.displayAnimFrame !== null) {
+      cancelAnimationFrame(this.displayAnimFrame);
+      this.displayAnimFrame = null;
+    }
+    this.displayAnimCancelAt = null;
     if (this.unsubItems) this.unsubItems();
     if (this.unsubEmployees) this.unsubEmployees();
   }
@@ -89,6 +99,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
       clearTimeout(this.tickTimer);
       this.tickTimer = null;
     }
+    this.cancelDisplayWind();
     this.tickInFlight = false;
     this.clockActive = false;
     if (this.unsubItems) {
@@ -111,7 +122,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
       } else {
         this.speed = this.baseSpeed;
       }
-      this.updateDisplay();
+      this.setDisplayTime(this.simTime, false);
       // Only run the clock after Inbox has started the simulation
       if (!data.simStarted) {
         if (this.tickTimer) {
@@ -120,6 +131,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
         }
         this.tickInFlight = false;
         this.clockActive = false;
+        this.cancelDisplayWind();
         return;
       }
       this.clockActive = true;
@@ -168,6 +180,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
       clearTimeout(this.tickTimer);
       this.tickTimer = null;
     }
+    this.cancelDisplayWind();
     this.tickInFlight = false;
     this.clockActive = true;
     if (this.speed < this.baseSpeed) this.speed = this.baseSpeed;
@@ -181,6 +194,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
     if (!this.companyId || this.tickInFlight || !this.clockActive) return;
     if (this.tickTimer) clearTimeout(this.tickTimer);
     const delay = this.randomInt(this.tickMinDelayMs, this.tickMaxDelayMs);
+    this.startDisplayWind(delay);
     this.tickTimer = setTimeout(() => this.runTick(), delay);
   }
 
@@ -202,7 +216,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
       this.speed = Math.min(this.speed + speedGain, this.maxSpeed);
     }
 
-    this.updateDisplay();
+    this.setDisplayTime(this.simTime, false);
     this.checkAutoComplete();
 
     this.elapsedSinceSave += realElapsed;
@@ -217,8 +231,83 @@ export class ClockComponent implements OnChanges, OnDestroy {
     if (this.clockActive) this.scheduleNextTick();
   }
 
-  private updateDisplay(): void {
-    const d = new Date(this.simTime);
+  private setDisplayTime(targetMs: number, animate: boolean): void {
+    if (this.displayAnimFrame !== null) {
+      cancelAnimationFrame(this.displayAnimFrame);
+      this.displayAnimFrame = null;
+    }
+    this.displayAnimCancelAt = null;
+    if (!animate) {
+      this.displaySimMs = targetMs;
+      this.applyDisplay();
+      return;
+    }
+    const startVal = this.displaySimMs;
+    const delta = targetMs - startVal;
+    if (Math.abs(delta) < 1) {
+      this.displaySimMs = targetMs;
+      this.applyDisplay();
+      return;
+    }
+    const duration = this.computeDisplayDuration(Math.abs(delta));
+    const start = performance.now();
+    const step = () => {
+      const now = performance.now();
+      const t = Math.min(1, (now - start) / duration);
+      this.displaySimMs = startVal + delta * t;
+      this.applyDisplay();
+      if (t < 1) {
+        this.displayAnimFrame = requestAnimationFrame(step);
+      } else {
+        this.displayAnimFrame = null;
+      }
+    };
+    this.displayAnimFrame = requestAnimationFrame(step);
+  }
+
+  private startDisplayWind(durationMs: number): void {
+    if (!durationMs || durationMs <= 0) return;
+    const target = this.simTime + this.speed * durationMs;
+    this.cancelDisplayWind();
+    const startVal = this.displaySimMs;
+    const delta = target - startVal;
+    const start = performance.now();
+    const plannedEnd = start + durationMs;
+    this.displayAnimCancelAt = plannedEnd;
+    const animate = () => {
+      if (!this.clockActive || this.displayAnimCancelAt === null) {
+        this.displayAnimFrame = null;
+        return;
+      }
+      const now = performance.now();
+      const t = Math.min(1, (now - start) / durationMs);
+      this.displaySimMs = startVal + delta * t;
+      this.applyDisplay();
+      if (t < 1 && now < this.displayAnimCancelAt) {
+        this.displayAnimFrame = requestAnimationFrame(animate);
+      } else {
+        this.displayAnimFrame = null;
+        this.displayAnimCancelAt = null;
+      }
+    };
+    this.displayAnimFrame = requestAnimationFrame(animate);
+  }
+
+  private cancelDisplayWind(): void {
+    if (this.displayAnimFrame !== null) {
+      cancelAnimationFrame(this.displayAnimFrame);
+      this.displayAnimFrame = null;
+    }
+    this.displayAnimCancelAt = null;
+  }
+
+  private computeDisplayDuration(deltaMs: number): number {
+    const scaled = deltaMs / 5000;
+    return Math.min(this.maxDisplayAnimMs, Math.max(this.minDisplayAnimMs, scaled));
+  }
+
+  private applyDisplay(): void {
+    const d = new Date(this.displaySimMs);
     this.displayDate = d.toLocaleDateString();
     this.displayTime = d.toLocaleTimeString('en-US', {
       hour: 'numeric',

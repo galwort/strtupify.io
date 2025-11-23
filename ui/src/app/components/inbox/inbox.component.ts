@@ -5,6 +5,7 @@ import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
 import { InboxService, Email } from '../../services/inbox.service';
 import { ReplyRouterService } from '../../services/reply-router.service';
+import { Subscription } from 'rxjs';
 import { initializeApp, getApps } from 'firebase/app';
 import {
   getFirestore,
@@ -153,6 +154,10 @@ export class InboxComponent implements OnInit, OnDestroy {
   private tickQueue = Promise.resolve();
   private tickDelayHandle: any;
   private destroyed = false;
+  private deleteInFlight = false;
+  private suppressedIds = new Map<string, number>();
+  private readonly suppressMs = 2000;
+  private pendingSelectionId: string | null = null;
 
   private snacks: { name: string; price: string }[] = [];
   private selectedSnack: { name: string; price: string } | null = null;
@@ -180,6 +185,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   showDeleted = false;
   meAddress = '';
   showSent = false;
+  private inboxSub: Subscription | null = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -212,12 +218,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.loadBankTemplate();
 
     this.inboxService.ensureWelcomeEmail(this.companyId).finally(() => {
-      this.inboxService.getInbox(this.companyId).subscribe((emails) => {
-        this.allEmails = emails;
-        this.inbox = this.sortEmails(this.filteredEmails(this.allEmails));
-        if (!this.selectedEmail && this.inbox.length)
-          this.selectedEmail = this.inbox[0];
-      });
+      this.subscribeToInbox();
     });
   }
 
@@ -225,6 +226,12 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.destroyed = true;
     if (this.intervalId) clearInterval(this.intervalId);
     if (this.tickDelayHandle) clearTimeout(this.tickDelayHandle);
+    if (this.inboxSub) {
+      try {
+        this.inboxSub.unsubscribe();
+      } catch {}
+    }
+    this.suppressedIds.clear();
     for (const t of this.pendingReplyTimers) {
       try {
         clearTimeout(t);
@@ -241,16 +248,18 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   deleteSelected(): void {
-    if (!this.selectedEmail) return;
+    if (!this.selectedEmail || this.deleteInFlight) return;
+    this.deleteInFlight = true;
+    const currentId = this.selectedEmail.id;
+    const nextId = this.nextSelectableId(currentId, this.inbox);
+    this.pendingSelectionId = nextId;
     this.inboxService
       .deleteEmail(this.companyId, this.selectedEmail.id)
       .then(() => {
-        const idx = this.allEmails.findIndex(
-          (e) => e.id === this.selectedEmail?.id
-        );
-        if (idx >= 0) this.allEmails[idx].deleted = true;
-        this.inbox = this.sortEmails(this.filteredEmails(this.allEmails));
-        this.selectedEmail = null;
+      })
+      .finally(() => {
+        if (currentId) this.suppressedIds.set(currentId, Date.now() + this.suppressMs);
+        this.deleteInFlight = false;
       });
   }
 
@@ -258,17 +267,12 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.showDeleted = !this.showDeleted;
     this.showComposeBox = false;
     this.composeError = '';
-    this.inboxService
-      .getInbox(this.companyId, this.showDeleted)
-      .subscribe((emails) => {
-        this.allEmails = emails;
-        this.inbox = this.sortEmails(this.filteredEmails(this.allEmails));
-        this.selectedEmail = null;
-      });
+    this.subscribeToInbox();
   }
 
   toggleDelete(): void {
-    if (!this.selectedEmail) return;
+    if (!this.selectedEmail || this.deleteInFlight) return;
+    this.deleteInFlight = true;
     const newDeletedState = !this.showDeleted;
     const updateMethod = newDeletedState
       ? this.inboxService.deleteEmail
@@ -277,13 +281,15 @@ export class InboxComponent implements OnInit, OnDestroy {
     updateMethod
       .call(this.inboxService, this.companyId, this.selectedEmail.id)
       .then(() => {
-        if (this.selectedEmail) this.selectedEmail.deleted = newDeletedState;
-        const idx = this.allEmails.findIndex(
-          (e) => e.id === this.selectedEmail?.id
-        );
-        if (idx >= 0) this.allEmails[idx].deleted = newDeletedState;
-        this.inbox = this.sortEmails(this.filteredEmails(this.allEmails));
-        this.selectedEmail = null;
+        const currentId = this.selectedEmail ? this.selectedEmail.id : null;
+        const nextId = currentId ? this.nextSelectableId(currentId, this.inbox) : null;
+        if (newDeletedState && currentId) {
+          this.suppressedIds.set(currentId, Date.now() + this.suppressMs);
+        }
+        this.pendingSelectionId = nextId;
+      })
+      .finally(() => {
+        this.deleteInFlight = false;
       });
   }
 
@@ -801,8 +807,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.showSent = !this.showSent;
     this.showComposeBox = false;
     this.composeError = '';
-    this.inbox = this.sortEmails(this.filteredEmails(this.allEmails));
-    this.selectedEmail = null;
+    this.updateInboxView(this.allEmails);
   }
 
   async sendReply(): Promise<void> {
@@ -894,6 +899,63 @@ export class InboxComponent implements OnInit, OnDestroy {
     if (this.showSent)
       return byInbox.filter((e) => (e as any).sender === this.meAddress);
     return byInbox.filter((e) => (e as any).sender !== this.meAddress);
+  }
+
+  private nextSelectableId(currentId: string | null, list: Email[]): string | null {
+    if (!currentId || !list.length) return null;
+    const idx = list.findIndex((e) => e.id === currentId);
+    if (idx === -1) return null;
+    if (idx + 1 < list.length) return list[idx + 1].id;
+    if (idx - 1 >= 0) return list[idx - 1].id;
+    return null;
+  }
+
+  private updateInboxView(
+    emails: Email[],
+    opts?: { preferredId?: string | null; avoidIds?: Array<string | null> }
+  ): void {
+    this.pruneSuppressed();
+    this.allEmails = emails;
+    this.inbox = this.sortEmails(this.filteredEmails(this.allEmails));
+    const avoid = new Set<string>();
+    (opts?.avoidIds || [])
+      .filter((x): x is string => !!x)
+      .forEach((x) => avoid.add(x));
+    this.suppressedIds.forEach((exp, id) => {
+      if (exp > Date.now()) avoid.add(id);
+    });
+
+    let desiredId =
+      opts?.preferredId ?? this.pendingSelectionId ?? this.selectedEmail?.id ?? null;
+    if (desiredId && !avoid.has(desiredId)) {
+      const found = this.inbox.find((e) => e.id === desiredId);
+      if (found) {
+        this.selectedEmail = found;
+        this.pendingSelectionId = null;
+        return;
+      }
+    }
+    const first = this.inbox.find((e) => !avoid.has(e.id));
+    this.selectedEmail = first || null;
+    this.pendingSelectionId = null;
+  }
+
+  private pruneSuppressed(): void {
+    const now = Date.now();
+    for (const [id, exp] of this.suppressedIds.entries()) {
+      if (exp <= now) this.suppressedIds.delete(id);
+    }
+  }
+
+  private subscribeToInbox(): void {
+    if (this.inboxSub) {
+      try {
+        this.inboxSub.unsubscribe();
+      } catch {}
+    }
+    this.inboxSub = this.inboxService
+      .getInbox(this.companyId, this.showDeleted)
+      .subscribe((emails) => this.updateInboxView(emails));
   }
 
   private parseMarkdownEmail(text: string): {

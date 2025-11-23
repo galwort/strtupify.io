@@ -154,7 +154,10 @@ export class AppComponent implements OnDestroy {
     clickButton(scope);
   }
 
-  openCompanyProfile() { this.ui.setShowCompanyProfile(true); }
+  openCompanyProfile() {
+    this.ui.setShowCompanyProfile(true);
+    this.ui.setCurrentModule('roles');
+  }
   openInbox() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('inbox'); }
   openBoardroom() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('boardroom'); }
   openRoles() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('roles'); }

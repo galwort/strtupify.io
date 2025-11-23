@@ -13,9 +13,11 @@
     flex-direction: column;
     background-color: var(--theme-primary);
     width: 50px;
-    margin-top: 10px;
-    gap: 8px;
+    padding: 0;
+    gap: 0;
     align-items: center;
+    min-height: 100vh;
+    box-sizing: border-box;
 
     ion-icon {
       color: var(--theme-text);
@@ -28,13 +30,15 @@
       align-items: center;
       justify-content: center;
       width: 50px;
-      height: 50px;
+      height: 60px;
       border-radius: 6px;
+      /* accent pop for brand */
+      background-color: var(--theme-accent, #ffb703);
       transition: transform 0.15s ease, background-color 0.15s ease;
     }
 
     .logo:hover {
-      background-color: rgba(255, 255, 255, 0.15);
+      background-color: rgba(255, 255, 255, 0.25);
       transform: scale(1.05);
     }
 
@@ -50,7 +54,7 @@
       align-items: center;
       justify-content: center;
       width: 50px;
-      height: 50px;
+      height: 60px;
       border-radius: 6px;
       color: #fff;
       text-decoration: none;
@@ -73,8 +77,18 @@
       color: #fff;
     }
 
+    .spacer {
+      flex: 1;
+    }
+
+    .company-logo.account {
+      margin-top: auto;
+      background: var(--theme-accent, #ffb703);
+      color: #0d1b2a;
+    }
+
     .company-logo.account:hover {
-      background-color: rgba(255, 255, 255, 0.2);
+      background-color: rgba(255, 255, 255, 0.25);
     }
   }
 

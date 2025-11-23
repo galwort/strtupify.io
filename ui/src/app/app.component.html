@@ -12,92 +12,56 @@
         </a>
 
         <button
-          *ngIf="currentCompanyId && companyProfileEnabled && !showCompanyProfile"
+          *ngIf="currentCompanyId && companyProfileEnabled"
           type="button"
           class="company-logo"
           (click)="openCompanyProfile()"
           aria-label="Company profile"
+          [class.active]="showCompanyProfile"
         >
           <span class="material-symbols-outlined"> {{ companyLogo }} </span>
         </button>
 
-
-        <ng-container *ngIf="currentCompanyId && showCompanyProfile">
-
-          <button
-            *ngIf="workEnabled && inboxEnabled"
-            type="button"
-            class="company-logo"
-            (click)="openInbox()"
-            aria-label="Back to Inbox"
-          >
-            <span class="material-symbols-outlined"> mail </span>
-          </button>
-          <button
-            *ngIf="workEnabled"
-            type="button"
-            class="company-logo"
-            (click)="openWork()"
-            aria-label="Back to Kanban"
-          >
-            <span class="material-symbols-outlined"> task </span>
-          </button>
-
-          <button
-            *ngIf="!workEnabled"
-            type="button"
-            class="company-logo"
-            (click)="openBackToModule()"
-            [attr.aria-label]="'Back to ' + currentModule"
-          >
-            <span class="material-symbols-outlined"> {{ backIcon }} </span>
-          </button>
-        </ng-container>
-
-
-        <ng-container *ngIf="currentCompanyId && !showCompanyProfile">
-
-          <button
-            *ngIf="inboxEnabled"
-            type="button"
-            class="company-logo"
-            (click)="openInbox()"
-            aria-label="Inbox"
-            [class.active]="currentModule === 'inbox'"
-          >
-            <span class="material-symbols-outlined"> mail </span>
-          </button>
-          <button
-            *ngIf="workEnabled"
-            type="button"
-            class="company-logo"
-            (click)="openWork()"
-            aria-label="Kanban"
-            [class.active]="currentModule === 'work'"
-          >
-            <span class="material-symbols-outlined"> task </span>
-          </button>
-          <button
-            *ngIf="hrEnabled"
-            type="button"
-            class="company-logo"
-            (click)="openHR()"
-            aria-label="Human Resources"
-            [class.active]="currentModule === 'hr'"
-          >
-            <span class="material-symbols-outlined"> diversity_3 </span>
-          </button>
-          <button
-            *ngIf="ledgerEnabled"
-            type="button"
-            class="company-logo"
-            (click)="openLedger()"
-            aria-label="General Ledger"
-            [class.active]="currentModule === 'ledger'"
-          >
-            <span class="material-symbols-outlined"> account_balance </span>
-          </button>
-        </ng-container>
+        <button
+          *ngIf="currentCompanyId && inboxEnabled"
+          type="button"
+          class="company-logo"
+          (click)="openInbox()"
+          aria-label="Inbox"
+          [class.active]="currentModule === 'inbox' && !showCompanyProfile"
+        >
+          <span class="material-symbols-outlined"> mail </span>
+        </button>
+        <button
+          *ngIf="currentCompanyId && workEnabled"
+          type="button"
+          class="company-logo"
+          (click)="openWork()"
+          aria-label="Kanban"
+          [class.active]="currentModule === 'work' && !showCompanyProfile"
+        >
+          <span class="material-symbols-outlined"> task </span>
+        </button>
+        <button
+          *ngIf="currentCompanyId && hrEnabled"
+          type="button"
+          class="company-logo"
+          (click)="openHR()"
+          aria-label="Human Resources"
+          [class.active]="currentModule === 'hr' && !showCompanyProfile"
+        >
+          <span class="material-symbols-outlined"> diversity_3 </span>
+        </button>
+        <button
+          *ngIf="currentCompanyId && ledgerEnabled"
+          type="button"
+          class="company-logo"
+          (click)="openLedger()"
+          aria-label="General Ledger"
+          [class.active]="currentModule === 'ledger' && !showCompanyProfile"
+        >
+          <span class="material-symbols-outlined"> account_balance </span>
+        </button>
 
         <button
           *ngIf="showAccountButton"

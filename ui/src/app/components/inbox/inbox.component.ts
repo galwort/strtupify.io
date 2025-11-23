@@ -142,12 +142,17 @@ export class InboxComponent implements OnInit, OnDestroy {
   private speed = this.baseSpeed;
   private readonly maxSpeed = 240 * this.speedMultiplier;
   private readonly tickMs = 250;
+  private readonly tickMinDelayMs = 8000;
+  private readonly tickMaxDelayMs = 13000;
   private readonly accelPerTick = 0.1 * this.speedMultiplier;
   private readonly realPhaseMs = (5 * 60_000) / this.speedMultiplier;
   private readonly saveEveryMs = 5000;
   private elapsedSinceStart = 0;
   private elapsedSinceSave = 0;
   private intervalId: any;
+  private tickQueue = Promise.resolve();
+  private tickDelayHandle: any;
+  private destroyed = false;
 
   private snacks: { name: string; price: string }[] = [];
   private selectedSnack: { name: string; price: string } | null = null;
@@ -196,10 +201,7 @@ export class InboxComponent implements OnInit, OnDestroy {
           if (typeof d.simTime === 'number') {
             this.simDate = new Date(d.simTime);
             this.updateDisplay();
-            void this.checkSuperEatsEmail();
-            this.checkKickoffEmail();
-            this.checkMomEmail();
-            this.checkBankEmail();
+            this.enqueueTick();
           }
         }
       );
@@ -220,7 +222,9 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     if (this.intervalId) clearInterval(this.intervalId);
+    if (this.tickDelayHandle) clearTimeout(this.tickDelayHandle);
     for (const t of this.pendingReplyTimers) {
       try {
         clearTimeout(t);
@@ -457,6 +461,28 @@ export class InboxComponent implements OnInit, OnDestroy {
       hour: 'numeric',
       minute: '2-digit',
     });
+  }
+
+  private enqueueTick(): void {
+    this.tickQueue = this.tickQueue
+      .then(() => this.runTickOnce())
+      .catch(() => {});
+  }
+
+  private async runTickOnce(): Promise<void> {
+    if (!this.companyId || this.destroyed) return;
+    const delay = this.randomInt(this.tickMinDelayMs, this.tickMaxDelayMs);
+    await new Promise<void>((resolve) => {
+      this.tickDelayHandle = setTimeout(resolve, delay);
+    });
+    this.tickDelayHandle = null;
+    if (this.destroyed) return;
+    try {
+      await this.checkSuperEatsEmail();
+      await this.checkKickoffEmail();
+      await this.checkMomEmail();
+      await this.checkBankEmail();
+    } catch {}
   }
 
   private loadSnacks(): void {

@@ -39,12 +39,17 @@ export class ClockComponent implements OnChanges, OnDestroy {
   private simTime = Date.now();
   private speed = this.baseSpeed;
   private readonly tickMs = 250;
+  private readonly tickMinDelayMs = 8000;
+  private readonly tickMaxDelayMs = 13000;
   private unsub: (() => void) | null = null;
   private unsubItems: (() => void) | null = null;
-  private intervalId: any;
+  private tickTimer: any;
+  private tickInFlight = false;
+  private clockActive = false;
   private readonly saveEveryMs = 1000;
   private elapsedSinceSave = 0;
   private elapsedSinceStart = 0;
+  private lastTickWall = Date.now();
   private items: Array<{
     id: string;
     status: string;
@@ -69,7 +74,8 @@ export class ClockComponent implements OnChanges, OnDestroy {
 
   ngOnDestroy(): void {
     if (this.unsub) this.unsub();
-    if (this.intervalId) clearInterval(this.intervalId);
+    this.clockActive = false;
+    if (this.tickTimer) clearTimeout(this.tickTimer);
     if (this.unsubItems) this.unsubItems();
     if (this.unsubEmployees) this.unsubEmployees();
   }
@@ -79,10 +85,12 @@ export class ClockComponent implements OnChanges, OnDestroy {
       this.unsub();
       this.unsub = null;
     }
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
+    if (this.tickTimer) {
+      clearTimeout(this.tickTimer);
+      this.tickTimer = null;
     }
+    this.tickInFlight = false;
+    this.clockActive = false;
     if (this.unsubItems) {
       this.unsubItems();
       this.unsubItems = null;
@@ -106,14 +114,17 @@ export class ClockComponent implements OnChanges, OnDestroy {
       this.updateDisplay();
       // Only run the clock after Inbox has started the simulation
       if (!data.simStarted) {
-        if (this.intervalId) {
-          clearInterval(this.intervalId);
-          this.intervalId = null;
+        if (this.tickTimer) {
+          clearTimeout(this.tickTimer);
+          this.tickTimer = null;
         }
+        this.tickInFlight = false;
+        this.clockActive = false;
         return;
       }
+      this.clockActive = true;
       this.checkAutoComplete();
-      if (!this.intervalId) {
+      if (!this.tickTimer && !this.tickInFlight) {
         this.startClock();
       }
     });
@@ -153,33 +164,57 @@ export class ClockComponent implements OnChanges, OnDestroy {
   }
 
   private startClock(): void {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
+    if (this.tickTimer) {
+      clearTimeout(this.tickTimer);
+      this.tickTimer = null;
     }
+    this.tickInFlight = false;
+    this.clockActive = true;
     if (this.speed < this.baseSpeed) this.speed = this.baseSpeed;
     this.elapsedSinceStart = 0;
+    this.elapsedSinceSave = 0;
+    this.lastTickWall = Date.now();
+    this.scheduleNextTick();
+  }
 
-    const ref = doc(db, `companies/${this.companyId}`);
-    this.intervalId = setInterval(async () => {
-      const advance = this.speed * this.tickMs;
-      this.simTime += advance;
-      this.elapsedSinceStart += this.tickMs;
-      if (this.elapsedSinceStart >= this.realPhaseMs && this.speed < this.maxSpeed) {
-        this.speed = Math.min(this.speed + this.accelPerTick, this.maxSpeed);
-      }
+  private scheduleNextTick(): void {
+    if (!this.companyId || this.tickInFlight || !this.clockActive) return;
+    if (this.tickTimer) clearTimeout(this.tickTimer);
+    const delay = this.randomInt(this.tickMinDelayMs, this.tickMaxDelayMs);
+    this.tickTimer = setTimeout(() => this.runTick(), delay);
+  }
 
-      this.updateDisplay();
-      this.checkAutoComplete();
+  private async runTick(): Promise<void> {
+    if (!this.companyId) {
+      this.tickInFlight = false;
+      return;
+    }
+    this.tickInFlight = true;
+    const now = Date.now();
+    const realElapsed = Math.max(0, now - this.lastTickWall);
+    this.lastTickWall = now;
+    const virtualTicks = Math.max(1, realElapsed / this.tickMs);
+    const advance = this.speed * realElapsed;
+    this.simTime += advance;
+    this.elapsedSinceStart += realElapsed;
+    if (this.elapsedSinceStart >= this.realPhaseMs && this.speed < this.maxSpeed) {
+      const speedGain = this.accelPerTick * virtualTicks;
+      this.speed = Math.min(this.speed + speedGain, this.maxSpeed);
+    }
 
-      this.elapsedSinceSave += this.tickMs;
-      if (this.elapsedSinceSave >= this.saveEveryMs) {
-        this.elapsedSinceSave = 0;
-        if (this.companyId) {
-          try { await updateDoc(ref, { simTime: this.simTime, speed: this.speed }); } catch {}
-        }
-      }
-    }, this.tickMs);
+    this.updateDisplay();
+    this.checkAutoComplete();
+
+    this.elapsedSinceSave += realElapsed;
+    if (this.elapsedSinceSave >= this.saveEveryMs) {
+      this.elapsedSinceSave = 0;
+      const ref = doc(db, `companies/${this.companyId}`);
+      try {
+        await updateDoc(ref, { simTime: this.simTime, speed: this.speed });
+      } catch {}
+    }
+    this.tickInFlight = false;
+    if (this.clockActive) this.scheduleNextTick();
   }
 
   private updateDisplay(): void {
@@ -247,6 +282,10 @@ export class ClockComponent implements OnChanges, OnDestroy {
       x.setHours(24, 0, 0, 0);
     }
     return total;
+  }
+
+  private randomInt(minInclusive: number, maxInclusive: number): number {
+    return Math.floor(Math.random() * (maxInclusive - minInclusive + 1)) + minInclusive;
   }
 }
 

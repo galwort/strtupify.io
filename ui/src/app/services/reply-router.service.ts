@@ -175,12 +175,6 @@ export class ReplyRouterService {
 
       const updatePayload: Record<string, any> = {
         assist_status: 'resolved',
-        assist_multiplier: multiplier,
-        assist_last_multiplier: multiplier,
-        assist_resolved_at: simTime,
-        assist_helpfulness: helpfulness,
-        assist_reasoning: reasoning,
-        assist_improvements: improvements,
         rate_per_hour: nextRate,
         estimated_hours: estimatedHours,
         started_at: simTime,
@@ -197,7 +191,6 @@ export class ReplyRouterService {
         normalizedExisting[workitemCtx.assigneeId] = nextRate;
       }
       updatePayload['rates'] = normalizedExisting;
-      if (Number.isFinite(confidence)) updatePayload['assist_confidence'] = confidence;
 
       await updateDoc(workitemRef, updatePayload);
 
@@ -205,11 +198,6 @@ export class ReplyRouterService {
       await setDoc(
         doc(db, `companies/${opts.companyId}/inbox/${opts.parentId}`),
         {
-          assistMultiplier: multiplier,
-          assistHelpfulness: helpfulness,
-          assistReasoning: reasoning,
-          assistConfidence: Number.isFinite(confidence) ? confidence : null,
-          assistImprovements: improvements,
           assistEvaluatedAt: evaluationStamp,
         },
         { merge: true }
@@ -234,8 +222,6 @@ export class ReplyRouterService {
           category: 'workitem-help',
           workitemId,
           assistId: parent.assistId || parent.assist_id || opts.threadId,
-          assistMultiplier: multiplier,
-          assistHelpfulness: helpfulness,
         });
       }
       return;

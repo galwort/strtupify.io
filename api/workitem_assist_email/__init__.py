@@ -53,8 +53,6 @@ class WorkItemInfo(BaseModel):
 class WorkerAssistEmail(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    sender_name: str = Field(..., min_length=2, max_length=200)
-    sender_title: str = Field(..., min_length=2, max_length=200)
     subject: str = Field(..., min_length=5, max_length=300)
     body: str = Field(..., min_length=40, max_length=6000)
     question: str = Field(..., min_length=5, max_length=400)
@@ -146,6 +144,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     company = _load_company(company_id)
     assignee = workitem.assignee or AssigneeInfo()
+    if not assignee.name or not assignee.title:
+        return func.HttpResponse(
+            json.dumps({"error": "missing_assignee_identity"}),
+            mimetype="application/json",
+            status_code=400,
+        )
 
     llm_payload: Dict[str, Any] = {
         "company": {
@@ -170,8 +174,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             status_code=502,
         )
 
-    sender_name = parsed.email.sender_name or (assignee.name or "Product Teammate")
-    sender_title = parsed.email.sender_title or (assignee.title or "Contributor")
+    sender_name = (assignee.name or "").strip() or "Product Teammate"
+    sender_title = (assignee.title or "").strip() or "Contributor"
     local_part = _slugify_localpart(sender_name)
     from_address = f"{local_part}@{company['domain']}"
 

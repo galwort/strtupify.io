@@ -42,21 +42,6 @@ type WorkItem = {
   rates?: Record<string, number>;
   assist_status?: string;
   assist_last_sent_at?: number;
-  assist_thread_id?: string;
-  assist_email_id?: string;
-  assist_question?: string;
-  assist_summary?: string;
-  assist_pause_reason?: string;
-  assist_sender_name?: string;
-  assist_sender_title?: string;
-  assist_confidence?: number;
-  assist_multiplier?: number;
-  assist_last_multiplier?: number;
-  assist_resolved_at?: number;
-  assist_product_name?: string;
-  assist_product_description?: string;
-  assist_workitem_title?: string;
-  assist_workitem_description?: string;
 };
 
 type HireSummary = {
@@ -161,8 +146,6 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
         };
         const assistStatus = typeof x.assist_status === 'string' ? String(x.assist_status) : '';
         const assistLastSent = toMillis(x.assist_last_sent_at);
-        const assistResolvedAt = toMillis(x.assist_resolved_at);
-        const assistConf = Number(x.assist_confidence);
         return {
           id: d.id,
           title: String(x.title || ''),
@@ -179,21 +162,6 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
           rates: ratesMap,
           assist_status: assistStatus,
           assist_last_sent_at: assistLastSent,
-          assist_thread_id: typeof x.assist_thread_id === 'string' ? String(x.assist_thread_id) : undefined,
-          assist_email_id: typeof x.assist_email_id === 'string' ? String(x.assist_email_id) : undefined,
-          assist_question: typeof x.assist_question === 'string' ? String(x.assist_question) : undefined,
-          assist_summary: typeof x.assist_summary === 'string' ? String(x.assist_summary) : undefined,
-          assist_pause_reason: typeof x.assist_pause_reason === 'string' ? String(x.assist_pause_reason) : undefined,
-          assist_sender_name: typeof x.assist_sender_name === 'string' ? String(x.assist_sender_name) : undefined,
-          assist_sender_title: typeof x.assist_sender_title === 'string' ? String(x.assist_sender_title) : undefined,
-          assist_confidence: Number.isFinite(assistConf) ? assistConf : undefined,
-          assist_multiplier: Number.isFinite(Number(x.assist_multiplier)) ? Number(x.assist_multiplier) : undefined,
-          assist_last_multiplier: Number.isFinite(Number(x.assist_last_multiplier)) ? Number(x.assist_last_multiplier) : undefined,
-          assist_resolved_at: assistResolvedAt,
-          assist_product_name: typeof x.assist_product_name === 'string' ? String(x.assist_product_name) : undefined,
-          assist_product_description: typeof x.assist_product_description === 'string' ? String(x.assist_product_description) : undefined,
-          assist_workitem_title: typeof x.assist_workitem_title === 'string' ? String(x.assist_workitem_title) : undefined,
-          assist_workitem_description: typeof x.assist_workitem_description === 'string' ? String(x.assist_workitem_description) : undefined,
         } as WorkItem;
       });
       this.titleById.clear();
@@ -462,38 +430,14 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       const updatePayload: Record<string, any> = {
         assist_status: 'pending',
         assist_last_sent_at: this.simTime,
-        assist_thread_id: threadId,
-        assist_email_id: emailId,
-        assist_question: question,
-        assist_summary: summary,
-        assist_pause_reason: pauseReason,
-        assist_sender_name: senderName,
-        assist_sender_title: senderTitle,
-        assist_product_name: this.productInfo?.name || '',
-        assist_product_description: this.productInfo?.description || '',
-        assist_workitem_title: it.title,
-        assist_workitem_description: it.description,
         worked_ms: totalWorked,
         started_at: 0,
         updated: serverTimestamp(),
       };
-      if (Number.isFinite(confidenceRaw)) updatePayload['assist_confidence'] = confidenceRaw;
       await updateDoc(doc(db, `companies/${this.companyId}/workitems/${it.id}`), updatePayload);
 
       it.assist_status = 'pending';
       it.assist_last_sent_at = this.simTime;
-      it.assist_thread_id = threadId;
-      it.assist_email_id = emailId;
-      it.assist_question = question;
-      it.assist_summary = summary;
-      it.assist_pause_reason = pauseReason;
-      it.assist_sender_name = senderName;
-      it.assist_sender_title = senderTitle;
-      it.assist_confidence = Number.isFinite(confidenceRaw) ? confidenceRaw : undefined;
-      it.assist_product_name = this.productInfo?.name || it.assist_product_name;
-      it.assist_product_description = this.productInfo?.description || it.assist_product_description;
-      it.assist_workitem_title = it.title;
-      it.assist_workitem_description = it.description;
       it.started_at = 0;
       it.worked_ms = totalWorked;
       this.partition();

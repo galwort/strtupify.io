@@ -33,6 +33,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
 
   private readonly speedMultiplier = 10;
   private readonly baseSpeed = this.speedMultiplier;
+  private readonly minSpeed = 1;
   private readonly maxSpeed = 240 * this.speedMultiplier;
   private readonly accelPerTick = 0.1 * this.speedMultiplier;
   private readonly realPhaseMs = (5 * 60_000) / this.speedMultiplier;
@@ -115,11 +116,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
       const st = Number(data.simTime || Date.now());
       const sp = Number(data.speed);
       this.simTime = Number.isFinite(st) ? st : Date.now();
-      if (Number.isFinite(sp) && sp >= this.baseSpeed) {
-        this.speed = sp;
-      } else {
-        this.speed = this.baseSpeed;
-      }
+      this.speed = Number.isFinite(sp) ? this.clampSpeed(sp) : this.baseSpeed;
       this.setDisplayTime(this.simTime, false);
       // Only run the clock after Inbox has started the simulation
       if (!data.simStarted) {
@@ -179,7 +176,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
     this.cancelDisplayWind();
     this.tickInFlight = false;
     this.clockActive = true;
-    if (this.speed < this.baseSpeed) this.speed = this.baseSpeed;
+    this.speed = this.clampSpeed(this.speed || this.baseSpeed);
     this.elapsedSinceStart = 0;
     this.elapsedSinceSave = 0;
     this.lastTickWall = Date.now();
@@ -207,9 +204,11 @@ export class ClockComponent implements OnChanges, OnDestroy {
     const advance = this.speed * realElapsed;
     this.simTime += advance;
     this.elapsedSinceStart += realElapsed;
-    if (this.elapsedSinceStart >= this.realPhaseMs && this.speed < this.maxSpeed) {
-      const speedGain = this.accelPerTick * virtualTicks;
-      this.speed = Math.min(this.speed + speedGain, this.maxSpeed);
+    if (this.elapsedSinceStart >= this.realPhaseMs) {
+      const speedDelta = this.accelPerTick * virtualTicks;
+      const direction = Math.random() < 0.5 ? -1 : 1;
+      const nextSpeed = this.speed + direction * speedDelta;
+      this.speed = this.clampSpeed(nextSpeed);
     }
 
     this.setDisplayTime(this.simTime, false);
@@ -370,6 +369,10 @@ export class ClockComponent implements OnChanges, OnDestroy {
 
   private randomInt(minInclusive: number, maxInclusive: number): number {
     return Math.floor(Math.random() * (maxInclusive - minInclusive + 1)) + minInclusive;
+  }
+
+  private clampSpeed(value: number): number {
+    return Math.min(this.maxSpeed, Math.max(this.minSpeed, value));
   }
 }
 

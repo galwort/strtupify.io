@@ -17,9 +17,6 @@
           (dragstart)="onDragStart($event, it)"
         >
           <div class="card-title">{{ it.title }}</div>
-          <div class="card-meta">
-            <div class="badge">{{ it.category }}</div>
-          </div>
           <div class="assign">
             <select (change)="reassign(it, $any($event.target).value)">
               <option value="" [selected]="!it.assignee_id">Unassigned</option>
@@ -45,9 +42,6 @@
           (dragstart)="onDragStart($event, it)"
         >
           <div class="card-title">{{ it.title }}</div>
-          <div class="card-meta">
-            <div class="badge">{{ it.category }}</div>
-          </div>
           <div class="assign">
             <select (change)="reassign(it, $any($event.target).value)">
               <option value="" [selected]="!it.assignee_id">Unassigned</option>
@@ -76,9 +70,6 @@
           [attr.draggable]="false"
         >
           <div class="card-title">{{ it.title }}</div>
-          <div class="card-meta">
-            <div class="badge">{{ it.category }}</div>
-          </div>
           <div class="assign">
             <select disabled>
               <option value="" [selected]="!it.assignee_id">Unassigned</option>

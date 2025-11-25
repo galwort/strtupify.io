@@ -26,34 +26,20 @@ import {
   StressMetrics,
 } from '../../services/stress.service';
 
-type LlmRates = {
-  rates: Record<string, number>;
-  assigned_employee_id?: string;
-  assigned_rate?: number;
-  generated?: number;
-  updated?: number;
-  rate_units?: string;
-  model?: string;
-};
-
 type WorkItem = {
   id: string;
   title: string;
   description: string;
   assignee_id: string;
-  category: string;
   complexity: number;
   estimated_hours: number;
   rate_per_hour: number;
   status: string;
   started_at: number;
-  work_start_hour?: number;
-  work_end_hour?: number;
   blockers?: string[];
-  tid?: number;
   completed_at?: number;
   worked_ms?: number;
-  llm_rates?: LlmRates;
+  rates?: Record<string, number>;
   assist_status?: string;
   assist_last_sent_at?: number;
   assist_thread_id?: string;
@@ -147,13 +133,19 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       this.rateCache.clear();
       this.items = snap.docs.map((d) => {
         const x = d.data() as any;
-        const llmRaw = x.llm_rates && typeof x.llm_rates === 'object' ? (x.llm_rates as any) : null;
         const complexityRaw = Number(x.complexity);
         const complexity = Number.isFinite(complexityRaw) && complexityRaw > 0 ? complexityRaw : 3;
         let ratesMap: Record<string, number> | undefined;
-        if (llmRaw && llmRaw.rates && typeof llmRaw.rates === 'object') {
+        if (x.rates && typeof x.rates === 'object') {
           ratesMap = {};
-          for (const [empId, val] of Object.entries(llmRaw.rates as Record<string, any>)) {
+          for (const [empId, val] of Object.entries(x.rates as Record<string, any>)) {
+            const num = Number(val);
+            if (Number.isFinite(num)) ratesMap[empId] = num;
+          }
+          if (Object.keys(ratesMap).length === 0) ratesMap = undefined;
+        } else if (x.llm_rates && typeof x.llm_rates === 'object' && (x.llm_rates as any).rates) {
+          ratesMap = {};
+          for (const [empId, val] of Object.entries((x.llm_rates as any).rates as Record<string, any>)) {
             const num = Number(val);
             if (Number.isFinite(num)) ratesMap[empId] = num;
           }
@@ -167,43 +159,24 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
           const num = Number(value);
           return Number.isFinite(num) ? num : undefined;
         };
-        const assignedEmployeeId = llmRaw && typeof llmRaw.assigned_employee_id === 'string' ? llmRaw.assigned_employee_id : '';
-        const assignedRateRaw = llmRaw ? Number(llmRaw.assigned_rate) : Number.NaN;
-        const assignedRate = Number.isFinite(assignedRateRaw) ? assignedRateRaw : undefined;
         const assistStatus = typeof x.assist_status === 'string' ? String(x.assist_status) : '';
         const assistLastSent = toMillis(x.assist_last_sent_at);
         const assistResolvedAt = toMillis(x.assist_resolved_at);
         const assistConf = Number(x.assist_confidence);
-        const llmRates: LlmRates | undefined = ratesMap || assignedEmployeeId || assignedRate
-          ? {
-              rates: ratesMap ? ratesMap : {},
-              assigned_employee_id: assignedEmployeeId || undefined,
-              assigned_rate: assignedRate,
-              generated: toMillis(llmRaw?.generated),
-              updated: toMillis(llmRaw?.updated),
-              rate_units:
-                typeof llmRaw?.rate_units === 'string' && llmRaw.rate_units ? String(llmRaw.rate_units) : undefined,
-              model: typeof llmRaw?.model === 'string' && llmRaw.model ? String(llmRaw.model) : undefined,
-            }
-          : undefined;
         return {
           id: d.id,
           title: String(x.title || ''),
           description: String(x.description || ''),
           assignee_id: String(x.assignee_id || ''),
-          category: String(x.category || ''),
           complexity,
           estimated_hours: Number(x.estimated_hours || 0),
           status: String(x.status || ''),
           started_at: Number(x.started_at || 0),
-          work_start_hour: Number(x.work_start_hour || 10),
-          work_end_hour: Number(x.work_end_hour || 20),
           blockers: Array.isArray(x.blockers) ? (x.blockers as string[]) : [],
-          tid: Number(x.tid || 0),
           completed_at: Number(x.completed_at || 0),
           worked_ms: Number(x.worked_ms || 0),
           rate_per_hour: Number(x.rate_per_hour || 0),
-          llm_rates: llmRates,
+          rates: ratesMap,
           assist_status: assistStatus,
           assist_last_sent_at: assistLastSent,
           assist_thread_id: typeof x.assist_thread_id === 'string' ? String(x.assist_thread_id) : undefined,
@@ -437,9 +410,8 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
         id: it.id,
         title: it.title,
         description: it.description,
-        category: it.category,
-        assignee: { name: assignee.name, title: assignee.title },
       },
+      assignee: { name: assignee.name, title: assignee.title },
     };
     try {
       const resp = await fetch('https://fa-strtupifyio.azurewebsites.net/api/workitem_assist_email', {
@@ -642,9 +614,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       const patch: any = {
         assignee_id: '',
         worked_ms: workedMs,
-        'llm_rates.assigned_employee_id': '',
-        'llm_rates.assigned_rate': null,
-        'llm_rates.updated': serverTimestamp(),
+        rates: this.rateCache.get(it.id) || {},
       };
       if (it.status === 'doing') {
         patch.status = 'todo';
@@ -653,14 +623,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       await updateDoc(ref, patch);
       it.assignee_id = '';
       it.worked_ms = workedMs;
-      const existingLlm: Partial<LlmRates> = it.llm_rates || {};
-      it.llm_rates = {
-        rates: this.rateCache.get(it.id) || {},
-        updated: Date.now(),
-        generated: existingLlm.generated,
-        rate_units: existingLlm.rate_units,
-        model: existingLlm.model,
-      };
+      it.rates = this.rateCache.get(it.id) || undefined;
       if (it.status === 'doing') {
         it.status = 'todo';
         it.started_at = 0;
@@ -690,32 +653,22 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       estimated_hours: estimatedHours,
       rate_per_hour: ratePerHour,
     };
-    const assignedRate = hasLlmRate ? normalizedRate : ratePerHour;
-    updatePayload['llm_rates.assigned_employee_id'] = emp.id;
-    updatePayload['llm_rates.assigned_rate'] = assignedRate;
-    updatePayload['llm_rates.updated'] = serverTimestamp();
     const existingRates = this.rateCache.get(it.id);
     const nextRates = existingRates ? { ...existingRates } : {};
     if (hasLlmRate) nextRates[emp.id] = normalizedRate;
+    else if (ratePerHour > 0) nextRates[emp.id] = ratePerHour;
     if (Object.keys(nextRates).length) {
       this.rateCache.set(it.id, nextRates);
+      updatePayload['rates'] = nextRates;
     } else {
       this.rateCache.delete(it.id);
+      updatePayload['rates'] = {};
     }
     await updateDoc(ref, updatePayload);
     it.assignee_id = emp.id;
     it.estimated_hours = estimatedHours;
     it.rate_per_hour = ratePerHour;
-    const existingLlm: Partial<LlmRates> = it.llm_rates || {};
-    it.llm_rates = {
-      rates: this.rateCache.get(it.id) || {},
-      assigned_employee_id: emp.id,
-      assigned_rate: assignedRate,
-      updated: Date.now(),
-      generated: existingLlm.generated,
-      rate_units: existingLlm.rate_units,
-      model: existingLlm.model,
-    };
+    it.rates = this.rateCache.get(it.id) || undefined;
 
     if (!hasLlmRate) {
       this.scheduleRateGeneration(true);

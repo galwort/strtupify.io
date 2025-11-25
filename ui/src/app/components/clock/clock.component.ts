@@ -60,8 +60,6 @@ export class ClockComponent implements OnChanges, OnDestroy {
     status: string;
     started_at: number;
     estimated_hours: number;
-    work_start_hour?: number;
-    work_end_hour?: number;
     assignee_id?: string;
   }> = [];
   private completedIds = new Set<string>();
@@ -151,8 +149,6 @@ export class ClockComponent implements OnChanges, OnDestroy {
           status: String(x.status || ''),
           started_at: Number(x.started_at || 0),
           estimated_hours: Number(x.estimated_hours || 0),
-          work_start_hour: Number(x.work_start_hour || 10),
-          work_end_hour: Number(x.work_end_hour || 20),
           assignee_id: String(x.assignee_id || ''),
         };
       });
@@ -338,15 +334,11 @@ export class ClockComponent implements OnChanges, OnDestroy {
   private progressFor(it: {
     started_at: number;
     estimated_hours: number;
-    work_start_hour?: number;
-    work_end_hour?: number;
     assignee_id?: string;
   }): number {
     const now = new Date(this.simTime);
     const started = new Date(it.started_at);
-    const startH = Number(it.work_start_hour ?? 10);
-    const endH = Number(it.work_end_hour ?? 20);
-    const hours = this.workingHoursBetween(started, now, startH, endH);
+    const hours = this.workingHoursBetween(started, now);
     const emp = it.assignee_id ? this.employeeStress.get(it.assignee_id) : undefined;
     if (emp && isBurnedOut(emp.status)) return 0;
     const multiplier = emp ? emp.multiplier : 1;
@@ -356,15 +348,18 @@ export class ClockComponent implements OnChanges, OnDestroy {
     return Math.round(pct);
   }
 
-  private workingHoursBetween(a: Date, b: Date, startHour: number, endHour: number): number {
+  private readonly workdayStartHour = 9;
+  private readonly workdayEndHour = 17;
+
+  private workingHoursBetween(a: Date, b: Date): number {
     if (b <= a) return 0;
     let total = 0;
     const x = new Date(a.getTime());
     while (x < b) {
       const dayStart = new Date(x.getTime());
-      dayStart.setHours(startHour, 0, 0, 0);
+      dayStart.setHours(this.workdayStartHour, 0, 0, 0);
       const dayEnd = new Date(x.getTime());
-      dayEnd.setHours(endHour, 0, 0, 0);
+      dayEnd.setHours(this.workdayEndHour, 0, 0, 0);
       const from = x > dayStart ? x : dayStart;
       const to = b < dayEnd ? b : dayEnd;
       if (to > from) total += (to.getTime() - from.getTime()) / 3600000;

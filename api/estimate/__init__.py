@@ -128,7 +128,6 @@ def _load_workitems(company_ref, include_done: bool = False) -> List[Dict[str, A
             "id": snap.id,
             "title": str(data.get("title") or ""),
             "description": str(data.get("description") or ""),
-            "category": str(data.get("category") or ""),
             "complexity": _safe_int(data.get("complexity"), 3),
             "status": status,
             "assignee_id": str(data.get("assignee_id") or ""),
@@ -156,7 +155,6 @@ def _build_llm_payload(
                 "id": itm["id"],
                 "title": itm["title"],
                 "description": itm["description"],
-                "category": itm["category"],
                 "complexity": max(1, min(5, _safe_int(itm.get("complexity"), 3))),
             }
             for itm in workitems
@@ -278,17 +276,10 @@ def _apply_assignments(
         est_hours = _hours_from_rate(best_rate)
         work_ref = company_ref.collection("workitems").document(work_id)
         update_doc: Dict[str, Any] = {
-            "rate_source": "llm_structured",
             "rate_per_hour": round(best_rate, 4),
             "estimated_hours": est_hours,
             "updated": firestore.SERVER_TIMESTAMP,
-            "llm_rates.rates": normalized,
-            "llm_rates.assigned_employee_id": best_emp,
-            "llm_rates.assigned_rate": round(best_rate, 4),
-            "llm_rates.rate_units": "percent_per_hour",
-            "llm_rates.model": deployment,
-            "llm_rates.generated": firestore.SERVER_TIMESTAMP,
-            "llm_rates.updated": firestore.SERVER_TIMESTAMP,
+            "rates": {k: round(v, 4) for k, v in normalized.items()},
         }
         if wi.get("status") != "done":
             update_doc.update(
@@ -303,7 +294,7 @@ def _apply_assignments(
         summaries.append(
             {
                 "workitem_id": work_id,
-                "assigned_employee_id": best_emp,
+                "assignee_id": best_emp,
                 "rate": round(best_rate, 4),
                 "estimated_hours": est_hours,
             }

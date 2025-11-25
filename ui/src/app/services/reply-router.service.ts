@@ -120,7 +120,6 @@ export class ReplyRouterService {
           id: workitemId,
           title: workitemCtx.title,
           description: workitemCtx.description,
-          category: workitemCtx.category,
         },
         worker: {
           name: workerName,
@@ -163,10 +162,11 @@ export class ReplyRouterService {
       const workitemSnap = await getDoc(workitemRef);
       const workitemData = (workitemSnap.data() as any) || {};
       const baseRateRaw = Number(workitemData.rate_per_hour || 1);
-      const assignedRateRaw = Number(
-        (workitemData.llm_rates && workitemData.llm_rates.assigned_rate) || baseRateRaw
-      );
-      const baseRate = Number.isFinite(assignedRateRaw) && assignedRateRaw > 0 ? assignedRateRaw : Math.max(baseRateRaw, 0.1);
+      const ratesMap = workitemData.rates && typeof workitemData.rates === 'object' ? workitemData.rates : null;
+      const assigneeRateRaw =
+        ratesMap && workitemCtx.assigneeId ? Number((ratesMap as any)[workitemCtx.assigneeId]) : Number.NaN;
+      const baseRateCandidate = Number.isFinite(assigneeRateRaw) && assigneeRateRaw > 0 ? assigneeRateRaw : baseRateRaw;
+      const baseRate = Number.isFinite(baseRateCandidate) && baseRateCandidate > 0 ? baseRateCandidate : 1;
       let nextRate = baseRate * multiplier;
       if (!Number.isFinite(nextRate) || nextRate <= 0) nextRate = baseRate;
       nextRate = Math.max(0.1, Math.min(5, Math.round(nextRate * 10000) / 10000));
@@ -185,13 +185,18 @@ export class ReplyRouterService {
         estimated_hours: estimatedHours,
         started_at: simTime,
         updated: serverTimestamp(),
-        'llm_rates.assigned_rate': nextRate,
-        'llm_rates.updated': serverTimestamp(),
       };
-      if (workitemCtx.assigneeId) {
-        updatePayload['llm_rates.assigned_employee_id'] = workitemCtx.assigneeId;
-        updatePayload[`llm_rates.rates.${workitemCtx.assigneeId}`] = nextRate;
+      const normalizedExisting: Record<string, number> = {};
+      if (ratesMap && typeof ratesMap === 'object') {
+        for (const [empId, val] of Object.entries(ratesMap as Record<string, any>)) {
+          const num = Number(val);
+          if (Number.isFinite(num)) normalizedExisting[empId] = num;
+        }
       }
+      if (workitemCtx.assigneeId) {
+        normalizedExisting[workitemCtx.assigneeId] = nextRate;
+      }
+      updatePayload['rates'] = normalizedExisting;
       if (Number.isFinite(confidence)) updatePayload['assist_confidence'] = confidence;
 
       await updateDoc(workitemRef, updatePayload);
@@ -428,7 +433,6 @@ export class ReplyRouterService {
   ): Promise<{
     title: string;
     description: string;
-    category: string;
     assigneeId?: string;
     assigneeName?: string;
     assigneeTitle?: string;
@@ -448,7 +452,6 @@ export class ReplyRouterService {
             data.description ||
             ''
         ),
-        category: String(data.category || ''),
         assigneeId: data.assignee_id ? String(data.assignee_id) : undefined,
         assigneeName: parent.senderName || parent.workerName || data.assignee_name || undefined,
         assigneeTitle: parent.senderTitle || parent.workerTitle || data.assignee_title || undefined,
@@ -461,7 +464,6 @@ export class ReplyRouterService {
       return {
         title: String(parent.assistWorkitemTitle || `Work Item ${workitemId}`),
         description: String(parent.assistWorkitemDescription || ''),
-        category: '',
         assigneeId: undefined,
         assigneeName: parent.senderName || undefined,
         assigneeTitle: parent.senderTitle || undefined,

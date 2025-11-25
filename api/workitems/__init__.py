@@ -119,7 +119,6 @@ def _build_rate_payload(
                 "id": itm["id"],
                 "title": itm["title"],
                 "description": itm["description"],
-                "category": itm["category"],
                 "complexity": max(1, min(5, _safe_int(itm.get("complexity"), 3))),
             }
             for itm in workitems_payload
@@ -235,7 +234,6 @@ def _apply_llm_rates(
                 "id": item["doc_id"],
                 "title": item["title"],
                 "description": item["description"],
-                "category": item["category"],
                 "complexity": item.get("complexity", 3),
             }
         )
@@ -268,17 +266,10 @@ def _apply_llm_rates(
         best_emp, best_rate = max(rounded_rates.items(), key=lambda pair: pair[1])
         est_hours = _hours_from_rate(best_rate)
         update_doc: Dict[str, Any] = {
-            "rate_source": "llm_structured",
             "rate_per_hour": best_rate,
             "estimated_hours": est_hours,
             "updated": firestore.SERVER_TIMESTAMP,
-            "llm_rates.rates": rounded_rates,
-            "llm_rates.assigned_employee_id": best_emp,
-            "llm_rates.assigned_rate": best_rate,
-            "llm_rates.rate_units": "percent_per_hour",
-            "llm_rates.model": deployment,
-            "llm_rates.generated": firestore.SERVER_TIMESTAMP,
-            "llm_rates.updated": firestore.SERVER_TIMESTAMP,
+            "rates": rounded_rates,
         }
         status = str(item.get("status") or "").lower()
         if status != "done":
@@ -380,7 +371,7 @@ def llm_plan(ctx):
     sys = (
         "Create a comprehensive set of work items to deliver the proposed MVP end to end. "
         "Return strict JSON with key 'workitems' as a list. Each item must have: "
-        "title, description, assignee_name, category, complexity. "
+        "title, description, assignee_name, complexity. "
         "complexity is an integer 1 to 5. "
         "Use employees names and titles to assign appropriately, matching skills and seniority. "
         "Cover cross functional needs. "
@@ -463,7 +454,6 @@ def ensure_items(company, ctx, items, start_at):
                         "title": "Set up project repo",
                         "description": "Initialize repository, CI, and environments",
                         "assignee_name": e.get("name"),
-                        "category": "Engineering",
                         "complexity": 2,
                     }
                 )
@@ -472,7 +462,6 @@ def ensure_items(company, ctx, items, start_at):
                         "title": "Implement core feature",
                         "description": "Deliver the first user facing capability",
                         "assignee_name": e.get("name"),
-                        "category": "Engineering",
                         "complexity": 4,
                     }
                 )
@@ -482,7 +471,6 @@ def ensure_items(company, ctx, items, start_at):
                         "title": "Wireframes",
                         "description": "Create wireframes for primary flows",
                         "assignee_name": e.get("name"),
-                        "category": "Design",
                         "complexity": 3,
                     }
                 )
@@ -492,7 +480,6 @@ def ensure_items(company, ctx, items, start_at):
                         "title": "MVP spec",
                         "description": "Define MVP scope and acceptance criteria",
                         "assignee_name": e.get("name"),
-                        "category": "Product",
                         "complexity": 2,
                     }
                 )
@@ -502,7 +489,6 @@ def ensure_items(company, ctx, items, start_at):
                         "title": "Launch plan",
                         "description": "Draft channels, messaging, and KPIs",
                         "assignee_name": e.get("name"),
-                        "category": "Marketing",
                         "complexity": 3,
                     }
                 )
@@ -514,7 +500,6 @@ def ensure_items(company, ctx, items, start_at):
     for wi in items:
         t = str(wi.get("title", ""))
         d = str(wi.get("description", ""))
-        cat = str(wi.get("category", ""))
         cx = max(1, min(5, int(wi.get("complexity", 3))))
         nm = str(wi.get("assignee_name", "")).strip()
         emp = emps_by_name.get(nm) or {}
@@ -524,7 +509,6 @@ def ensure_items(company, ctx, items, start_at):
             {
                 "title": t,
                 "description": d,
-                "category": cat,
                 "complexity": cx,
                 "assignee_name": nm,
                 "assignee_id": emp.get("id", ""),
@@ -547,45 +531,12 @@ def ensure_items(company, ctx, items, start_at):
     start_tid = reserve_tids(len(normalized)) if normalized else 0
     doc_ids = [str(start_tid + i) for i in range(len(normalized))]
 
-    def rank(cat: str) -> int:
-        c = (cat or "").lower()
-        if "product" in c:
-            return 0
-        if "design" in c:
-            return 1
-        if any(
-            k in c
-            for k in [
-                "engineer",
-                "eng",
-                "dev",
-                "frontend",
-                "backend",
-                "data",
-                "infra",
-                "ops",
-                "platform",
-                "security",
-            ]
-        ):
-            return 2
-        if any(k in c for k in ["qa", "test"]):
-            return 3
-        if any(k in c for k in ["marketing", "growth", "sales"]):
-            return 4
-        if any(k in c for k in ["launch", "release"]):
-            return 5
-        return 2
-
     blockers_by_idx = {}
     for j, wj in enumerate(normalized):
-        rj = rank(wj.get("category", ""))
         blockers = []
         for i in range(j):
             wi = normalized[i]
-            ri = rank(wi.get("category", ""))
-            if ri < rj:
-                blockers.append(doc_ids[i])
+            blockers.append(doc_ids[i])
             if len(blockers) >= 3:
                 break
         blockers_by_idx[j] = blockers
@@ -602,16 +553,12 @@ def ensure_items(company, ctx, items, start_at):
         fallback_rate = round(100.0 / max(1, est), 4)
         work_ref.document(doc_id).set(
             {
-                "tid": tid,
                 "title": wi.get("title", ""),
                 "description": wi.get("description", ""),
                 "assignee_id": emp_id,
-                "category": wi.get("category", ""),
                 "estimated_hours": est,
                 "rate_per_hour": fallback_rate,
                 "status": "todo",
-                "work_start_hour": 10,
-                "work_end_hour": 20,
                 "blockers": blockers_by_idx.get(idx, []),
                 "created": firestore.SERVER_TIMESTAMP,
                 "updated": firestore.SERVER_TIMESTAMP,
@@ -622,7 +569,6 @@ def ensure_items(company, ctx, items, start_at):
                 "doc_id": doc_id,
                 "title": wi.get("title", ""),
                 "description": wi.get("description", ""),
-                "category": wi.get("category", ""),
                 "complexity": cx,
                 "status": "todo",
                 "assignee_id": emp_id,

@@ -107,6 +107,8 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   private assistEligibility = new Map<string, boolean>();
   private assistDelayById = new Map<string, number>();
   private assistInFlight = new Set<string>();
+  private assistFailedAt = new Map<string, number>();
+  private assistFailureCooldownMs = 5 * 60 * 1000;
 
   constructor(private ui: UiStateService) {}
 
@@ -333,6 +335,11 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     if (!it || it.status !== 'doing') return false;
     if (!it.assignee_id) return false;
     if (this.assistInFlight.has(it.id)) return false;
+    const lastFailure = this.assistFailedAt.get(it.id);
+    if (lastFailure) {
+      if (Date.now() - lastFailure < this.assistFailureCooldownMs) return false;
+      this.assistFailedAt.delete(it.id);
+    }
     const status = String(it.assist_status || '').toLowerCase();
     if (status === 'pending' || status === 'awaiting_reply') return false;
     if (it.assist_last_sent_at) return false;
@@ -369,6 +376,14 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     if (!this.companyId || !this.productInfo) return;
     const assignee = it.assignee_id ? this.empById.get(it.assignee_id) : null;
     if (!assignee) return;
+    const assigneeName = (assignee.name || '').trim();
+    const assigneeTitle = (assignee.title || '').trim();
+    if (!assigneeName || !assigneeTitle) {
+      console.warn('Skipping assistance email due to missing assignee identity', assignee);
+      this.assistEligibility.set(it.id, false);
+      this.assistFailedAt.set(it.id, Date.now());
+      return;
+    }
     this.assistInFlight.add(it.id);
     const totalWorked = this.totalWorkedMs(it);
     const payload = {
@@ -379,7 +394,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
         title: it.title,
         description: it.description,
       },
-      assignee: { name: assignee.name, title: assignee.title },
+      assignee: { name: assigneeName, title: assigneeTitle },
     };
     try {
       const resp = await fetch('https://fa-strtupifyio.azurewebsites.net/api/workitem_assist_email', {
@@ -387,11 +402,15 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (!resp.ok) throw new Error(`assist email failed: ${resp.status}`);
+      if (!resp.ok) {
+        this.assistFailedAt.set(it.id, Date.now());
+        throw new Error(`assist email failed: ${resp.status}`);
+      }
       const data = await resp.json();
       const email = (data?.email || {}) as any;
-      const senderName = typeof email.sender_name === 'string' && email.sender_name ? email.sender_name : assignee.name;
-      const senderTitle = typeof email.sender_title === 'string' && email.sender_title ? email.sender_title : assignee.title;
+      const senderName = typeof email.sender_name === 'string' && email.sender_name ? email.sender_name : assigneeName;
+      const senderTitle =
+        typeof email.sender_title === 'string' && email.sender_title ? email.sender_title : assigneeTitle;
       const fromAddress = typeof email.from === 'string' && email.from ? email.from : this.buildWorkerAddress(senderName);
       const subject = typeof email.subject === 'string' && email.subject ? email.subject : `Need input on ${it.title}`;
       const body = typeof email.body === 'string' && email.body ? email.body : `${senderName} paused work on ${it.title} and needs your guidance.`;
@@ -443,8 +462,10 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       this.partition();
       this.assistDelayById.delete(it.id);
       this.assistEligibility.delete(it.id);
+      this.assistFailedAt.delete(it.id);
     } catch (err) {
       console.error('Failed to create assistance email', err);
+      this.assistFailedAt.set(it.id, Date.now());
     } finally {
       this.assistInFlight.delete(it.id);
     }
@@ -458,6 +479,9 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     }
     for (const id of Array.from(this.assistEligibility.keys())) {
       if (!activeIds.has(id)) this.assistEligibility.delete(id);
+    }
+    for (const id of Array.from(this.assistFailedAt.keys())) {
+      if (!activeIds.has(id)) this.assistFailedAt.delete(id);
     }
   }
 

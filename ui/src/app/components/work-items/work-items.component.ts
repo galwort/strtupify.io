@@ -384,6 +384,23 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       this.assistFailedAt.set(it.id, Date.now());
       return;
     }
+    const workTitle = (it.title || '').trim();
+    const workDescription = (it.description || '').trim();
+    if (!workTitle || workDescription.length < 5) {
+      console.warn('Skipping assistance email due to missing work item details', {
+        id: it.id,
+        title: workTitle,
+        descriptionLength: workDescription.length,
+      });
+      this.assistEligibility.set(it.id, false);
+      this.assistFailedAt.set(it.id, Date.now());
+      return;
+    }
+    if (!this.productInfo.name || !this.productInfo.description) {
+      console.warn('Skipping assistance email due to missing product info', this.productInfo);
+      this.assistFailedAt.set(it.id, Date.now());
+      return;
+    }
     this.assistInFlight.add(it.id);
     const totalWorked = this.totalWorkedMs(it);
     const payload = {
@@ -391,10 +408,10 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       product: this.productInfo,
       workitem: {
         id: it.id,
-        title: it.title,
-        description: it.description,
+        title: workTitle,
+        description: workDescription,
+        assignee: { name: assigneeName, title: assigneeTitle },
       },
-      assignee: { name: assigneeName, title: assigneeTitle },
     };
     try {
       const resp = await fetch('https://fa-strtupifyio.azurewebsites.net/api/workitem_assist_email', {
@@ -403,10 +420,19 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
         body: JSON.stringify(payload),
       });
       if (!resp.ok) {
+        const errText = await resp.text().catch(() => '');
+        console.error('Assist email failed', resp.status, errText || resp.statusText);
         this.assistFailedAt.set(it.id, Date.now());
-        throw new Error(`assist email failed: ${resp.status}`);
+        return;
       }
-      const data = await resp.json();
+      let data: any;
+      try {
+        data = await resp.json();
+      } catch (parseErr) {
+        console.error('Assist email response parse failed', parseErr);
+        this.assistFailedAt.set(it.id, Date.now());
+        return;
+      }
       const email = (data?.email || {}) as any;
       const senderName = typeof email.sender_name === 'string' && email.sender_name ? email.sender_name : assigneeName;
       const senderTitle =

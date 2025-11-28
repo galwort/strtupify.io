@@ -109,6 +109,9 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   private assistInFlight = new Set<string>();
   private assistFailedAt = new Map<string, number>();
   private assistFailureCooldownMs = 5 * 60 * 1000;
+  private assistStartedWall = new Map<string, number>();
+  private assistMinWallMs = 20_000;
+  private assistChanceTarget = 0.2;
 
   constructor(private ui: UiStateService) {}
 
@@ -206,6 +209,14 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       .filter((i) => i.status === 'doing' || i.status === 'in_progress')
       .sort(order);
     this.done = this.items.filter((i) => i.status === 'done').sort(order);
+    const doingIds = new Set(this.doing.map((x) => x.id));
+    const now = Date.now();
+    for (const id of doingIds) {
+      if (!this.assistStartedWall.has(id)) this.assistStartedWall.set(id, now);
+    }
+    for (const id of Array.from(this.assistStartedWall.keys())) {
+      if (!doingIds.has(id)) this.assistStartedWall.delete(id);
+    }
     this.pruneAssistTracking();
   }
 
@@ -312,7 +323,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     const eligibility = this.assistEligibility.get(it.id);
     if (eligibility === false) return false;
     if (eligibility === undefined) {
-      const eligible = Math.random() < this.assistChance;
+      const eligible = this.computeDeterministicChance(it) < this.assistChanceTarget;
       this.assistEligibility.set(it.id, eligible);
       return eligible;
     }
@@ -331,6 +342,16 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     return delay;
   }
 
+  private computeDeterministicChance(it: WorkItem): number {
+    const seed = `${this.companyId}:${it.id}:${it.assignee_id}`;
+    let hash = 2166136261;
+    for (let i = 0; i < seed.length; i++) {
+      hash ^= seed.charCodeAt(i);
+      hash = (hash * 16777619) >>> 0;
+    }
+    return (hash >>> 0) / 0xffffffff;
+  }
+
   private shouldTriggerAssistance(it: WorkItem): boolean {
     if (!it || it.status !== 'doing') return false;
     if (!it.assignee_id) return false;
@@ -345,6 +366,10 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     if (it.assist_last_sent_at) return false;
     const startedAt = Number(it.started_at || 0);
     if (!startedAt) return false;
+
+    const startedWall = this.assistStartedWall.get(it.id);
+    if (!startedWall) return false;
+    if (Date.now() - startedWall < this.assistMinWallMs) return false;
 
     const delayTarget = this.getAssistDelay(it);
     if (delayTarget === null) return false;
@@ -489,6 +514,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       this.assistDelayById.delete(it.id);
       this.assistEligibility.delete(it.id);
       this.assistFailedAt.delete(it.id);
+      this.assistStartedWall.delete(it.id);
     } catch (err) {
       console.error('Failed to create assistance email', err);
       this.assistFailedAt.set(it.id, Date.now());
@@ -501,13 +527,16 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     if (!this.assistDelayById.size && !this.assistEligibility.size) return;
     const activeIds = new Set(this.doing.map((x) => x.id));
     for (const id of Array.from(this.assistDelayById.keys())) {
-      if (!activeIds.has(id)) this.assistDelayById.delete(id);
-    }
-    for (const id of Array.from(this.assistEligibility.keys())) {
-      if (!activeIds.has(id)) this.assistEligibility.delete(id);
-    }
-    for (const id of Array.from(this.assistFailedAt.keys())) {
-      if (!activeIds.has(id)) this.assistFailedAt.delete(id);
+    if (!activeIds.has(id)) this.assistDelayById.delete(id);
+  }
+  for (const id of Array.from(this.assistEligibility.keys())) {
+    if (!activeIds.has(id)) this.assistEligibility.delete(id);
+  }
+  for (const id of Array.from(this.assistFailedAt.keys())) {
+    if (!activeIds.has(id)) this.assistFailedAt.delete(id);
+  }
+    for (const id of Array.from(this.assistStartedWall.keys())) {
+      if (!activeIds.has(id)) this.assistStartedWall.delete(id);
     }
   }
 
@@ -585,6 +614,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       update.started_at = it.status === 'doing' && it.started_at ? it.started_at : this.simTime;
     } else {
       update.started_at = 0;
+      this.assistStartedWall.delete(it.id);
     }
     it.worked_ms = workedMs;
     it.status = target;

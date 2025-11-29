@@ -94,7 +94,10 @@ def _load_company(company_id: str) -> Dict[str, str]:
 def _call_llm(payload: Dict[str, Any]) -> AssistEmailResponse:
     system_message = (
         "You are roleplaying a teammate who paused work on a startup deliverable. "
+        "You don't know the founder's name, so just avoid using it. "
+        "Do not use any kind of template like 'Dear [Name]' or 'To whom it may concern'. "
         "Write a concise, human email to the founder explaining the blocker and ask exactly one question. "
+        "The blocker should be something the founder can easily answer in one reply, without expert knowledge. "
         "Return only JSON that matches the schema."
     )
     completion = client.beta.chat.completions.parse(
@@ -161,7 +164,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         "instructions": {
             "focus": "Explain why progress is paused and ask the founder for input.",
             "question_requirements": "Ask a single, concrete question the founder can answer in one reply.",
-            "tone": "Respectful, collaborative, concise."
+            "tone": "Respectful, collaborative, concise.",
         },
     }
 

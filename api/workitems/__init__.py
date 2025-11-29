@@ -3,6 +3,7 @@ import firebase_admin
 import logging
 import math
 import time
+import secrets
 from json import dumps, loads
 from typing import Any, Dict, List, Tuple
 
@@ -42,6 +43,8 @@ MAX_SKILLS_PER_EMPLOYEE = 12
 MAX_WORKITEMS = 60
 MIN_RATE = 0.1
 MAX_RATE = 5.0
+ASSIST_PROBABILITY = 1  # update from 0.2
+ASSIST_PROGRESS_MAX = 85
 
 logger = logging.getLogger("workitems_llm")
 
@@ -71,6 +74,20 @@ def _clamp_rate(value: Any) -> float:
 def _hours_from_rate(rate: float) -> int:
     pct = max(MIN_RATE, min(MAX_RATE, rate))
     return max(1, int(round(100.0 / pct)))
+
+
+def _assist_trigger_value(
+    company: str, workitem_id: str, assignee_id: str = ""
+) -> int | None:
+    """
+    Randomly pick ~20% of work items to receive an assist email,
+    and assign a progress percentage (1-85%) at which the assist triggers.
+    """
+    chance = secrets.randbelow(10**9) / 10**9
+    if chance >= ASSIST_PROBABILITY:
+        return None
+    pct = secrets.randbelow(ASSIST_PROGRESS_MAX) + 1
+    return pct
 
 
 def _prepare_employees_for_rates(
@@ -551,6 +568,7 @@ def ensure_items(company, ctx, items, start_at):
         tid = start_tid + idx
         doc_id = str(tid)
         fallback_rate = round(100.0 / max(1, est), 4)
+        assist_trigger_pct = _assist_trigger_value(company, doc_id, emp_id)
         work_ref.document(doc_id).set(
             {
                 "title": wi.get("title", ""),
@@ -562,6 +580,11 @@ def ensure_items(company, ctx, items, start_at):
                 "blockers": blockers_by_idx.get(idx, []),
                 "created": firestore.SERVER_TIMESTAMP,
                 "updated": firestore.SERVER_TIMESTAMP,
+                **(
+                    {"assist_trigger_pct": assist_trigger_pct}
+                    if assist_trigger_pct is not None
+                    else {}
+                ),
             }
         )
         created_items.append(

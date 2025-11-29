@@ -31,6 +31,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
   displayDate = '';
   displayTime = '';
 
+  private readonly speedBoost = 2;
   private readonly speedMultiplier = 10;
   private readonly baseSpeed = this.speedMultiplier;
   private readonly minSpeed = 1;
@@ -203,7 +204,8 @@ export class ClockComponent implements OnChanges, OnDestroy {
     const realElapsed = Math.max(0, now - this.lastTickWall);
     this.lastTickWall = now;
     const virtualTicks = Math.max(1, realElapsed / this.tickMs);
-    const advance = this.speed * realElapsed;
+    const effectiveSpeed = this.getEffectiveSpeed();
+    const advance = effectiveSpeed * realElapsed;
     this.simTime += advance;
     this.elapsedSinceStart += realElapsed;
     if (this.elapsedSinceStart >= this.realPhaseMs) {
@@ -264,7 +266,8 @@ export class ClockComponent implements OnChanges, OnDestroy {
 
   private startDisplayWind(durationMs: number): void {
     if (!durationMs || durationMs <= 0) return;
-    const target = this.simTime + this.speed * durationMs;
+    const currentSpeed = this.getEffectiveSpeed();
+    const target = this.simTime + currentSpeed * durationMs;
     this.cancelDisplayWind();
     const startVal = this.displaySimMs;
     const delta = target - startVal;
@@ -353,6 +356,10 @@ export class ClockComponent implements OnChanges, OnDestroy {
     if (!needed || !isFinite(needed)) return 0;
     const pct = Math.min(100, Math.max(0, (hours / needed) * 100));
     return Math.round(pct);
+  }
+
+  private getEffectiveSpeed(): number {
+    return this.speed * this.speedBoost;
   }
 
   private randomInt(minInclusive: number, maxInclusive: number): number {

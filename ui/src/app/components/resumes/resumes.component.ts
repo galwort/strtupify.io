@@ -34,6 +34,7 @@ interface Role {
   id: string;
   title: string;
   openings: number;
+  skills?: string[];
 }
 
 @Component({
@@ -52,6 +53,7 @@ export class ResumesComponent implements OnInit {
   currentIndex = 0;
   private doneEmitted = false;
   private hiredCount = 0;
+  autoHiring = false;
 
   constructor(private router: Router) {}
 
@@ -89,7 +91,6 @@ export class ResumesComponent implements OnInit {
     this.applyRoleFilters();
     this.checkComplete();
     await this.ensureCurrentEmployeeSkillsLoaded();
-
   }
 
   get rolesWithOpenings() {
@@ -105,38 +106,42 @@ export class ResumesComponent implements OnInit {
   }
 
   async hireEmployee() {
-    if (!this.currentEmployee) return;
-
-    const role = this.roles.find((r) => r.title === this.currentEmployee.title);
-    if (role && role.openings > 0) {
-      role.openings -= 1;
-      await updateDoc(doc(db, 'companies', this.companyId, 'roles', role.id), {
-        openings: role.openings,
-      });
-    }
-
-    await updateDoc(
-      doc(
-        db,
-        'companies',
-        this.companyId,
-        'employees',
-        this.currentEmployee.id
-      ),
-      { hired: true }
-    );
-
-    this.hiredCount++;
-
-    this.employees.splice(this.currentIndex, 1);
-    this.applyRoleFilters();
+    if (!this.currentEmployee || this.autoHiring) return;
+    await this.hireCandidate(this.currentEmployee);
     if (this.currentIndex >= this.employees.length)
-      this.currentIndex = this.employees.length - 1;
+      this.currentIndex = Math.max(0, this.employees.length - 1);
     this.checkComplete();
     await this.ensureCurrentEmployeeSkillsLoaded();
   }
 
-  
+  async automateHiring() {
+    if (
+      this.autoHiring ||
+      !this.companyId ||
+      !this.rolesWithOpenings.length ||
+      !this.employees.length
+    )
+      return;
+    this.autoHiring = true;
+    try {
+      const available: Employee[] = [...this.employees];
+      for (const role of this.roles.filter((r) => r.openings > 0)) {
+        while (role.openings > 0) {
+          const best = this.findBestCandidateForRole(available, role);
+          if (!best) break;
+          await this.hireCandidate(best, role);
+          const idx = available.findIndex((e) => e.id === best.id);
+          if (idx >= 0) available.splice(idx, 1);
+        }
+      }
+    } finally {
+      this.autoHiring = false;
+      if (this.currentIndex >= this.employees.length)
+        this.currentIndex = Math.max(0, this.employees.length - 1);
+      this.checkComplete();
+      await this.ensureCurrentEmployeeSkillsLoaded();
+    }
+  }
 
   private applyRoleFilters() {
     const openTitles = new Set(
@@ -156,6 +161,79 @@ export class ResumesComponent implements OnInit {
       this.doneEmitted = true;
       this.hiringFinished.emit();
     }
+  }
+
+  private buildSkillMap(employee: Employee): Map<string, number> {
+    return new Map(
+      (employee.skills || []).map((s) => [s.skill.toLowerCase(), s.level])
+    );
+  }
+
+  private scoreCandidateForRole(candidate: Employee, role: Role): number {
+    const skillMap = this.buildSkillMap(candidate);
+    const required = (role.skills || []).map((s) => s.toLowerCase());
+    if (required.length) {
+      let matched = 0;
+      let matchedLevelSum = 0;
+      for (const skill of required) {
+        const level = skillMap.get(skill) || 0;
+        if (level > 0) matched++;
+        matchedLevelSum += level;
+      }
+      const coverage = matched / required.length;
+      const avgMatched = matched ? matchedLevelSum / matched : 0;
+      const salaryPenalty = candidate.salary ? candidate.salary / 1000000 : 0;
+      return coverage * 100 + matchedLevelSum + avgMatched - salaryPenalty;
+    }
+    const total = candidate.skills.reduce((sum, s) => sum + s.level, 0);
+    const avg = candidate.skills.length ? total / candidate.skills.length : 0;
+    const salaryPenalty = candidate.salary ? candidate.salary / 1000000 : 0;
+    return total + avg - salaryPenalty;
+  }
+
+  private findBestCandidateForRole(
+    candidates: Employee[],
+    role: Role
+  ): Employee | null {
+    const matches = candidates.filter(
+      (c) => c.title === role.title && !c.hired
+    );
+    if (!matches.length) return null;
+    let best = matches[0];
+    let bestScore = this.scoreCandidateForRole(best, role);
+    for (let i = 1; i < matches.length; i++) {
+      const score = this.scoreCandidateForRole(matches[i], role);
+      if (score > bestScore) {
+        best = matches[i];
+        bestScore = score;
+      }
+    }
+    return best;
+  }
+
+  private async hireCandidate(
+    employee: Employee,
+    roleOverride?: Role
+  ): Promise<void> {
+    const role =
+      roleOverride || this.roles.find((r) => r.title === employee.title);
+    if (role && role.openings > 0) {
+      role.openings -= 1;
+      await updateDoc(doc(db, 'companies', this.companyId, 'roles', role.id), {
+        openings: role.openings,
+      });
+    }
+
+    await updateDoc(
+      doc(db, 'companies', this.companyId, 'employees', employee.id),
+      { hired: true }
+    );
+
+    this.hiredCount++;
+    employee.hired = true;
+
+    this.employees = this.employees.filter((e) => e.id !== employee.id);
+    this.applyRoleFilters();
   }
 
   private async ensureCurrentEmployeeSkillsLoaded(): Promise<void> {

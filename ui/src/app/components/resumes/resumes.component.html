@@ -31,9 +31,18 @@
   </div>
   <div class="bottom-container">
     <div class="bottom-bar">
-      <div class="role" *ngFor="let role of rolesWithOpenings">
-        {{ role.title }} ({{ role.openings }})
+      <div class="roles">
+        <div class="role" *ngFor="let role of rolesWithOpenings">
+          {{ role.title }} ({{ role.openings }})
+        </div>
       </div>
+      <button
+        class="auto-hire-button"
+        (click)="automateHiring()"
+        [disabled]="autoHiring || !rolesWithOpenings.length || !employees.length"
+      >
+        {{ autoHiring ? "Hiring top matches..." : "Automate Hiring" }}
+      </button>
     </div>
   </div>
 </div>

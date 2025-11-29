@@ -7,6 +7,7 @@
   color: var(--theme-text);
   min-height: calc(100vh - 40px);
   position: relative;
+  gap: 6px;
 
   h1 {
     font-size: min(3rem, 12vw);
@@ -79,6 +80,8 @@
     display: flex;
     width: 100%;
     margin-top: 20px;
+    flex-wrap: wrap;
+    gap: 8px;
 
     button {
       width: 150px;
@@ -115,21 +118,60 @@
     align-items: center;
     margin-top: auto;
     width: 100%;
+    gap: 12px;
 
     .bottom-bar {
       display: flex;
-      flex-direction: row;
-      width: fit-content;
-      color: white;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 10px 14px;
       border: 1.5px solid var(--theme-primary);
-      border-radius: 4px;
-      padding: 8px;
+      border-radius: 8px;
+      min-width: 260px;
       box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+      max-width: 960px;
+      background: rgba(255, 255, 255, 0.85);
 
-      .role {
-        margin-right: 16px;
-        font-size: 18px;
-        color: var(--theme-text);
+      .roles {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 12px;
+        align-items: center;
+
+        .role {
+          font-size: 0.95rem;
+          font-weight: 600;
+          color: var(--theme-text);
+          padding: 6px 10px;
+          border-radius: 6px;
+          background: rgba(0, 0, 0, 0.03);
+        }
+      }
+    }
+
+    .auto-hire-button {
+      padding: 0.75rem 0.75rem;
+      border-radius: 6px;
+      border: 1.5px solid var(--theme-accent);
+      background: var(--theme-accent);
+      color: white;
+      font-size: 1rem;
+      font-weight: 400;
+      cursor: pointer;
+      min-width: 170px;
+      transition: transform 0.1s ease, box-shadow 0.15s ease;
+
+      &:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        box-shadow: none;
       }
     }
   }

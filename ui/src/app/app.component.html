@@ -80,4 +80,10 @@
   </ion-content>
 
   <app-clock *ngIf="currentCompanyId && inboxEnabled" [companyId]="currentCompanyId"></app-clock>
+  <app-endgame-overlay
+    [active]="endgameActive"
+    [resetting]="endgameResetting"
+    [sidebarColor]="sidebarColor"
+    (reset)="handleEndgameReset()"
+  ></app-endgame-overlay>
 </ion-app>

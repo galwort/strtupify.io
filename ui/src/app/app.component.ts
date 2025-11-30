@@ -6,6 +6,8 @@ import { getFirestore, doc, getDoc, collection, getDocs, query, where, onSnapsho
 import { getAuth, onAuthStateChanged, Unsubscribe } from 'firebase/auth';
 import { UiStateService } from './services/ui-state.service';
 import { environment } from '../environments/environment';
+import { EndgameService } from './services/endgame.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-root',
@@ -29,7 +31,11 @@ export class AppComponent implements OnDestroy {
   showAccountButton = false;
   isHomeRoute = false;
   isAccountRoute = false;
+  endgameActive = false;
+  endgameResetting = false;
+  sidebarColor = 'var(--theme-primary)';
   private isAuthenticated = false;
+  private endgameSub: Subscription | null = null;
 
   private fbApp = initializeApp(environment.firebase);
   private db = getFirestore(this.fbApp);
@@ -46,7 +52,12 @@ export class AppComponent implements OnDestroy {
     } catch {}
   };
 
-  constructor(private router: Router, private ui: UiStateService, private cdr: ChangeDetectorRef) {
+  constructor(
+    private router: Router,
+    private ui: UiStateService,
+    private cdr: ChangeDetectorRef,
+    private endgame: EndgameService
+  ) {
     this.router.events.subscribe(() => {
       this.hideMenu = this.router.url === '/login' || this.router.url === '/register';
       this.updateCompanyContext();
@@ -84,6 +95,14 @@ export class AppComponent implements OnDestroy {
 
     this.ui.hrEnabled$.subscribe((enabled) => {
       this.hrEnabled = enabled;
+    });
+
+    this.endgameSub = this.endgame.state$.subscribe((state) => {
+      this.endgameActive = !!state.active;
+      if (!state.active) {
+        this.endgameResetting = false;
+      }
+      this.cdr.detectChanges();
     });
   }
 
@@ -187,6 +206,7 @@ export class AppComponent implements OnDestroy {
     const m = this.router.url.match(/\/company\/([^\/]+)/);
     const companyId = m ? m[1] : null;
     this.currentCompanyId = companyId;
+    this.endgame.setCompany(companyId || '');
     this.companyLogo = '';
     this.companyProfileEnabled = false;
     this.inboxEnabled = false;
@@ -262,11 +282,25 @@ export class AppComponent implements OnDestroy {
     } catch (e) {}
   }
 
+  async handleEndgameReset(): Promise<void> {
+    if (this.endgameResetting) return;
+    this.endgameResetting = true;
+    await this.endgame.completeResetFlow();
+    this.endgameResetting = false;
+    this.cdr.detectChanges();
+  }
+
   ngOnDestroy(): void {
     window.removeEventListener('company-logo-changed', this.logoChangedHandler as EventListener);
     if (this.authUnsub) {
       this.authUnsub();
       this.authUnsub = null;
+    }
+    if (this.endgameSub) {
+      try {
+        this.endgameSub.unsubscribe();
+      } catch {}
+      this.endgameSub = null;
     }
   }
 }

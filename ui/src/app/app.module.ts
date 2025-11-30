@@ -13,6 +13,7 @@ import { environment } from '../environments/environment';
 import { HttpClientModule } from '@angular/common/http';
 import { setLogLevel } from 'firebase/firestore';
 import { ClockComponent } from './components/clock/clock.component';
+import { EndgameOverlayComponent } from './components/endgame-overlay/endgame-overlay.component';
 
 @NgModule({
   declarations: [AppComponent],
@@ -25,6 +26,7 @@ import { ClockComponent } from './components/clock/clock.component';
     AngularFirestoreModule,
     HttpClientModule,
     ClockComponent,
+    EndgameOverlayComponent,
   ],
   providers: [{ provide: RouteReuseStrategy, useClass: IonicRouteStrategy }],
   bootstrap: [AppComponent],

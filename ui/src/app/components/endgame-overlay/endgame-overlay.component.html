@@ -1,0 +1,35 @@
+<div class="endgame-overlay" *ngIf="active">
+  <div class="bsod" [style.background]="sidebarColor">
+    <div class="content">
+      <div class="face">:(</div>
+      <div class="message">
+        <div class="headline">Your strtupify system ran into a problem and needs to restart.</div>
+        <div class="details">
+          We hit a fatal condition after finishing every task. We're collecting some crash info, and then we'll reboot for you.
+        </div>
+        <div class="details secondary">
+          If you want to dive back in sooner, you'll have to reset the system yourself. The button below may be uncooperative.
+        </div>
+      </div>
+
+      <div class="button-field">
+        <button
+          class="reset-btn"
+          [class.restless]="!lockedIn && !resetting"
+          [class.resetting]="resetting"
+          type="button"
+          [style.left.%]="btnLeft"
+          [style.top.%]="btnTop"
+          (mouseenter)="nudge()"
+          (focus)="nudge()"
+          (click)="clickReset()"
+        >
+          {{ resetting ? 'Resetting…' : 'Reset system' }}
+        </button>
+      </div>
+
+      <div class="hint" aria-live="polite">{{ hint }}</div>
+      <div class="footnote">Error code: WORKQUEUE_EMPTY</div>
+    </div>
+  </div>
+</div>

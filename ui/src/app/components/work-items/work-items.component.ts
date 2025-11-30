@@ -1,6 +1,7 @@
 import { Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { initializeApp, getApps } from 'firebase/app';
+import { Subscription } from 'rxjs';
 import {
   getFirestore,
   collection,
@@ -25,6 +26,7 @@ import {
   isBurnedOut,
   StressMetrics,
 } from '../../services/stress.service';
+import { EndgameService, EndgameStatus } from '../../services/endgame.service';
 
 type WorkItem = {
   id: string;
@@ -110,11 +112,18 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   private assistChanceTarget = 0.2;
   private assistTriggerById = new Map<string, number | null>();
   private assistTriggerPersisted = new Set<string>();
+  private endgameStatus: EndgameStatus = 'idle';
+  private endgameSub: Subscription | null = null;
 
-  constructor(private ui: UiStateService) {}
+  constructor(private ui: UiStateService, private endgame: EndgameService) {}
 
   ngOnInit(): void {
     if (!this.companyId) return;
+
+    this.endgame.setCompany(this.companyId);
+    this.endgameSub = this.endgame.state$.subscribe((state) => {
+      this.endgameStatus = state.status;
+    });
 
     const itemsRef = collection(db, `companies/${this.companyId}/workitems`);
     this.unsubItems = onSnapshot(itemsRef, (snap: QuerySnapshot<DocumentData>) => {
@@ -174,6 +183,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       this.partition();
       this.scheduleRateGeneration();
       this.recomputeStress();
+      this.checkEndgameCondition();
       void this.checkAssistanceNeeds();
     });
 
@@ -205,6 +215,12 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     if (this.unsubItems) this.unsubItems();
     if (this.unsubCompany) this.unsubCompany();
     if (this.intervalId) clearInterval(this.intervalId);
+    if (this.endgameSub) {
+      try {
+        this.endgameSub.unsubscribe();
+      } catch {}
+      this.endgameSub = null;
+    }
   }
 
   private partition() {
@@ -223,6 +239,16 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       if (!doingIds.has(id)) this.assistStartedSim.delete(id);
     }
     this.pruneAssistTracking();
+    this.checkEndgameCondition();
+  }
+
+  private checkEndgameCondition(): void {
+    if (!this.companyId) return;
+    if (this.endgameStatus === 'triggered' || this.endgameStatus === 'resolved') return;
+    if (!this.items.length) return;
+    const allDone = this.items.every((it) => (it.status || '').toLowerCase() === 'done');
+    if (!allDone) return;
+    void this.endgame.triggerEndgame('all-workitems-complete', this.simTime);
   }
 
   private parseAssistTrigger(value: any): number | null | undefined {

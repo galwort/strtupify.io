@@ -16,4 +16,5 @@ export class FundingDecisionComponent {
   @Output() editApplication = new EventEmitter<void>();
   @Output() newApplication = new EventEmitter<void>();
   @Output() acceptLoan = new EventEmitter<void>();
+  @Output() generateHighPotential = new EventEmitter<void>();
 }

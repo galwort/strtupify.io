@@ -35,6 +35,7 @@ export class ApplicationPage implements OnInit {
   logoValue: string = '';
   fundingDecision: { approved: boolean; amount: number; grace_period_days: number; first_payment: number } | null = null;
   private pendingRoles: string[] = [];
+  private originalApplicationText: string = '';
 
   constructor(
     private http: HttpClient,
@@ -61,6 +62,12 @@ export class ApplicationPage implements OnInit {
     }
 
     try {
+      const baseDescription = (this.companyDescription || '').trim();
+      const normalizedBase = baseDescription.replace(/^Using the power of AI,\s*/i, '').trim();
+      if (!this.originalApplicationText) {
+        this.originalApplicationText = normalizedBase || baseDescription;
+      }
+
       const logoUrl = 'https://fa-strtupifyio.azurewebsites.net/api/logo';
       const logoBody = { input: this.companyDescription };
       const logoResponse = await firstValueFrom(this.http.post(logoUrl, logoBody, { responseType: 'text' as 'json' }));
@@ -127,6 +134,17 @@ export class ApplicationPage implements OnInit {
     this.fundingDecision = null;
     this.showDecision = false;
     this.pendingRoles = [];
+    this.originalApplicationText = '';
+  }
+
+  generateHighPotential() {
+    const base = (this.originalApplicationText || this.companyDescription || '')
+      .replace(/^Using the power of AI,\s*/i, '')
+      .trim();
+    const highPotential = base ? `Using the power of AI, ${base}` : 'Using the power of AI';
+    this.companyDescription = highPotential;
+    this.showDecision = false;
+    this.fundingDecision = null;
   }
 
   async acceptLoan() {

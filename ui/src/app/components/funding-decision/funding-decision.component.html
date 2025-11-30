@@ -7,27 +7,45 @@
   </div>
 
   <div class="status approved" *ngIf="decision?.approved">Loan Approved</div>
-  <div class="status rejected" *ngIf="decision && !decision.approved">Loan Rejected</div>
+  <div class="status rejected" *ngIf="decision && !decision.approved">
+    Loan Rejected
+  </div>
 
   <div class="details" *ngIf="decision?.approved">
     <p>
-      Amount: <b>{{ decision?.amount | currency: 'USD':'symbol' }}</b>
+      Amount: <b>{{ decision?.amount | currency : "USD" : "symbol" }}</b>
     </p>
     <p>
       Grace Period: <b>{{ decision?.grace_period_days }} days</b>
     </p>
     <p>
-      First Payment: <b>{{ decision?.first_payment | currency: 'USD':'symbol' }}</b>
+      First Payment:
+      <b>{{ decision?.first_payment | currency : "USD" : "symbol" }}</b>
     </p>
   </div>
 
   <div class="button-container" *ngIf="decision && !decision.approved">
-    <button type="button" (click)="editApplication.emit()">Edit Application</button>
-    <button type="button" (click)="newApplication.emit()">Start New Application</button>
+    <button type="button" (click)="editApplication.emit()">
+      Edit Application
+    </button>
+    <button type="button" (click)="newApplication.emit()">
+      Start New Application
+    </button>
+    <button
+      class="ai-button"
+      type="button"
+      (click)="generateHighPotential.emit()"
+    >
+      Generate High-Impact Idea with AI
+    </button>
   </div>
 
   <div class="button-container" *ngIf="decision?.approved">
-    <button class="accept-button" type="button" (click)="acceptLoan.emit()">Accept Loan</button>
-    <button type="button" (click)="newApplication.emit()">Start New Application</button>
+    <button class="accept-button" type="button" (click)="acceptLoan.emit()">
+      Accept Loan
+    </button>
+    <button type="button" (click)="newApplication.emit()">
+      Start New Application
+    </button>
   </div>
 </div>

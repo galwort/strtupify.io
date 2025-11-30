@@ -3,9 +3,16 @@
   <p>Indicate the number of employees you need for each role</p>
 </div>
 <div class="content">
-  <div *ngFor="let role of roles" class="role">
+  <div *ngFor="let role of roles" class="role" [class.custom]="role.isCustom">
     <div class="qty">
-      <button class="step" type="button" (click)="step(role, -1)" [disabled]="role.count <= 0">-</button>
+      <button
+        class="step"
+        type="button"
+        (click)="step(role, -1)"
+        [disabled]="role.count <= 0"
+      >
+        -
+      </button>
       <input
         type="number"
         inputmode="numeric"
@@ -16,9 +23,47 @@
         (ngModelChange)="onCountChange(role, $event)"
         (keydown)="preventNonNumeric($event)"
       />
-      <button class="step" type="button" (click)="step(role, 1)" [disabled]="remainingFor(role) <= 0">+</button>
+      <button
+        class="step"
+        type="button"
+        (click)="step(role, 1)"
+        [disabled]="remainingFor(role) <= 0"
+      >
+        +
+      </button>
     </div>
-    <label>{{ role.title }}</label>
+    <label *ngIf="!role.isCustom">{{ role.title }}</label>
+    <div class="custom-fields" *ngIf="role.isCustom">
+      <input
+        class="custom-input"
+        type="text"
+        placeholder="Enter custom role title"
+        [(ngModel)]="role.title"
+        [class.invalid]="role.count > 0 && !role.title?.trim()"
+      />
+      <div class="custom-actions">
+        <button
+          class="link-button"
+          type="button"
+          (click)="removeCustomRole(role)"
+        >
+          Remove
+        </button>
+      </div>
+      <div class="error" *ngIf="role.count > 0 && !role.title?.trim()">
+        Add a title to continue.
+      </div>
+    </div>
   </div>
-  <button (click)="screen()">Begin Resumé Screening</button>
+  <button type="button" class="add-custom" (click)="addCustomRole()">
+    + Add custom role
+  </button>
+  <button
+    type="button"
+    class="primary"
+    (click)="screen()"
+    [disabled]="hasCustomSelectionError"
+  >
+    Begin Resumé Screening
+  </button>
 </div>

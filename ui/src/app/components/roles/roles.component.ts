@@ -6,7 +6,6 @@ import {
   collection,
   getDocs,
   doc,
-  updateDoc,
   setDoc,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
@@ -16,6 +15,14 @@ import { FormsModule } from '@angular/forms';
 
 export const app = initializeApp(environment.firebase);
 export const db = getFirestore(app);
+
+type RoleEntry = {
+  id: string;
+  title: string;
+  count: number;
+  skills?: string[];
+  isCustom?: boolean;
+};
 
 function generateResumeCount(openings: number, cap: number = 20): number {
   const maxMultiplier = 1.5 + (2.5 - 2.5 * (openings / cap));
@@ -38,9 +45,10 @@ export class RolesComponent implements OnInit {
     completedTasks: number;
     showResumes: boolean;
   }>();
-  roles: { id: string; title: string; count: number; skills?: string[] }[] = [];
+  roles: RoleEntry[] = [];
   companyId: string = '';
   minTotal = 2;
+  private customRoleCounter = 0;
 
   constructor(
     private route: ActivatedRoute,
@@ -70,6 +78,15 @@ export class RolesComponent implements OnInit {
     );
   }
 
+  get hasCustomSelectionError(): boolean {
+    return this.roles.some(
+      (role) =>
+        role.isCustom &&
+        role.count > 0 &&
+        (!role.title || role.title.trim().length === 0)
+    );
+  }
+
   async fetchSkills(jobTitle: string): Promise<string[]> {
     const response = await fetch(
       'https://fa-strtupifyio.azurewebsites.net/api/skills',
@@ -85,6 +102,10 @@ export class RolesComponent implements OnInit {
 
   async screen() {
     if (!this.companyId) return;
+    if (this.hasCustomSelectionError) {
+      await this.presentCustomTitleAlert();
+      return;
+    }
     if (this.totalSelected < this.minTotal) {
       await this.presentMinAlert();
       return;
@@ -104,6 +125,7 @@ export class RolesComponent implements OnInit {
     });
     const timestamp = new Date().toISOString();
     for (const role of filtered) {
+      role.title = (role.title || '').trim();
       await this.delayStep(async () => {
         role.skills = await this.fetchSkills(role.title);
       });
@@ -182,7 +204,7 @@ export class RolesComponent implements OnInit {
 
   maxTotal = 20;
 
-  onCountChange(role: { count: number }, value: any) {
+  onCountChange(role: RoleEntry, value: any) {
     const n = Math.floor(Number(value));
     const safe = Number.isFinite(n) && n > 0 ? n : 0;
     const otherTotal = this.roles.reduce(
@@ -194,6 +216,23 @@ export class RolesComponent implements OnInit {
     role.count = Math.min(safe, allowed);
   }
 
+  addCustomRole() {
+    this.customRoleCounter += 1;
+    this.roles = [
+      ...this.roles,
+      {
+        id: `custom-${Date.now()}-${this.customRoleCounter}`,
+        title: '',
+        count: 0,
+        isCustom: true,
+      },
+    ];
+  }
+
+  removeCustomRole(role: RoleEntry) {
+    this.roles = this.roles.filter((r) => r !== role);
+  }
+
   preventNonNumeric(event: KeyboardEvent) {
     const invalidKeys = ['-', '+', 'e', 'E', '.'];
     if (invalidKeys.includes(event.key)) {
@@ -201,7 +240,7 @@ export class RolesComponent implements OnInit {
     }
   }
 
-  remainingFor(role: { count: number }) {
+  remainingFor(role: RoleEntry) {
     const otherTotal = this.roles.reduce(
       (sum, r) =>
         sum + (r === role ? 0 : Math.max(0, Math.floor(Number(r.count) || 0))),
@@ -210,7 +249,7 @@ export class RolesComponent implements OnInit {
     return Math.max(0, this.maxTotal - otherTotal);
   }
 
-  step(role: { count: number }, delta: number) {
+  step(role: RoleEntry, delta: number) {
     if (delta > 0) {
       const allowed = this.remainingFor(role);
       if (allowed <= 0) return;
@@ -227,6 +266,15 @@ export class RolesComponent implements OnInit {
     const alert = await this.alertCtrl.create({
       header: 'More resources needed',
       message: `Select at least ${this.minTotal} employees to continue.`,
+      buttons: ['OK'],
+    });
+    await alert.present();
+  }
+
+  private async presentCustomTitleAlert() {
+    const alert = await this.alertCtrl.create({
+      header: 'Add a title',
+      message: 'Please add a job title for each custom role with selected openings.',
       buttons: ['OK'],
     });
     await alert.present();

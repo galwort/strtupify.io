@@ -197,9 +197,8 @@ def evaluate_product_success(
         )
         data = loads(response.choices[0].message.content)
 
-        status = str(data.get("status", "steady")).lower()
-        if status not in ["success", "steady", "struggling"]:
-            status = "steady"
+        status_raw = str(data.get("status", "failure")).lower()
+        status = "success" if status_raw == "success" else "failure"
 
         try:
             estimated_revenue = float(data.get("estimated_revenue", 0))
@@ -214,9 +213,9 @@ def evaluate_product_success(
         }
     except Exception:
         return {
-            "status": "steady",
+            "status": "failure",
             "estimated_revenue": 0.0,
-            "summary": "We kept the product alive and learned a lot while you were away.",
+            "summary": "We kept the product alive but failed due to lack of leadership.",
         }
 
 

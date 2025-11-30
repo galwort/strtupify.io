@@ -122,7 +122,7 @@
 
     .bottom-bar {
       display: flex;
-      justify-content: flex-start;
+      justify-content: center;
       align-items: center;
       gap: 12px;
       flex-wrap: wrap;
@@ -139,6 +139,7 @@
         flex-wrap: wrap;
         gap: 8px 12px;
         align-items: center;
+        justify-content: center;
 
         .role {
           font-size: 0.95rem;

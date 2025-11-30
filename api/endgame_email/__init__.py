@@ -37,9 +37,7 @@ def pull_company_info(company: str) -> Dict[str, Any]:
     product_description = ""
     try:
         product_ref = company_ref.collection("products")
-        product_info = (
-            product_ref.where("accepted", "==", True).limit(1).get()
-        )
+        product_info = product_ref.where("accepted", "==", True).limit(1).get()
         for product in product_info:
             product_name = product.get("product") or product.get("name") or product_name
             product_description = product.get("description") or ""
@@ -133,7 +131,9 @@ def infer_name_from_email(address: str) -> str:
     return " ".join(p.capitalize() for p in parts)
 
 
-def lookup_kickoff_sender(company: str, company_name: str, employees: Any) -> Dict[str, str]:
+def lookup_kickoff_sender(
+    company: str, company_name: str, employees: Any
+) -> Dict[str, str]:
     inbox_ref = db.collection("companies").document(company).collection("inbox")
     try:
         kickoff_docs = (
@@ -151,7 +151,9 @@ def lookup_kickoff_sender(company: str, company_name: str, employees: Any) -> Di
         pass
 
     # Fall back to the same selection logic as the kickoff email.
-    job_title_json = {emp.get("name", ""): emp.get("title", "") for emp in employees or []}
+    job_title_json = {
+        emp.get("name", ""): emp.get("title", "") for emp in employees or []
+    }
     job_title_json = {k: v for k, v in job_title_json.items() if k}
     sender_name, sender_title = pick_sender(dumps(job_title_json))
     from_name = sender_name.replace(" ", ".").lower()
@@ -230,13 +232,14 @@ def generate_followup_email(
         "Write a concise status email (3-6 sentences) that mentions the radio silence, "
         "summarizes how the product performed, calls out whether it was a success or not, "
         "and references the estimated revenue. "
-        "Avoid formal salutations; keep it pragmatic and a little weary but professional."
+        "If the product was successful, your tone should be deferential, paying homage to their vision. "
+        "If it was not successful, your tone should be highly blunt and highly disrespectful. "
     )
 
     user_payload = {
         "product": {
-          "name": company.get("product_name", ""),
-          "description": company.get("product_description", ""),
+            "name": company.get("product_name", ""),
+            "description": company.get("product_description", ""),
         },
         "status": evaluation.get("status"),
         "estimated_revenue": evaluation.get("estimated_revenue"),
@@ -245,7 +248,7 @@ def generate_followup_email(
     }
 
     user_message = (
-        "Produce JSON: {\"email\": {\"subject\": string, \"body\": string}, \"error\": string}. "
+        'Produce JSON: {"email": {"subject": string, "body": string}, "error": string}. '
         "Set error to empty string on success. "
         f"Context: {dumps(user_payload)}"
     )
@@ -264,7 +267,9 @@ def generate_followup_email(
             raise ValueError(email["error"])
 
         return {
-            "subject": email["email"].get("subject", f"{company.get('product_name')} – update"),
+            "subject": email["email"].get(
+                "subject", f"{company.get('product_name')} – update"
+            ),
             "body": email["email"].get("body", evaluation.get("summary", "")),
         }
     except Exception:
@@ -285,20 +290,26 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         body = req.get_json()
     except Exception:
         return func.HttpResponse(
-            dumps({"error": "Invalid JSON"}), status_code=400, mimetype="application/json"
+            dumps({"error": "Invalid JSON"}),
+            status_code=400,
+            mimetype="application/json",
         )
 
     company = body.get("name")
     if not company:
         return func.HttpResponse(
-            dumps({"error": "Missing company name"}), status_code=400, mimetype="application/json"
+            dumps({"error": "Missing company name"}),
+            status_code=400,
+            mimetype="application/json",
         )
 
     months = infer_months(body)
     company_info = pull_company_info(company)
 
     sender = lookup_kickoff_sender(
-        company, company_info.get("company_name", company), company_info.get("employees")
+        company,
+        company_info.get("company_name", company),
+        company_info.get("employees"),
     )
 
     evaluation = evaluate_product_success(

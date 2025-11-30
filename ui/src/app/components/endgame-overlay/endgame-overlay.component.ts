@@ -21,9 +21,7 @@ export class EndgameOverlayComponent {
 
   get hint(): string {
     if (this.resetting) return 'Rebooting the strtupify kernel...';
-    if (this.lockedIn) return 'Okay, fine. You can click it now.';
-    if (this.hoverCount >= 3) return 'It keeps scooting, but it will tire out soon.';
-    return 'Move the mouse carefully or it will try to dodge you.';
+    return 'Tap reset to get back to work.';
   }
 
   nudge(): void {

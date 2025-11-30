@@ -20,6 +20,7 @@ import {
   runTransaction,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
+import { EndgameService, EndgameStatus } from '../../services/endgame.service';
 
 const fbApp = getApps().length
   ? getApps()[0]
@@ -186,16 +187,25 @@ export class InboxComponent implements OnInit, OnDestroy {
   meAddress = '';
   showSent = false;
   private inboxSub: Subscription | null = null;
+  private endgameStatus: EndgameStatus = 'idle';
+  private endgameSub: Subscription | null = null;
 
   constructor(
     private route: ActivatedRoute,
     private inboxService: InboxService,
     private http: HttpClient,
-    private replyRouter: ReplyRouterService
+    private replyRouter: ReplyRouterService,
+    private endgame: EndgameService
   ) {}
 
   async ngOnInit(): Promise<void> {
     if (!this.companyId) return;
+
+    this.endgame.setCompany(this.companyId);
+    this.endgameSub = this.endgame.state$.subscribe((s) => {
+      this.endgameStatus = s.status;
+      this.updateInboxView(this.allEmails);
+    });
 
     await this.loadClockState();
     {
@@ -229,6 +239,11 @@ export class InboxComponent implements OnInit, OnDestroy {
     if (this.inboxSub) {
       try {
         this.inboxSub.unsubscribe();
+      } catch {}
+    }
+    if (this.endgameSub) {
+      try {
+        this.endgameSub.unsubscribe();
       } catch {}
     }
     this.suppressedIds.clear();
@@ -894,11 +909,30 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   private filteredEmails(emails: Email[]): Email[] {
-    if (this.showDeleted) return emails.filter((e) => !!e.deleted);
-    const byInbox = emails.filter((e) => !e.deleted);
-    if (this.showSent)
-      return byInbox.filter((e) => (e as any).sender === this.meAddress);
-    return byInbox.filter((e) => (e as any).sender !== this.meAddress);
+    const endgameEngaged = this.endgameStatus !== 'idle';
+    const allowEndgameEmail = (e: Email): boolean => {
+      const category = ((e as any).category || '').toLowerCase();
+      const id = String(e.id || '');
+      if (id.startsWith('vlad-reset-')) return true;
+      if (category === 'kickoff-outcome') return true;
+      return false;
+    };
+
+    let base = emails;
+    if (this.showDeleted) base = base.filter((e) => !!e.deleted);
+    else base = base.filter((e) => !e.deleted);
+
+    if (this.showSent) {
+      base = base.filter((e) => (e as any).sender === this.meAddress);
+    } else {
+      base = base.filter((e) => (e as any).sender !== this.meAddress);
+    }
+
+    if (endgameEngaged) {
+      base = base.filter((e) => allowEndgameEmail(e));
+    }
+
+    return base;
   }
 
   private nextSelectableId(currentId: string | null, list: Email[]): string | null {

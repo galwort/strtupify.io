@@ -3,18 +3,16 @@
     <div class="content">
       <div class="face">:(</div>
       <div class="message">
-        <div class="headline">Your strtupify system ran into a problem and needs to restart.</div>
-        <div class="details">
-          We hit a fatal condition after finishing every task. We're collecting some crash info, and then we'll reboot for you.
-        </div>
-        <div class="details secondary">
-          If you want to dive back in sooner, you'll have to reset the system yourself. The button below may be uncooperative.
+        <div class="headline">
+          Your strtupify system ran into a problem and needs to restart. We're
+          collecting some crash info, and then we'll reboot for you. You're
+          welcome :)
         </div>
       </div>
-
       <div class="button-field">
         <button
           class="reset-btn"
+          6t
           [class.restless]="!lockedIn && !resetting"
           [class.resetting]="resetting"
           type="button"
@@ -24,10 +22,9 @@
           (focus)="nudge()"
           (click)="clickReset()"
         >
-          {{ resetting ? 'Resetting…' : 'Reset system' }}
+          {{ resetting ? "Resetting…" : "Reset system" }}
         </button>
       </div>
-
       <div class="hint" aria-live="polite">{{ hint }}</div>
       <div class="footnote">Error code: WORKQUEUE_EMPTY</div>
     </div>

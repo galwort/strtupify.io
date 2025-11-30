@@ -101,9 +101,22 @@ export class ReplyRouterService {
       const replyText = await this.getReplyBody(opts.companyId, opts.parentId);
       if (!replyText) return;
 
-      const parentSnap = await getDoc(doc(db, `companies/${opts.companyId}/inbox/${opts.parentId}`));
-      if (!parentSnap.exists()) return;
-      const parent = (parentSnap.data() as any) || {};
+      const replySnap = await getDoc(doc(db, `companies/${opts.companyId}/inbox/${opts.parentId}`));
+      if (!replySnap.exists()) return;
+      const replyDoc = (replySnap.data() as any) || {};
+
+      // For replies, the work item metadata lives on the original assist email, not the reply doc.
+      // Try to resolve the original parent message if the reply has a parentId.
+      let parent = replyDoc;
+      if ((!parent.workitemId && !parent.workitem_id) && replyDoc.parentId) {
+        try {
+          const origSnap = await getDoc(doc(db, `companies/${opts.companyId}/inbox/${replyDoc.parentId}`));
+          if (origSnap.exists()) {
+            parent = (origSnap.data() as any) || {};
+          }
+        } catch {}
+      }
+
       const workitemId = String(parent.workitemId || parent.workitem_id || '').trim();
       if (!workitemId) return;
 

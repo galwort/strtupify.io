@@ -143,11 +143,17 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
 
     const pageVerticalPadding = 40; 
     const gridGaps = bottom ? 40 : 20; 
+    const safetyPadding = 12;
 
     const viewport = window.innerHeight || document.documentElement.clientHeight;
     const available = Math.max(
       0,
-      viewport - pageVerticalPadding - header.offsetHeight - (bottom?.offsetHeight ?? 0) - gridGaps
+      viewport -
+        pageVerticalPadding -
+        header.offsetHeight -
+        (bottom?.offsetHeight ?? 0) -
+        gridGaps -
+        safetyPadding
     );
 
     scroll.style.maxHeight = `${available}px`;

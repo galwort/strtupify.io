@@ -229,6 +229,8 @@ def generate_followup_email(
     system_message = (
         f"You are {sender.get('name')} ({sender.get('title')}) writing to the founder of {company.get('company_name')}. "
         f"They have been unreachable for about {months} months. "
+        "You don't know the founder's name, so just avoid using it. "
+        "Do not use any kind of template like 'Dear [Name]' or 'To whom it may concern'. "
         "Write a concise status email (3-6 sentences) that mentions the radio silence, "
         "summarizes how the product performed, calls out whether it was a success or not, "
         "and references the estimated revenue. "

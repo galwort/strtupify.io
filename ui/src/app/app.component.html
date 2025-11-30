@@ -79,7 +79,7 @@
     <ion-router-outlet id="main-content"></ion-router-outlet>
   </ion-content>
 
-  <app-clock *ngIf="currentCompanyId && inboxEnabled" [companyId]="currentCompanyId"></app-clock>
+  <app-clock *ngIf="currentCompanyId && inboxEnabled && !endgameActive" [companyId]="currentCompanyId"></app-clock>
   <app-endgame-overlay
     [active]="endgameActive"
     [resetting]="endgameResetting"

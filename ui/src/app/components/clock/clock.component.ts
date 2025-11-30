@@ -1,4 +1,10 @@
-﻿import { Component, Input, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
+﻿import {
+  Component,
+  Input,
+  OnChanges,
+  OnDestroy,
+  SimpleChanges,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { initializeApp, getApps } from 'firebase/app';
 import {
@@ -13,9 +19,14 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
-import { getStressMultiplier, isBurnedOut } from '../../services/stress.service';
+import {
+  getStressMultiplier,
+  isBurnedOut,
+} from '../../services/stress.service';
 
-const fbApp = getApps().length ? getApps()[0] : initializeApp(environment.firebase);
+const fbApp = getApps().length
+  ? getApps()[0]
+  : initializeApp(environment.firebase);
 const db = getFirestore(fbApp);
 
 @Component({
@@ -31,7 +42,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
   displayDate = '';
   displayTime = '';
 
-  private readonly speedBoost = 2;
+  private readonly speedBoost = 10; // TESTING: reset to 3
   private readonly speedMultiplier = 10;
   private readonly baseSpeed = this.speedMultiplier;
   private readonly minSpeed = 1;
@@ -138,37 +149,48 @@ export class ClockComponent implements OnChanges, OnDestroy {
       }
     });
 
-
     const itemsRef = collection(db, `companies/${this.companyId}/workitems`);
-    this.unsubItems = onColSnapshot(itemsRef, (snap: QuerySnapshot<DocumentData>) => {
-      this.items = snap.docs.map((d) => {
-        const x = d.data() as any;
-        return {
-          id: d.id,
-          status: String(x.status || ''),
-          started_at: Number(x.started_at || 0),
-          estimated_hours: Number(x.estimated_hours || 0),
-          assignee_id: String(x.assignee_id || ''),
-          worked_ms: Number(x.worked_ms || 0),
-        };
-      });
+    this.unsubItems = onColSnapshot(
+      itemsRef,
+      (snap: QuerySnapshot<DocumentData>) => {
+        this.items = snap.docs.map((d) => {
+          const x = d.data() as any;
+          return {
+            id: d.id,
+            status: String(x.status || ''),
+            started_at: Number(x.started_at || 0),
+            estimated_hours: Number(x.estimated_hours || 0),
+            assignee_id: String(x.assignee_id || ''),
+            worked_ms: Number(x.worked_ms || 0),
+          };
+        });
 
-      this.completedIds.clear();
+        this.completedIds.clear();
 
-      this.checkAutoComplete();
-    });
+        this.checkAutoComplete();
+      }
+    );
 
-    const employeesRef = collection(db, `companies/${this.companyId}/employees`);
-    this.unsubEmployees = onColSnapshot(employeesRef, (snap: QuerySnapshot<DocumentData>) => {
-      this.employeeStress.clear();
-      snap.docs.forEach((d) => {
-        const data = (d.data() as any) || {};
-        const stress = Number(data.stress || 0);
-        const status: 'Active' | 'Burnout' = String(data.status || 'Active') === 'Burnout' ? 'Burnout' : 'Active';
-        const multiplier = getStressMultiplier(stress, status);
-        this.employeeStress.set(d.id, { stress, status, multiplier });
-      });
-    });
+    const employeesRef = collection(
+      db,
+      `companies/${this.companyId}/employees`
+    );
+    this.unsubEmployees = onColSnapshot(
+      employeesRef,
+      (snap: QuerySnapshot<DocumentData>) => {
+        this.employeeStress.clear();
+        snap.docs.forEach((d) => {
+          const data = (d.data() as any) || {};
+          const stress = Number(data.stress || 0);
+          const status: 'Active' | 'Burnout' =
+            String(data.status || 'Active') === 'Burnout'
+              ? 'Burnout'
+              : 'Active';
+          const multiplier = getStressMultiplier(stress, status);
+          this.employeeStress.set(d.id, { stress, status, multiplier });
+        });
+      }
+    );
   }
 
   private startClock(): void {
@@ -303,7 +325,10 @@ export class ClockComponent implements OnChanges, OnDestroy {
 
   private computeDisplayDuration(deltaMs: number): number {
     const scaled = deltaMs / 5000;
-    return Math.min(this.maxDisplayAnimMs, Math.max(this.minDisplayAnimMs, scaled));
+    return Math.min(
+      this.maxDisplayAnimMs,
+      Math.max(this.minDisplayAnimMs, scaled)
+    );
   }
 
   private applyDisplay(): void {
@@ -328,9 +353,11 @@ export class ClockComponent implements OnChanges, OnDestroy {
       if (pct >= 100 && !this.completedIds.has(it.id)) {
         this.completedIds.add(it.id);
         const ref = doc(db, `companies/${this.companyId}/workitems/${it.id}`);
-        updateDoc(ref, { status: 'done', completed_at: this.simTime }).catch(() => {
-          this.completedIds.delete(it.id);
-        });
+        updateDoc(ref, { status: 'done', completed_at: this.simTime }).catch(
+          () => {
+            this.completedIds.delete(it.id);
+          }
+        );
       }
     }
   }
@@ -349,7 +376,9 @@ export class ClockComponent implements OnChanges, OnDestroy {
       totalWorkedMs += Math.max(0, this.simTime - startedAt);
     }
     const hours = totalWorkedMs / 3_600_000;
-    const emp = it.assignee_id ? this.employeeStress.get(it.assignee_id) : undefined;
+    const emp = it.assignee_id
+      ? this.employeeStress.get(it.assignee_id)
+      : undefined;
     if (emp && isBurnedOut(emp.status)) return 0;
     const multiplier = emp ? emp.multiplier : 1;
     const needed = it.estimated_hours * multiplier;
@@ -363,11 +392,13 @@ export class ClockComponent implements OnChanges, OnDestroy {
   }
 
   private randomInt(minInclusive: number, maxInclusive: number): number {
-    return Math.floor(Math.random() * (maxInclusive - minInclusive + 1)) + minInclusive;
+    return (
+      Math.floor(Math.random() * (maxInclusive - minInclusive + 1)) +
+      minInclusive
+    );
   }
 
   private clampSpeed(value: number): number {
     return Math.min(this.maxSpeed, Math.max(this.minSpeed, value));
   }
 }
-

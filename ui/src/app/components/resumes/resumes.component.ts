@@ -54,6 +54,9 @@ export class ResumesComponent implements OnInit {
   private doneEmitted = false;
   private hiredCount = 0;
   autoHiring = false;
+  private roleDisplaySnapshot: Role[] = [];
+  private frozenEmployee: Employee | null = null;
+  private freezeDisplay = false;
 
   constructor(private router: Router) {}
 
@@ -97,12 +100,28 @@ export class ResumesComponent implements OnInit {
     return this.roles.filter((r) => r.openings > 0);
   }
 
+  get visibleRoles() {
+    return this.roleDisplaySnapshot.length
+      ? this.roleDisplaySnapshot
+      : this.rolesWithOpenings;
+  }
+
+  get roleSelectionEnabled() {
+    return !this.autoHiring && this.visibleRoles.length > 1;
+  }
+
   get currentEmployee() {
     return this.employees[this.currentIndex];
   }
 
-  get currentEmployeeSkills() {
-    return this.currentEmployee ? this.currentEmployee.skills : [];
+  get displayedEmployee() {
+    if ((this.autoHiring || this.freezeDisplay) && this.frozenEmployee)
+      return this.frozenEmployee;
+    return this.currentEmployee;
+  }
+
+  get displayedEmployeeSkills() {
+    return this.displayedEmployee ? this.displayedEmployee.skills : [];
   }
 
   async hireEmployee() {
@@ -123,6 +142,10 @@ export class ResumesComponent implements OnInit {
     )
       return;
     this.autoHiring = true;
+    this.freezeDisplay = true;
+    await this.ensureCurrentEmployeeSkillsLoaded();
+    this.freezeCurrentResume();
+    this.roleDisplaySnapshot = this.rolesWithOpenings.map((r) => ({ ...r }));
     try {
       const available: Employee[] = [...this.employees];
       for (const role of this.roles.filter((r) => r.openings > 0)) {
@@ -138,7 +161,21 @@ export class ResumesComponent implements OnInit {
       this.autoHiring = false;
       if (this.currentIndex >= this.employees.length)
         this.currentIndex = Math.max(0, this.employees.length - 1);
-      this.checkComplete();
+      const finished = this.checkComplete();
+      if (!finished) {
+        this.roleDisplaySnapshot = [];
+        this.freezeDisplay = false;
+        this.frozenEmployee = null;
+      }
+      await this.ensureCurrentEmployeeSkillsLoaded();
+    }
+  }
+
+  async selectRole(roleTitle: string) {
+    if (!this.roleSelectionEnabled) return;
+    const idx = this.employees.findIndex((e) => e.title === roleTitle);
+    if (idx >= 0 && idx !== this.currentIndex) {
+      this.currentIndex = idx;
       await this.ensureCurrentEmployeeSkillsLoaded();
     }
   }
@@ -154,13 +191,25 @@ export class ResumesComponent implements OnInit {
     if (this.employees.length === 0) this.currentIndex = 0;
   }
 
-  private checkComplete() {
+  private checkComplete(): boolean {
     const stillNeeded = this.roles.some((r) => r.openings > 0);
     const enoughHires = this.hiredCount >= 2;
-    if (!stillNeeded && enoughHires && !this.doneEmitted) {
+    const finished = !stillNeeded && enoughHires;
+    if (finished && !this.doneEmitted) {
       this.doneEmitted = true;
       this.hiringFinished.emit();
     }
+    return finished;
+  }
+
+  private freezeCurrentResume() {
+    const src = this.currentEmployee;
+    if (!src) {
+      this.frozenEmployee = null;
+      return;
+    }
+    const clonedSkills = (src.skills || []).map((s) => ({ ...s }));
+    this.frozenEmployee = { ...src, skills: clonedSkills };
   }
 
   private buildSkillMap(employee: Employee): Map<string, number> {

@@ -1,9 +1,9 @@
-<div *ngIf="currentEmployee" class="resume-container">
-  <h1>{{ currentEmployee.name }}</h1>
-  <h2>{{ currentEmployee.title }}</h2>
-  <p>{{ currentEmployee.personality }}</p>
+<div *ngIf="displayedEmployee" class="resume-container">
+  <h1>{{ displayedEmployee.name }}</h1>
+  <h2>{{ displayedEmployee.title }}</h2>
+  <p>{{ displayedEmployee.personality }}</p>
   <ul>
-    <li *ngFor="let skill of currentEmployeeSkills">
+    <li *ngFor="let skill of displayedEmployeeSkills">
       <span class="skill-name">{{ skill.skill }}</span>
       <div class="progress-bar">
         <div
@@ -15,16 +15,18 @@
     </li>
   </ul>
   <h3>
-    Salary: {{ currentEmployee.salary | currency : "USD" : "symbol" : "1.0-0" }}
+    Salary: {{
+      displayedEmployee.salary | currency : "USD" : "symbol" : "1.0-0"
+    }}
   </h3>
   <div class="button-container">
-    <button class="hire-button" (click)="hireEmployee()">Hire</button>
-    <button (click)="prevResume()" [disabled]="currentIndex === 0">
+    <button class="hire-button" (click)="hireEmployee()" [disabled]="autoHiring">Hire</button>
+    <button (click)="prevResume()" [disabled]="currentIndex === 0 || autoHiring">
       Previous
     </button>
     <button
       (click)="nextResume()"
-      [disabled]="currentIndex === employees.length - 1"
+      [disabled]="currentIndex === employees.length - 1 || autoHiring"
     >
       Next
     </button>
@@ -32,16 +34,25 @@
   <div class="bottom-container">
     <div class="bottom-bar">
       <div class="roles">
-        <div class="role" *ngFor="let role of rolesWithOpenings">
+        <div
+          class="role"
+          *ngFor="let role of visibleRoles"
+          [class.clickable]="roleSelectionEnabled"
+          (click)="selectRole(role.title)"
+        >
           {{ role.title }} ({{ role.openings }})
         </div>
       </div>
       <button
         class="auto-hire-button"
         (click)="automateHiring()"
-        [disabled]="autoHiring || !rolesWithOpenings.length || !employees.length"
+        [disabled]="
+          autoHiring || !rolesWithOpenings.length || !employees.length
+        "
       >
-        {{ autoHiring ? "Hiring top matches..." : "Automate Hiring" }}
+        {{
+          autoHiring ? "Automating Hiring..." : "Automate Hiring Powered by AI"
+        }}
       </button>
     </div>
   </div>

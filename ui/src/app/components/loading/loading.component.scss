@@ -26,3 +26,9 @@
   background-color: var(--theme-primary);
   transition: width 0.3s ease;
 }
+
+.status-text {
+  margin-top: 12px;
+  opacity: 0.75;
+  color: var(--theme-text);
+}

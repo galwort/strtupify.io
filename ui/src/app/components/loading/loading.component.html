@@ -1,12 +1,13 @@
 <div class="loading-container" *ngIf="totalTasks > 0; else basicLoading">
-  <div>{{ (completedTasks / totalTasks) * 100 | number : "1.0-0" }}%</div>
+  <div>{{ progressPercent | number : "1.0-0" }}%</div>
   <div class="progress-bar">
     <div
       class="progress-bar-fill"
-      [style.width]="(completedTasks / totalTasks) * 100 + '%'"
+      [style.width]="progressPercent + '%'"
     ></div>
   </div>
+  <div class="status-text" *ngIf="statusMessage">{{ statusMessage }}</div>
 </div>
 <ng-template #basicLoading>
-  <div class="loading-container">Loading…</div>
+  <div class="loading-container">Loading...</div>
 </ng-template>

@@ -151,9 +151,39 @@
           <div class="timestamp">
             {{ selectedEmail?.timestamp | date : "short" }}
           </div>
-          <img *ngIf="selectedEmail?.banner && selectedEmail?.category === 'supereats'" src="assets/notubereats.png" class="banner-img" />
-          <img *ngIf="selectedEmail?.banner && selectedEmail?.category === 'bank'" src="assets/notfifththird.png" class="banner-img" />
-          <img *ngIf="selectedEmail?.banner && !selectedEmail?.category" src="assets/notubereats.png" class="banner-img" />
+          <div
+            *ngIf="selectedEmail?.banner"
+            class="banner-wrapper"
+            [ngClass]="{
+              'banner-supereats': selectedEmail?.category === 'supereats',
+              'banner-bank': selectedEmail?.category === 'bank',
+              'banner-default':
+                !selectedEmail?.category ||
+                (selectedEmail?.category !== 'supereats' &&
+                  selectedEmail?.category !== 'bank')
+            }"
+          >
+            <img
+              *ngIf="selectedEmail?.category === 'supereats'"
+              src="assets/notubereats.png"
+              class="banner-img"
+            />
+            <img
+              *ngIf="selectedEmail?.category === 'bank'"
+              src="assets/notfifththird.png"
+              class="banner-img"
+            />
+            <img
+              *ngIf="
+                selectedEmail?.banner &&
+                (!selectedEmail?.category ||
+                  (selectedEmail?.category !== 'supereats' &&
+                    selectedEmail?.category !== 'bank'))
+              "
+              src="assets/notubereats.png"
+              class="banner-img"
+            />
+          </div>
           <div
             class="email-body"
             [innerHTML]="renderEmailBody(selectedEmail?.body)"

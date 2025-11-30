@@ -51,7 +51,8 @@
       padding: 6px 12px;
       border-radius: 8px;
 
-      .material-icons, .material-symbols-outlined {
+      .material-icons,
+      .material-symbols-outlined {
         font-size: 20px;
       }
 
@@ -142,8 +143,31 @@
       }
 
       img.banner-img {
+        display: block;
+        max-height: 120px;
+        width: auto;
         max-width: 100%;
-        margin: 16px 0;
+        margin: 0;
+        object-fit: contain;
+      }
+
+      .banner-wrapper {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        background: #111;
+        padding: 12px 0;
+        box-sizing: border-box;
+
+        &.banner-supereats,
+        &.banner-default {
+          background: rgb(19, 19, 17);
+        }
+
+        &.banner-bank {
+          background: #ffffff;
+        }
       }
 
       .reply-composer {
@@ -291,7 +315,8 @@
           border: 1px solid #e2e8f0;
           border-radius: 4px;
           padding: 0 4px;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+            "Liberation Mono", "Courier New", monospace;
           font-size: 0.95em;
         }
         a {
@@ -343,8 +368,14 @@
       }
 
       @keyframes sendPulse {
-        0% { transform: translateX(0); opacity: 1; }
-        100% { transform: translateX(2px); opacity: 0.9; }
+        0% {
+          transform: translateX(0);
+          opacity: 1;
+        }
+        100% {
+          transform: translateX(2px);
+          opacity: 0.9;
+        }
       }
 
       .btn-primary.sending .material-symbols-outlined {

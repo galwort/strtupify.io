@@ -10,6 +10,8 @@ import {
   collection,
   addDoc,
   getDoc,
+  getDocs,
+  deleteDoc,
   serverTimestamp,
   updateDoc,
   arrayUnion,
@@ -114,6 +116,33 @@ export class ApplicationPage implements OnInit {
     return docSnap.exists();
   }
 
+  private async purgeExistingCompanyArtifacts(companyId: string): Promise<void> {
+    try {
+      const existing = await getDoc(doc(db, 'companies', companyId));
+      if (existing.exists()) return;
+    } catch {}
+
+    const deleteCollection = async (path: string) => {
+      try {
+        const snap = await getDocs(collection(db, path));
+        await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+      } catch {}
+    };
+
+    await deleteCollection(`companies/${companyId}/products`);
+    await deleteCollection(`companies/${companyId}/roles`);
+    await deleteCollection(`companies/${companyId}/inbox`);
+    await deleteCollection(`companies/${companyId}/workitems`);
+
+    try {
+      const employeesSnap = await getDocs(collection(db, `companies/${companyId}/employees`));
+      for (const emp of employeesSnap.docs) {
+        await deleteCollection(`companies/${companyId}/employees/${emp.id}/skills`);
+        await deleteDoc(emp.ref);
+      }
+    } catch {}
+  }
+
   async presentErrorAlert(errorMessage: string) {
     const alert = await this.alertController.create({
       header: 'Business Application Rejected',
@@ -163,6 +192,7 @@ export class ApplicationPage implements OnInit {
         uniqueName = `${cleanedName}${counter}`;
         counter++;
       }
+      await this.purgeExistingCompanyArtifacts(uniqueName);
       const docRef = doc(db, 'companies', uniqueName);
       await setDoc(docRef, {
         company_name: this.companyName,

@@ -22,6 +22,9 @@ export class UiStateService {
   private _calendarEnabled = new BehaviorSubject<boolean>(false);
   readonly calendarEnabled$ = this._calendarEnabled.asObservable();
 
+  private _inboxPreferredEmailId = new BehaviorSubject<string | null>(null);
+  readonly inboxPreferredEmailId$ = this._inboxPreferredEmailId.asObservable();
+
   setShowCompanyProfile(show: boolean) {
     this._showCompanyProfile.next(show);
   }
@@ -48,5 +51,9 @@ export class UiStateService {
 
   setCalendarEnabled(enabled: boolean) {
     this._calendarEnabled.next(enabled);
+  }
+
+  setInboxPreferredEmail(emailId: string | null) {
+    this._inboxPreferredEmailId.next(emailId);
   }
 }

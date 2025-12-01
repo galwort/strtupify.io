@@ -31,6 +31,7 @@
           [class.active]="currentModule === 'inbox' && !showCompanyProfile"
         >
           <span class="material-symbols-outlined"> mail </span>
+          <span *ngIf="inboxCount > 0" class="mail-badge">{{ inboxCount }}</span>
         </button>
         <button
           *ngIf="currentCompanyId && calendarEnabled"
@@ -96,7 +97,7 @@
   <div
     *ngIf="newEmailToast"
     class="email-toast"
-    (click)="openInbox()"
+    (click)="openInbox(newEmailToast?.id)"
     role="status"
     aria-live="polite"
   >

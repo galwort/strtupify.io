@@ -61,6 +61,7 @@
       background: transparent;
       border: none;
       cursor: pointer;
+      position: relative;
     }
 
     .company-logo:hover {
@@ -75,6 +76,23 @@
       font-size: 26px;
       line-height: 26px;
       color: #fff;
+    }
+
+    .mail-badge {
+      position: absolute;
+      top: 12px;
+      right: 4px;
+      min-width: 14px;
+      padding: 1px 4px;
+      border-radius: 8px;
+      background: #fff;
+      color: var(--theme-primary);
+      border: 1px solid var(--theme-primary);
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1;
+      text-align: center;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
     }
 
     .spacer {
@@ -99,18 +117,18 @@
 
 .email-toast {
   position: fixed;
-  right: 14px;
-  bottom: 14px;
+  right: 21px;
+  bottom: 20px;
   z-index: 1400;
-  background: #0d1b2a;
-  color: #fff;
-  border-radius: 10px;
+  background: #fff;
+  color: var(--theme-text);
+  border-radius: 8px;
   padding: 12px 14px;
   min-width: 260px;
   max-width: 360px;
   width: min(360px, 92vw);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+  border: 1.5px solid var(--theme-primary);
   cursor: pointer;
 }
 
@@ -118,7 +136,7 @@
   text-transform: uppercase;
   letter-spacing: 0.6px;
   font-size: 11px;
-  opacity: 0.75;
+  opacity: 0.65;
   margin-bottom: 4px;
 }
 
@@ -137,7 +155,7 @@
   gap: 8px;
   align-items: center;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--theme-text);
   overflow: hidden;
 }
 
@@ -150,5 +168,5 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  opacity: 0.85;
+  opacity: 0.8;
 }

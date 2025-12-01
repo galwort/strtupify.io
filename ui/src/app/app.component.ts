@@ -6,7 +6,7 @@ import { getFirestore, doc, getDoc, collection, getDocs, query, where, onSnapsho
 import { getAuth, onAuthStateChanged, Unsubscribe } from 'firebase/auth';
 import { UiStateService } from './services/ui-state.service';
 import { environment } from '../environments/environment';
-import { EndgameService } from './services/endgame.service';
+import { EndgameService, EndgameStatus } from './services/endgame.service';
 import { InboxService, Email } from './services/inbox.service';
 import { Subscription } from 'rxjs';
 
@@ -35,14 +35,19 @@ export class AppComponent implements OnDestroy {
   isAccountRoute = false;
   endgameActive = false;
   endgameResetting = false;
+  endgameStatus: EndgameStatus = 'idle';
+  private endgameEngagedDoc = false;
   sidebarColor = 'var(--theme-primary)';
-  newEmailToast: { from?: string; subject?: string; preview?: string } | null = null;
+  newEmailToast: { id: string; from?: string; subject?: string; preview?: string } | null = null;
+  inboxCount = 0;
+  private meAddress = '';
   private isAuthenticated = false;
   private endgameSub: Subscription | null = null;
   private inboxWatchSub: Subscription | null = null;
   private knownEmailIds = new Set<string>();
   private inboxWatchInitialized = false;
   private emailToastTimer: any = null;
+  private lastInboxEmails: Email[] = [];
 
   private fbApp = initializeApp(environment.firebase);
   private db = getFirestore(this.fbApp);
@@ -115,9 +120,11 @@ export class AppComponent implements OnDestroy {
 
     this.endgameSub = this.endgame.state$.subscribe((state) => {
       this.endgameActive = !!state.active;
+      this.endgameStatus = state.status;
       if (!state.active) {
         this.endgameResetting = false;
       }
+      this.recomputeInboxCount();
       this.cdr.detectChanges();
     });
   }
@@ -193,7 +200,8 @@ export class AppComponent implements OnDestroy {
     this.ui.setShowCompanyProfile(true);
     this.ui.setCurrentModule('roles');
   }
-  openInbox() {
+  openInbox(preferredEmailId?: string) {
+    if (preferredEmailId) this.ui.setInboxPreferredEmail(preferredEmailId);
     this.hideNewEmailToast();
     this.ui.setShowCompanyProfile(false);
     this.ui.setCurrentModule('inbox');
@@ -237,8 +245,9 @@ export class AppComponent implements OnDestroy {
   }
 
   private showNewEmailToast(email: Email): void {
-    if (!email) return;
+    if (!email || !email.id) return;
     this.newEmailToast = {
+      id: email.id,
       from: email.sender || 'New email',
       subject: email.subject || 'New email',
       preview: email.preview,
@@ -259,9 +268,12 @@ export class AppComponent implements OnDestroy {
       } catch {}
       this.inboxWatchSub = null;
     }
+    this.inboxCount = 0;
+    this.lastInboxEmails = [];
     this.knownEmailIds.clear();
     this.inboxWatchInitialized = false;
     this.hideNewEmailToast();
+    this.meAddress = '';
     if (!companyId) return;
     this.inboxWatchSub = this.inbox
       .getInbox(companyId)
@@ -269,12 +281,15 @@ export class AppComponent implements OnDestroy {
   }
 
   private handleInboxSnapshot(emails: Email[]): void {
+    this.lastInboxEmails = emails || [];
+    const visible = this.lastInboxEmails.filter((e) => this.isCountableEmail(e));
+    this.inboxCount = visible.length;
     if (!this.inboxWatchInitialized) {
-      emails.forEach((e) => this.knownEmailIds.add(e.id));
+      visible.forEach((e) => this.knownEmailIds.add(e.id));
       this.inboxWatchInitialized = true;
     }
-    const fresh = emails.filter((e) => !this.knownEmailIds.has(e.id));
-    emails.forEach((e) => this.knownEmailIds.add(e.id));
+    const fresh = visible.filter((e) => !this.knownEmailIds.has(e.id));
+    visible.forEach((e) => this.knownEmailIds.add(e.id));
     if (!this.inboxEnabled || !fresh.length || this.currentModule === 'inbox')
       return;
     const ts = (e: Email) => {
@@ -287,11 +302,58 @@ export class AppComponent implements OnDestroy {
     if (newest) this.showNewEmailToast(newest);
   }
 
+  private recomputeInboxCount(): void {
+    if (!this.lastInboxEmails) return;
+    const visible = this.lastInboxEmails.filter((e) => this.isCountableEmail(e));
+    this.inboxCount = visible.length;
+    this.cdr.detectChanges();
+  }
+
+  private isEndgameEmail(email: Email): boolean {
+    const endgameFlag = (email as any).endgame;
+    if (endgameFlag === true) return true;
+    if (typeof endgameFlag === 'string' && endgameFlag.toLowerCase() === 'true')
+      return true;
+    if (endgameFlag === 1) return true;
+    const category = ((email as any).category || '').toLowerCase();
+    if (!category) return false;
+    if (category === 'endgame') return true;
+    if (category.includes('endgame')) return true;
+    return false;
+  }
+
+  private isCountableEmail(email: Email): boolean {
+    if (!email) return false;
+    const deletedVal: any = (email as any).deleted;
+    if (deletedVal === true) return false;
+    if (deletedVal === 1) return false;
+    if (typeof deletedVal === 'string' && deletedVal.toLowerCase() === 'true')
+      return false;
+    const from = (email as any).sender || (email as any).from || '';
+    if (this.meAddress && from === this.meAddress) return false;
+    const endgameEngaged = this.endgameStatus !== 'idle' || this.endgameEngagedDoc;
+    if (this.isEndgameEmail(email)) {
+      // ignore flagged endgame mails from count
+      return false;
+    }
+    if (endgameEngaged) {
+      const category = ((email as any).category || '').toLowerCase();
+      const id = String(email.id || '');
+      const allowed =
+        id.startsWith('vlad-reset-') ||
+        category === 'kickoff-outcome' ||
+        category === 'calendar';
+      if (!allowed) return false;
+    }
+    return true;
+  }
+
   private async updateCompanyContext() {
     const m = this.router.url.match(/\/company\/([^\/]+)/);
     const companyId = m ? m[1] : null;
     this.currentCompanyId = companyId;
     this.endgame.setCompany(companyId || '');
+    this.endgameEngagedDoc = false;
     this.companyLogo = '';
     this.companyProfileEnabled = false;
     this.inboxEnabled = false;
@@ -352,6 +414,14 @@ export class AppComponent implements OnDestroy {
       this.companyLogo = data?.logo || '';
       this.companyProfileEnabled = true;
       this.ui.setCompanyProfileEnabled(true);
+      const domain =
+        typeof data?.company_name === 'string' && data.company_name.trim()
+          ? data.company_name.replace(/\s+/g, '').toLowerCase() + '.com'
+          : `${companyId}.com`;
+      this.meAddress = `me@${domain}`;
+      this.endgameEngagedDoc =
+        !!data?.endgameTriggered || !!data?.endgameResolved || !!data?.endgameEmailsSent;
+      this.recomputeInboxCount();
       try {
         const acceptedSnap = await getDocs(
           query(collection(this.db, `companies/${companyId}/products`), where('accepted', '==', true))
@@ -362,6 +432,12 @@ export class AppComponent implements OnDestroy {
       try {
         const unsub = onSnapshot(ref, (s) => {
           const d = (s && (s.data() as any)) || {};
+          const endgameDoc =
+            !!d.endgameTriggered || !!d.endgameResolved || !!d.endgameEmailsSent;
+          if (endgameDoc !== this.endgameEngagedDoc) {
+            this.endgameEngagedDoc = endgameDoc;
+            this.recomputeInboxCount();
+          }
           const le = !!d.ledgerEnabled;
           this.ledgerEnabled = le;
           const cal = !!d.calendarEnabled;

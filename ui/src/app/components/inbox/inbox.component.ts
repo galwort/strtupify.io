@@ -22,6 +22,7 @@ import {
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 import { EndgameService, EndgameStatus } from '../../services/endgame.service';
+import { UiStateService } from '../../services/ui-state.service';
 
 const fbApp = getApps().length
   ? getApps()[0]
@@ -225,17 +226,28 @@ export class InboxComponent implements OnInit, OnDestroy {
   private inboxSub: Subscription | null = null;
   private endgameStatus: EndgameStatus = 'idle';
   private endgameSub: Subscription | null = null;
+  private inboxPreferredSub: Subscription | null = null;
+  private preferredInboxEmailId: string | null = null;
 
   constructor(
     private route: ActivatedRoute,
     private inboxService: InboxService,
     private http: HttpClient,
     private replyRouter: ReplyRouterService,
-    private endgame: EndgameService
+    private endgame: EndgameService,
+    private ui: UiStateService
   ) {}
 
   async ngOnInit(): Promise<void> {
     if (!this.companyId) return;
+
+    this.inboxPreferredSub = this.ui.inboxPreferredEmailId$.subscribe((id) => {
+      this.preferredInboxEmailId = id;
+      if (id) {
+        this.updateInboxView(this.allEmails, { preferredId: id });
+        this.ui.setInboxPreferredEmail(null);
+      }
+    });
 
     this.endgame.setCompany(this.companyId);
     this.endgameSub = this.endgame.state$.subscribe((s) => {
@@ -283,6 +295,11 @@ export class InboxComponent implements OnInit, OnDestroy {
     if (this.endgameSub) {
       try {
         this.endgameSub.unsubscribe();
+      } catch {}
+    }
+    if (this.inboxPreferredSub) {
+      try {
+        this.inboxPreferredSub.unsubscribe();
       } catch {}
     }
     this.suppressedIds.clear();
@@ -1175,8 +1192,10 @@ export class InboxComponent implements OnInit, OnDestroy {
       if (exp > Date.now()) avoid.add(id);
     });
 
+    const preferredFromState = this.preferredInboxEmailId;
     let desiredId =
       opts?.preferredId ??
+      preferredFromState ??
       this.pendingSelectionId ??
       this.selectedEmail?.id ??
       null;
@@ -1185,12 +1204,14 @@ export class InboxComponent implements OnInit, OnDestroy {
       if (found) {
         this.selectedEmail = found;
         this.pendingSelectionId = null;
+        this.preferredInboxEmailId = null;
         return;
       }
     }
     const first = this.inbox.find((e) => !avoid.has(e.id));
     this.selectedEmail = first || null;
     this.pendingSelectionId = null;
+    this.preferredInboxEmailId = null;
   }
 
   private pruneSuppressed(): void {

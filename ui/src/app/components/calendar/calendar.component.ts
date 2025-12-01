@@ -74,14 +74,14 @@ export class CalendarComponent implements OnInit, OnDestroy {
   private unsubEmployees: (() => void) | null = null;
   private scheduleSeed = '';
   private readonly palette = [
-    '#5da7d6',
-    '#4bb6a3',
-    '#6ea8d9',
-    '#55c1b6',
-    '#4a9bcf',
-    '#5fb0c0',
-    '#429f82',
-    '#6db5de',
+    '#f9c74f', // warm yellow
+    '#ef476f', // vivid pink-red
+    '#118ab2', // deep teal-blue
+    '#9b5de5', // purple
+    '#06d6a0', // mint green
+    '#ff8fab', // soft rose
+    '#ffd166', // golden orange
+    '#5c7aff', // clear blue
   ];
   private readonly workdayStartHour = 8;
   private readonly workdayEndHour = 17;
@@ -211,9 +211,10 @@ export class CalendarComponent implements OnInit, OnDestroy {
     if (force || weekChanged || seedChanged) {
       this.weekStart = nextWeek;
       this.weekDays = this.buildWeekDays(nextWeek);
-      this.weekLabel = `${this.dayLabel(this.weekDays[0])} - ${this.dayLabel(
+      this.weekLabel = this.formatRangeLabel(
+        this.weekDays[0],
         this.weekDays[this.weekDays.length - 1]
-      )}`;
+      );
       this.scheduleSeed = seedKey;
       this.buildMeetings();
     } else {
@@ -243,6 +244,13 @@ export class CalendarComponent implements OnInit, OnDestroy {
     return days;
   }
 
+  private formatRangeLabel(start: Date | null, end: Date | null): string {
+    if (!start || !end) return '';
+    const fmt = (d: Date) =>
+      d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return `${fmt(start)} - ${fmt(end)}`;
+  }
+
   private buildTimeSlots(): void {
     this.timeTicks = [];
     for (let h = this.workdayStartHour; h < this.workdayEndHour; h++) {
@@ -250,9 +258,6 @@ export class CalendarComponent implements OnInit, OnDestroy {
       const base = h % 12 === 0 ? 12 : h % 12;
       this.timeTicks.push(`${base} ${am ? 'AM' : 'PM'}`);
     }
-    const am = this.workdayEndHour < 12;
-    const base = this.workdayEndHour % 12 === 0 ? 12 : this.workdayEndHour % 12;
-    this.timeTicks.push(`${base} ${am ? 'AM' : 'PM'}`);
   }
 
   private buildMeetings(): void {
@@ -266,8 +271,8 @@ export class CalendarComponent implements OnInit, OnDestroy {
 
     for (let dayIndex = 0; dayIndex < 5; dayIndex++) {
       const userCount = this.employees.length
-        ? 2 + Math.floor(rng() * 3)
-        : 1 + Math.floor(rng() * 2);
+        ? 3 + Math.floor(rng() * 4) // 3-6
+        : 2 + Math.floor(rng() * 2); // 2-3
       for (let i = 0; i < userCount; i++) {
         const participantCount = this.employees.length
           ? 1 + Math.floor(rng() * Math.min(3, this.employees.length))
@@ -280,19 +285,19 @@ export class CalendarComponent implements OnInit, OnDestroy {
         this.placeMeeting('me', participants, dayIndex, duration, rng);
       }
 
-      const teamCount = this.employees.length ? 1 + Math.floor(rng() * 2) : 0;
+      const teamCount = this.employees.length ? 2 + Math.floor(rng() * 3) : 1;
       for (let j = 0; j < teamCount; j++) {
         const group = this.pickParticipants(
-          2 +
+          1 +
             Math.floor(
-              rng() * Math.min(2, Math.max(0, this.employees.length - 1))
+              rng() * Math.min(3, Math.max(0, this.employees.length - 1))
             ),
           rng
         );
         if (!group.length) continue;
         const owner = group[0];
         const duration = durations[(j + dayIndex) % durations.length];
-        this.placeMeeting(owner, group, dayIndex, duration, rng);
+        this.placeMeeting(owner, [owner, ...group.slice(1)], dayIndex, duration, rng);
       }
     }
 
@@ -357,7 +362,8 @@ export class CalendarComponent implements OnInit, OnDestroy {
       for (const meeting of list) {
         if (ignoreId && meeting.id === ignoreId) continue;
         if (meeting.dayIndex !== dayIndex) continue;
-        if (meeting.start < end && start < meeting.end) return true;
+        const overlap = meeting.start < end && start < meeting.end;
+        if (overlap) return true;
       }
     }
     return false;
@@ -402,8 +408,11 @@ export class CalendarComponent implements OnInit, OnDestroy {
       const dayHeightPx = 720;
       const pxPerMinute = dayHeightPx / this.workMinutes;
       const gapPx = 3;
-      const startPx = startMinutes * pxPerMinute + gapPx;
-      const heightPx = Math.max(10, duration * pxPerMinute - gapPx * 2);
+      let startPx = startMinutes * pxPerMinute + gapPx;
+      let heightPx = Math.max(10, duration * pxPerMinute - gapPx * 2);
+      if (startPx + heightPx > dayHeightPx) {
+        heightPx = Math.max(10, dayHeightPx - startPx);
+      }
       const top = (startPx / dayHeightPx) * 100;
       const height = Math.max(4, (heightPx / dayHeightPx) * 100);
       const bg = meeting.owner === 'me' ? '#fff' : this.colorFor(meeting.owner);
@@ -465,25 +474,28 @@ export class CalendarComponent implements OnInit, OnDestroy {
     const y = event.clientY - rect.top;
     const clampedY = Math.max(0, Math.min(rect.height, y));
     const minutes = (clampedY / rect.height) * this.workMinutes;
-    const snappedMinutes = Math.floor(minutes / 30) * 30;
-    const durationMinutes = Math.round((meeting.end - meeting.start) / 60000);
-    const startMs = this.dayStartMs(dayIndex) + snappedMinutes * 60000;
-    const endMs = startMs + durationMinutes * 60000;
-    if (endMs > this.dayStartMs(dayIndex) + this.workMinutes * 60000) {
-      this.statusError = 'That meeting would run past 5:00 PM.';
-      this.statusMessage = '';
+    const durationMs = Math.max(30 * 60000, meeting.end - meeting.start);
+    const durationMinutes = Math.round(durationMs / 60000);
+    const maxStartMinutes = Math.max(0, this.workMinutes - durationMinutes);
+    const snapMinutesRaw = Math.floor(minutes / 30) * 30;
+    const snappedMinutes = Math.max(0, Math.min(maxStartMinutes, snapMinutesRaw));
+    const dayStart = this.dayStartMs(dayIndex);
+    const dayEnd = dayStart + this.workMinutes * 60000;
+    const desiredStart = dayStart + snappedMinutes * 60000;
+    const maxStartMs = dayEnd - durationMs;
+    const startMs = Math.min(Math.max(dayStart, desiredStart), maxStartMs);
+    const endMs = startMs + durationMs;
+    if (endMs > dayEnd || startMs >= dayEnd) {
       this.draggingMeetingId = null;
       return;
     }
-    if (this.hasConflict(meeting.participants, dayIndex, startMs, endMs, meeting.id)) {
-      this.statusError = 'Someone in that meeting is booked then.';
-      this.statusMessage = '';
+    if (this.hasParticipantOverlap(meeting.participants, dayIndex, startMs, endMs, meeting.id)) {
       this.draggingMeetingId = null;
       return;
     }
     this.updateMeetingTime(meeting, dayIndex, startMs, endMs);
     this.statusError = '';
-    this.statusMessage = `Moved to ${this.dayLabel(this.weekDays[dayIndex] || null)} at ${this.formatTimeValue(startMs)}.`;
+    this.statusMessage = '';
     this.draggingMeetingId = null;
     this.recomputeVisuals();
     this.computeFocusScore();
@@ -520,6 +532,18 @@ export class CalendarComponent implements OnInit, OnDestroy {
       const left = column * colWidth + gutter / 2;
       return { ...ev, width, left };
     });
+  }
+
+  private hasParticipantOverlap(participants: string[], dayIndex: number, start: number, end: number, ignoreId?: string): boolean {
+    const partSet = new Set(participants);
+    for (const m of this.meetings) {
+      if (ignoreId && m.id === ignoreId) continue;
+      if (m.dayIndex !== dayIndex) continue;
+      if (!(m.start < end && start < m.end)) continue;
+      const shares = m.participants.some((p) => partSet.has(p));
+      if (shares) return true;
+    }
+    return false;
   }
 
   private computeFocusScore(): void {

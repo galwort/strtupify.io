@@ -13,6 +13,7 @@ import {
   where,
   limit,
   serverTimestamp,
+  runTransaction,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 
@@ -22,6 +23,8 @@ const db = getFirestore(fbApp);
 @Injectable({ providedIn: 'root' })
 export class ReplyRouterService {
   constructor(private http: HttpClient) {}
+
+  private readonly kickoffLeadMs = 5 * 60_000; // mirror the kickoff send lead time
 
   async handleReply(opts: {
     companyId: string;
@@ -85,6 +88,7 @@ export class ReplyRouterService {
       };
       if (opts.parentId) payload.parentId = opts.parentId;
       await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), payload);
+      await this.scheduleCalendarUnlock(opts.companyId);
       if (status === 'approved') {
         try {
           await this.http
@@ -470,6 +474,43 @@ export class ReplyRouterService {
         body: String(parent.message || ''),
         pauseReason: String(parent.assistPauseReason || ''),
       };
+    }
+  }
+
+  private async scheduleCalendarUnlock(companyId: string): Promise<void> {
+    const ref = doc(db, `companies/${companyId}`);
+    const simTime = await this.getCompanySimTime(companyId);
+    const target = simTime + this.kickoffLeadMs;
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        const data = (snap && (snap.data() as any)) || {};
+        if (data.calendarEmailSent) return;
+        if (typeof data.calendarEmailAt === 'number') return;
+        tx.set(
+          ref,
+          {
+            calendarEmailAt: target,
+            calendarEmailSent: false,
+            calendarEmailInProgress: false,
+            calendarEnabled: false,
+          },
+          { merge: true }
+        );
+      });
+    } catch {
+      try {
+        await setDoc(
+          ref,
+          {
+            calendarEmailAt: target,
+            calendarEmailSent: false,
+            calendarEmailInProgress: false,
+            calendarEnabled: false,
+          },
+          { merge: true }
+        );
+      } catch {}
     }
   }
 

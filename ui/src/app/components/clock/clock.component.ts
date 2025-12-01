@@ -42,7 +42,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
   displayDate = '';
   displayTime = '';
 
-  private readonly speedBoost = 10; // TESTING: reset to 3
+  private readonly speedBoost = 3; // TESTING: reset to 3
   private readonly speedMultiplier = 10;
   private readonly baseSpeed = this.speedMultiplier;
   private readonly minSpeed = 1;

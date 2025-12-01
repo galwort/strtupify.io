@@ -10,7 +10,7 @@ export class UiStateService {
   private _companyProfileEnabled = new BehaviorSubject<boolean>(false);
   readonly companyProfileEnabled$ = this._companyProfileEnabled.asObservable();
 
-  private _currentModule = new BehaviorSubject<'inbox' | 'roles' | 'resumes' | 'boardroom' | 'work' | 'ledger' | 'hr'>('roles');
+  private _currentModule = new BehaviorSubject<'inbox' | 'roles' | 'resumes' | 'boardroom' | 'work' | 'ledger' | 'hr' | 'calendar'>('roles');
   readonly currentModule$ = this._currentModule.asObservable();
 
   private _workEnabled = new BehaviorSubject<boolean>(false);
@@ -18,6 +18,9 @@ export class UiStateService {
 
   private _hrEnabled = new BehaviorSubject<boolean>(false);
   readonly hrEnabled$ = this._hrEnabled.asObservable();
+
+  private _calendarEnabled = new BehaviorSubject<boolean>(false);
+  readonly calendarEnabled$ = this._calendarEnabled.asObservable();
 
   setShowCompanyProfile(show: boolean) {
     this._showCompanyProfile.next(show);
@@ -31,7 +34,7 @@ export class UiStateService {
     this._companyProfileEnabled.next(enabled);
   }
 
-  setCurrentModule(m: 'inbox' | 'roles' | 'resumes' | 'boardroom' | 'work' | 'ledger' | 'hr') {
+  setCurrentModule(m: 'inbox' | 'roles' | 'resumes' | 'boardroom' | 'work' | 'ledger' | 'hr' | 'calendar') {
     this._currentModule.next(m);
   }
 
@@ -41,5 +44,9 @@ export class UiStateService {
 
   setHrEnabled(enabled: boolean) {
     this._hrEnabled.next(enabled);
+  }
+
+  setCalendarEnabled(enabled: boolean) {
+    this._calendarEnabled.next(enabled);
   }
 }

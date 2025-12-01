@@ -38,6 +38,7 @@ export class CompanyPage implements OnInit {
   showWork = false;
   showLedger = false;
   showHr = false;
+  showCalendar = false;
   totalTasks = 0;
   completedTasks = 0;
   companyId = '';
@@ -81,6 +82,7 @@ export class CompanyPage implements OnInit {
       this.showResumes = m === 'resumes';
       this.showLedger = m === 'ledger';
       this.showHr = m === 'hr';
+      this.showCalendar = m === 'calendar';
       if (m === 'roles') {
         this.showWork = false;
         this.showInbox = false;
@@ -88,6 +90,7 @@ export class CompanyPage implements OnInit {
         this.showResumes = false;
         this.showLedger = false;
         this.showHr = false;
+        this.showCalendar = false;
       }
       if (m === 'hr') {
         this.showWork = false;
@@ -95,6 +98,7 @@ export class CompanyPage implements OnInit {
         this.showBoardroom = false;
         this.showResumes = false;
         this.showLedger = false;
+        this.showCalendar = false;
       }
     });
 
@@ -151,6 +155,7 @@ export class CompanyPage implements OnInit {
     this.completedTasks = e.completedTasks;
     this.showResumes = e.showResumes;
     this.showHr = false;
+    this.showCalendar = false;
     if (!this.showLoading && !this.showBoardroom && !this.showInbox) {
       this.ui.setCurrentModule(this.showResumes ? 'resumes' : 'roles');
     }
@@ -161,6 +166,7 @@ export class CompanyPage implements OnInit {
     this.showResumes = false;
     this.showBoardroom = true;
     this.showHr = false;
+    this.showCalendar = false;
     this.ui.setCompanyProfileEnabled(true);
     this.ui.setCurrentModule('boardroom');
   }
@@ -170,6 +176,7 @@ export class CompanyPage implements OnInit {
     this.showInbox = true;
     this.showWork = false;
     this.showHr = false;
+    this.showCalendar = false;
     this.ui.setCompanyProfileEnabled(true);
     this.ui.setCurrentModule('inbox');
 

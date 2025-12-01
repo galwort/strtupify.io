@@ -2,7 +2,7 @@
   <div class="page-container" *ngIf="accessResolved">
     <app-roles
       (loadingStateChange)="handleLoadingState($event)"
-      [hidden]="showLoading || showResumes || showBoardroom || showInbox || showCompanyProfile || showWork || showLedger || showHr"
+      [hidden]="showLoading || showResumes || showBoardroom || showInbox || showCompanyProfile || showWork || showLedger || showHr || showCalendar"
     ></app-roles>
 
     <app-loading
@@ -32,6 +32,10 @@
       *ngIf="showWork && !showCompanyProfile"
       [companyId]="companyId"
     ></app-work-items>
+    <app-calendar
+      *ngIf="showCalendar && !showCompanyProfile"
+      [companyId]="companyId"
+    ></app-calendar>
     <app-inbox
       *ngIf="showInbox && !showCompanyProfile"
       [companyId]="companyId"

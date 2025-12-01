@@ -21,12 +21,13 @@ export class AppComponent implements OnDestroy {
   companyLogo = '';
   companyProfileEnabled = false;
   showCompanyProfile = false;
-  currentModule: 'inbox' | 'roles' | 'resumes' | 'boardroom' | 'work' | 'ledger' | 'hr' = 'roles';
+  currentModule: 'inbox' | 'roles' | 'resumes' | 'boardroom' | 'work' | 'ledger' | 'hr' | 'calendar' = 'roles';
   backIcon: string = 'group_add';
   workEnabled = false;
   inboxEnabled = false;
   ledgerEnabled = false;
   hrEnabled = false;
+  calendarEnabled = false;
   showBrandLogo = true;
   showAccountButton = false;
   isHomeRoute = false;
@@ -76,6 +77,8 @@ export class AppComponent implements OnDestroy {
           ? 'group_add'
           : m === 'work'
           ? 'task'
+          : m === 'calendar'
+          ? 'event'
           : m === 'ledger'
           ? 'account_balance'
           : m === 'hr'
@@ -95,6 +98,9 @@ export class AppComponent implements OnDestroy {
 
     this.ui.hrEnabled$.subscribe((enabled) => {
       this.hrEnabled = enabled;
+    });
+    this.ui.calendarEnabled$.subscribe((enabled) => {
+      this.calendarEnabled = enabled;
     });
 
     this.endgameSub = this.endgame.state$.subscribe((state) => {
@@ -182,6 +188,7 @@ export class AppComponent implements OnDestroy {
   openRoles() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('roles'); }
   openResumes() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('resumes'); }
   openWork() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('work'); }
+  openCalendar() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('calendar'); }
   openLedger() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('ledger'); }
   openHR() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('hr'); }
 
@@ -193,6 +200,8 @@ export class AppComponent implements OnDestroy {
       case 'boardroom': return this.openBoardroom();
       case 'inbox': return this.openInbox();
       case 'work': return this.openWork();
+      case 'calendar': return this.openCalendar();
+      case 'ledger': return this.openLedger();
       default: return this.openRoles();
     }
   }
@@ -212,8 +221,10 @@ export class AppComponent implements OnDestroy {
     this.inboxEnabled = false;
     this.ledgerEnabled = false;
     this.hrEnabled = false;
+    this.calendarEnabled = false;
     this.ui.setCompanyProfileEnabled(false);
     this.ui.setHrEnabled(false);
+    this.ui.setCalendarEnabled(false);
     const currentUrl = this.router.url || '';
     this.isHomeRoute = currentUrl === '/home' || currentUrl.startsWith('/home?');
     this.isAccountRoute = currentUrl === '/account' || currentUrl.startsWith('/account/');
@@ -275,6 +286,9 @@ export class AppComponent implements OnDestroy {
           const d = (s && (s.data() as any)) || {};
           const le = !!d.ledgerEnabled;
           this.ledgerEnabled = le;
+          const cal = !!d.calendarEnabled;
+          this.calendarEnabled = cal;
+          this.ui.setCalendarEnabled(cal);
           this.ui.setWorkEnabled(this.workEnabled);
         });
         (window as any).__companyDocUnsub = unsub;

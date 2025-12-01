@@ -43,6 +43,16 @@
           <span class="material-symbols-outlined"> task </span>
         </button>
         <button
+          *ngIf="currentCompanyId && calendarEnabled"
+          type="button"
+          class="company-logo"
+          (click)="openCalendar()"
+          aria-label="Calendar"
+          [class.active]="currentModule === 'calendar' && !showCompanyProfile"
+        >
+          <span class="material-symbols-outlined"> event </span>
+        </button>
+        <button
           *ngIf="currentCompanyId && hrEnabled"
           type="button"
           class="company-logo"

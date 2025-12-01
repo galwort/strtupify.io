@@ -17,6 +17,7 @@ import {
   collection,
   query,
   where,
+  limit,
   runTransaction,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
@@ -57,6 +58,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   private pendingReplyTimers: any[] = [];
   private readonly replyDelayMinMs = 3000;
   private readonly replyDelayMaxMs = 12000;
+  private readonly kickoffDelayMs = 5 * 60_000;
   get replySubject(): string {
     const base = this.selectedEmail?.subject || '';
     return base.startsWith('Re:') ? base : `Re: ${base}`;
@@ -135,6 +137,35 @@ export class InboxComponent implements OnInit, OnDestroy {
     return html;
   }
 
+  private parseEmailTemplate(
+    text: string
+  ): { from?: string; subject?: string; banner?: boolean; deleted?: boolean; body: string } {
+    const lines = (text || '').split(/\r?\n/);
+    let i = 0;
+    const meta: any = {};
+    while (i < lines.length) {
+      const line = lines[i].trim();
+      if (!line) {
+        i++;
+        break;
+      }
+      const idx = line.indexOf(':');
+      if (idx > -1) {
+        const key = line.slice(0, idx).trim().toLowerCase();
+        const value = line.slice(idx + 1).trim();
+        if (key === 'from') meta.from = value;
+        else if (key === 'subject') meta.subject = value;
+        else if (key === 'banner') meta.banner = /^true$/i.test(value);
+        else if (key === 'deleted') meta.deleted = /^true$/i.test(value);
+      } else {
+        break;
+      }
+      i++;
+    }
+    const body = lines.slice(i).join('\n').trim();
+    return { ...meta, body };
+  }
+
   displayDate = '';
   displayTime = '';
 
@@ -182,6 +213,7 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   private kickoffSendTime: number | null = null;
   private momSendTime: number | null = null;
+  private calendarEmailAt: number | null = null;
 
   showDeleted = false;
   meAddress = '';
@@ -219,6 +251,8 @@ export class InboxComponent implements OnInit, OnDestroy {
             this.updateDisplay();
             this.enqueueTick();
           }
+          if (d.calendarEmailSent) this.calendarEmailAt = null;
+          else if (typeof d.calendarEmailAt === 'number') this.calendarEmailAt = d.calendarEmailAt;
         }
       );
       (this as any).__unsubInboxSim = unsub;
@@ -386,6 +420,14 @@ export class InboxComponent implements OnInit, OnDestroy {
         this.momSendTime = at.getTime();
         await updateDoc(ref, { momEmailAt: this.momSendTime });
       }
+      if (data.calendarEmailSent) {
+        this.calendarEmailAt = null;
+      } else if (typeof data.calendarEmailAt === 'number') {
+        this.calendarEmailAt = data.calendarEmailAt;
+      } else {
+        this.calendarEmailAt = null;
+        await this.ensureCalendarScheduledFallback();
+      }
       if (typeof data.snackChoice === 'string' && data.snackChoice.trim()) {
         this.selectedSnackName = data.snackChoice.trim();
       } else {
@@ -439,10 +481,54 @@ export class InboxComponent implements OnInit, OnDestroy {
         kickoffEmailSent: false,
         momEmailAt: this.momSendTime,
         momEmailSent: false,
+        calendarEmailAt: null,
+        calendarEmailSent: false,
+        calendarEmailInProgress: false,
+        calendarEnabled: false,
       });
       this.meAddress = `me@${this.companyId}.com`;
     }
     this.updateDisplay();
+  }
+
+  private async ensureCalendarScheduledFallback(): Promise<void> {
+    try {
+      const ref = doc(db, `companies/${this.companyId}`);
+      const companySnap = await getDoc(ref);
+      const data = (companySnap && (companySnap.data() as any)) || {};
+      if (data.calendarEmailSent || typeof data.calendarEmailAt === 'number') return;
+      const kickoffSnap = await getDocs(
+        query(
+          collection(db, `companies/${this.companyId}/inbox`),
+          where('category', '==', 'kickoff'),
+          limit(5)
+        )
+      );
+      const hasKickoffReply = kickoffSnap.docs.some((d) => {
+        const x = (d.data() as any) || {};
+        return typeof x.parentId === 'string' && x.parentId.trim().length > 0;
+      });
+      if (!hasKickoffReply) return;
+      const target = this.simDate.getTime() + 5 * 60_000;
+      await updateDoc(ref, {
+        calendarEmailAt: target,
+        calendarEmailSent: false,
+        calendarEmailInProgress: false,
+        calendarEnabled: false,
+      });
+      this.calendarEmailAt = target;
+    } catch {}
+  }
+
+  private async getCompanySimTime(): Promise<number> {
+    try {
+      const snap = await getDoc(doc(db, `companies/${this.companyId}`));
+      const data = (snap && (snap.data() as any)) || {};
+      const value = Number(data.simTime || this.simDate.getTime());
+      return Number.isFinite(value) && value > 0 ? value : this.simDate.getTime();
+    } catch {
+      return this.simDate.getTime();
+    }
   }
 
   private startClock(): void {
@@ -462,6 +548,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.updateDisplay();
       void this.checkSuperEatsEmail();
       this.checkKickoffEmail();
+      this.checkCalendarEmail();
       this.checkMomEmail();
       this.checkBankEmail();
 
@@ -872,6 +959,9 @@ export class InboxComponent implements OnInit, OnDestroy {
           .catch(() => {});
       }, delay);
       this.pendingReplyTimers.push(timer);
+      if (category === 'kickoff') {
+        await this.scheduleCalendarAfterKickoffReply();
+      }
       try {
         const ref = doc(db, `companies/${this.companyId}`);
         const snap = await getDoc(ref);
@@ -908,6 +998,113 @@ export class InboxComponent implements OnInit, OnDestroy {
     return `${prefix}-${Date.now()}-${seed}`;
   }
 
+  private async sendCalendarEmailNow(simTimestamp: number): Promise<void> {
+    const ref = doc(db, `companies/${this.companyId}`);
+    const alreadySent = await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      const data = (snap && (snap.data() as any)) || {};
+      if (data.calendarEmailSent || data.calendarEmailInProgress) return true;
+      tx.update(ref, { calendarEmailInProgress: true });
+      return false;
+    }).catch(() => true);
+    if (alreadySent) return;
+    const parsed = await this.loadCalendarTemplate();
+    const emailId = `calendar-${Date.now()}`;
+    const timestampIso = new Date(simTimestamp).toISOString();
+    try {
+      await setDoc(
+        doc(db, `companies/${this.companyId}/inbox/${emailId}`),
+        {
+          from: parsed.from || 'vlad@strtupify.io',
+          subject: parsed.subject || 'New calendar feature',
+          message: parsed.body,
+          deleted: parsed.deleted ?? false,
+          banner: parsed.banner ?? false,
+          timestamp: timestampIso,
+          threadId: emailId,
+          to: this.meAddress,
+          category: 'calendar',
+        }
+      );
+      await updateDoc(ref, {
+        calendarEmailSent: true,
+        calendarEmailInProgress: false,
+        calendarEnabled: true,
+        calendarEmailAt: simTimestamp,
+      });
+      this.calendarEmailAt = null;
+    } catch {
+      try {
+        await updateDoc(ref, { calendarEmailInProgress: false });
+      } catch {}
+    }
+  }
+
+  private async loadCalendarTemplate(): Promise<{
+    from?: string;
+    subject?: string;
+    banner?: boolean;
+    deleted?: boolean;
+    body: string;
+  }> {
+    try {
+      const text = await this.http.get('emails/vlad-calendar.md', { responseType: 'text' }).toPromise();
+      const parsed = this.parseEmailTemplate(text || '');
+      if (parsed.body) return parsed;
+    } catch {}
+    const fallback = this.parseEmailTemplate(
+      [
+        'From: vlad@strtupify.io',
+        'Subject: New calendar feature',
+        'Banner: false',
+        'Deleted: false',
+        '',
+        'Hello End User,',
+        '',
+        'This is Vlad from IT. I added a calendar for next week so you can shuffle meetings. Your meetings are white with colored dots for attendees; teammates show up in their own color. Try to stack meetings together to leave big empty blocks for focus time, and submit when you are done. I am very busy so nothing else happens.',
+        '',
+        'Thank you!',
+        'Vlad',
+        'IT Support',
+        'strtupify.io',
+      ].join('\n')
+    );
+    return fallback;
+  }
+
+  private async scheduleCalendarAfterKickoffReply(): Promise<void> {
+    try {
+      const simNow = await this.getCompanySimTime();
+      const target = simNow + this.kickoffDelayMs;
+      const realDelay = Math.max(250, Math.floor(this.kickoffDelayMs / Math.max(1, this.speed)));
+      const ref = doc(db, `companies/${this.companyId}`);
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        const data = (snap && (snap.data() as any)) || {};
+        if (data.calendarEmailSent) return;
+        const existing = typeof data.calendarEmailAt === 'number' ? data.calendarEmailAt : null;
+        if (existing && simNow <= existing + this.kickoffDelayMs) {
+          this.calendarEmailAt = existing;
+          return;
+        }
+        tx.set(
+          ref,
+          {
+            calendarEmailAt: target,
+            calendarEmailSent: false,
+            calendarEmailInProgress: false,
+            calendarEnabled: false,
+          },
+          { merge: true }
+        );
+        this.calendarEmailAt = target;
+      });
+      setTimeout(() => {
+        void this.sendCalendarEmailNow(target);
+      }, realDelay);
+    } catch {}
+  }
+
   private filteredEmails(emails: Email[]): Email[] {
     const endgameEngaged = this.endgameStatus !== 'idle';
     const allowEndgameEmail = (e: Email): boolean => {
@@ -915,6 +1112,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       const id = String(e.id || '');
       if (id.startsWith('vlad-reset-')) return true;
       if (category === 'kickoff-outcome') return true;
+      if (category === 'calendar') return true;
       return false;
     };
 
@@ -1218,6 +1416,70 @@ export class InboxComponent implements OnInit, OnDestroy {
       } catch {}
     }
     this.bankProcessing = false;
+  }
+
+  private async checkCalendarEmail(): Promise<void> {
+    if (!this.calendarEmailAt) return;
+    if (this.simDate.getTime() < this.calendarEmailAt) return;
+    const ref = doc(db, `companies/${this.companyId}`);
+    let proceed = false;
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        const d = (snap && (snap.data() as any)) || {};
+        if (d.calendarEmailSent || d.calendarEmailInProgress) return;
+        const at =
+          typeof d.calendarEmailAt === 'number'
+            ? d.calendarEmailAt
+            : this.calendarEmailAt;
+        if (!at || this.simDate.getTime() < at) return;
+        tx.update(ref, { calendarEmailInProgress: true });
+        proceed = true;
+      });
+    } catch {}
+    if (!proceed) return;
+    let parsed: { from?: string; subject?: string; banner?: boolean; deleted?: boolean; body: string } = {
+      body: '',
+    };
+    try {
+      const text = await this.http
+        .get('emails/vlad-calendar.md', { responseType: 'text' })
+        .toPromise();
+      parsed = this.parseEmailTemplate(text || '');
+    } catch {
+      parsed = this.parseEmailTemplate('');
+    }
+    const fallbackBody =
+      'Hello End User,\n\nThis is Vlad from IT. I added a calendar for next week so you can shuffle meetings. Your meetings are white with colored dots for attendees; teammates show up in their own color. Try to stack meetings together to leave big empty blocks for focus time, and submit when you are done. I am very busy so nothing else happens.\n\nThank you!\nVlad\nIT Support\nstrtupify.io';
+    if (!parsed.body) parsed.body = fallbackBody;
+    if (!parsed.subject) parsed.subject = 'New calendar feature';
+    const emailId = `calendar-${Date.now()}`;
+    try {
+      await setDoc(
+        doc(db, `companies/${this.companyId}/inbox/${emailId}`),
+        {
+          from: parsed.from || 'vlad@strtupify.io',
+          subject: parsed.subject || 'New calendar feature',
+          message: parsed.body,
+          deleted: parsed.deleted ?? false,
+          banner: parsed.banner ?? false,
+          timestamp: this.simDate.toISOString(),
+          threadId: emailId,
+          to: this.meAddress,
+          category: 'calendar',
+        }
+      );
+      await updateDoc(ref, {
+        calendarEmailSent: true,
+        calendarEmailInProgress: false,
+        calendarEnabled: true,
+      });
+      this.calendarEmailAt = null;
+    } catch {
+      try {
+        await updateDoc(ref, { calendarEmailInProgress: false });
+      } catch {}
+    }
   }
 
   private async checkKickoffEmail(): Promise<void> {

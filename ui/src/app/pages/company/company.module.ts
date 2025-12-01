@@ -17,6 +17,7 @@ import { CompanyProfileComponent } from 'src/app/components/company-profile/comp
 import { WorkItemsComponent } from 'src/app/components/work-items/work-items.component';
 import { GeneralLedgerComponent } from 'src/app/components/general-ledger/general-ledger.component';
 import { HumanResourcesComponent } from 'src/app/components/human-resources/human-resources.component';
+import { CalendarComponent } from 'src/app/components/calendar/calendar.component';
 import { HttpClientModule } from '@angular/common/http';
 
 @NgModule({
@@ -35,6 +36,7 @@ import { HttpClientModule } from '@angular/common/http';
     WorkItemsComponent,
     GeneralLedgerComponent,
     HumanResourcesComponent,
+    CalendarComponent,
   ],
   declarations: [CompanyPage],
 })

@@ -35,6 +35,7 @@ export class CompanyPage implements OnInit {
   showResumes = false;
   showBoardroom = false;
   showInbox = false;
+  inboxUnlocked = false;
   showWork = false;
   showLedger = false;
   showHr = false;
@@ -78,6 +79,7 @@ export class CompanyPage implements OnInit {
       if (!this.companyId) return;
       this.showWork = m === 'work';
       this.showInbox = m === 'inbox';
+      if (m === 'inbox') this.inboxUnlocked = true;
       this.showBoardroom = m === 'boardroom';
       this.showResumes = m === 'resumes';
       this.showLedger = m === 'ledger';
@@ -110,6 +112,7 @@ export class CompanyPage implements OnInit {
     );
     if (!acceptedSnap.empty) {
       this.showInbox = true;
+      this.inboxUnlocked = true;
       this.showLoading = false;
       this.ui.setCompanyProfileEnabled(true);
       this.ui.setCurrentModule('inbox');
@@ -174,6 +177,7 @@ export class CompanyPage implements OnInit {
   openInbox() {
     this.showBoardroom = false;
     this.showInbox = true;
+    this.inboxUnlocked = true;
     this.showWork = false;
     this.showHr = false;
     this.showCalendar = false;

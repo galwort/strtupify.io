@@ -93,6 +93,27 @@
     *ngIf="currentCompanyId && inboxEnabled && !endgameActive"
     [companyId]="currentCompanyId"
   ></app-clock>
+  <div
+    *ngIf="newEmailToast"
+    class="email-toast"
+    (click)="openInbox()"
+    role="status"
+    aria-live="polite"
+  >
+    <div class="email-toast__label">New email</div>
+    <div class="email-toast__subject">{{ newEmailToast.subject }}</div>
+    <div class="email-toast__meta">
+      <span class="email-toast__from">{{
+        newEmailToast.from || 'Inbox'
+      }}</span>
+      <span
+        *ngIf="newEmailToast.preview"
+        class="email-toast__preview"
+      >
+        {{ newEmailToast.preview }}
+      </span>
+    </div>
+  </div>
   <app-endgame-overlay
     [active]="endgameActive"
     [resetting]="endgameResetting"

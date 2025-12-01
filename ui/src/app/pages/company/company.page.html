@@ -37,7 +37,8 @@
       [companyId]="companyId"
     ></app-calendar>
     <app-inbox
-      *ngIf="showInbox && !showCompanyProfile"
+      *ngIf="inboxUnlocked"
+      [hidden]="!showInbox || showCompanyProfile"
       [companyId]="companyId"
     ></app-inbox>
     <app-general-ledger

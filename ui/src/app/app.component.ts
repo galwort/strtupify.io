@@ -7,6 +7,7 @@ import { getAuth, onAuthStateChanged, Unsubscribe } from 'firebase/auth';
 import { UiStateService } from './services/ui-state.service';
 import { environment } from '../environments/environment';
 import { EndgameService } from './services/endgame.service';
+import { InboxService, Email } from './services/inbox.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -35,8 +36,13 @@ export class AppComponent implements OnDestroy {
   endgameActive = false;
   endgameResetting = false;
   sidebarColor = 'var(--theme-primary)';
+  newEmailToast: { from?: string; subject?: string; preview?: string } | null = null;
   private isAuthenticated = false;
   private endgameSub: Subscription | null = null;
+  private inboxWatchSub: Subscription | null = null;
+  private knownEmailIds = new Set<string>();
+  private inboxWatchInitialized = false;
+  private emailToastTimer: any = null;
 
   private fbApp = initializeApp(environment.firebase);
   private db = getFirestore(this.fbApp);
@@ -57,7 +63,8 @@ export class AppComponent implements OnDestroy {
     private router: Router,
     private ui: UiStateService,
     private cdr: ChangeDetectorRef,
-    private endgame: EndgameService
+    private endgame: EndgameService,
+    private inbox: InboxService
   ) {
     this.router.events.subscribe(() => {
       this.hideMenu = this.router.url === '/login' || this.router.url === '/register';
@@ -84,7 +91,10 @@ export class AppComponent implements OnDestroy {
           : m === 'hr'
           ? 'diversity_3'
           : 'badge';
-      if (m === 'inbox') this.inboxEnabled = true;
+      if (m === 'inbox') {
+        this.inboxEnabled = true;
+        this.hideNewEmailToast();
+      }
     });
 
     window.addEventListener('company-logo-changed', this.logoChangedHandler as EventListener);
@@ -183,7 +193,11 @@ export class AppComponent implements OnDestroy {
     this.ui.setShowCompanyProfile(true);
     this.ui.setCurrentModule('roles');
   }
-  openInbox() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('inbox'); }
+  openInbox() {
+    this.hideNewEmailToast();
+    this.ui.setShowCompanyProfile(false);
+    this.ui.setCurrentModule('inbox');
+  }
   openBoardroom() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('boardroom'); }
   openRoles() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('roles'); }
   openResumes() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('resumes'); }
@@ -211,6 +225,68 @@ export class AppComponent implements OnDestroy {
     this.router.navigate(['/account']);
   }
 
+  private hideNewEmailToast(): void {
+    if (this.emailToastTimer) {
+      clearTimeout(this.emailToastTimer);
+      this.emailToastTimer = null;
+    }
+    if (this.newEmailToast) {
+      this.newEmailToast = null;
+      this.cdr.detectChanges();
+    }
+  }
+
+  private showNewEmailToast(email: Email): void {
+    if (!email) return;
+    this.newEmailToast = {
+      from: email.sender || 'New email',
+      subject: email.subject || 'New email',
+      preview: email.preview,
+    };
+    if (this.emailToastTimer) clearTimeout(this.emailToastTimer);
+    this.emailToastTimer = setTimeout(() => {
+      this.newEmailToast = null;
+      this.emailToastTimer = null;
+      this.cdr.detectChanges();
+    }, 6000);
+    this.cdr.detectChanges();
+  }
+
+  private startInboxWatcher(companyId: string | null): void {
+    if (this.inboxWatchSub) {
+      try {
+        this.inboxWatchSub.unsubscribe();
+      } catch {}
+      this.inboxWatchSub = null;
+    }
+    this.knownEmailIds.clear();
+    this.inboxWatchInitialized = false;
+    this.hideNewEmailToast();
+    if (!companyId) return;
+    this.inboxWatchSub = this.inbox
+      .getInbox(companyId)
+      .subscribe((emails) => this.handleInboxSnapshot(emails || []));
+  }
+
+  private handleInboxSnapshot(emails: Email[]): void {
+    if (!this.inboxWatchInitialized) {
+      emails.forEach((e) => this.knownEmailIds.add(e.id));
+      this.inboxWatchInitialized = true;
+    }
+    const fresh = emails.filter((e) => !this.knownEmailIds.has(e.id));
+    emails.forEach((e) => this.knownEmailIds.add(e.id));
+    if (!this.inboxEnabled || !fresh.length || this.currentModule === 'inbox')
+      return;
+    const ts = (e: Email) => {
+      const t = new Date(e.timestamp || '').getTime();
+      return Number.isFinite(t) ? t : 0;
+    };
+    const newest = fresh
+      .slice()
+      .sort((a, b) => ts(b) - ts(a))[0];
+    if (newest) this.showNewEmailToast(newest);
+  }
+
   private async updateCompanyContext() {
     const m = this.router.url.match(/\/company\/([^\/]+)/);
     const companyId = m ? m[1] : null;
@@ -225,6 +301,7 @@ export class AppComponent implements OnDestroy {
     this.ui.setCompanyProfileEnabled(false);
     this.ui.setHrEnabled(false);
     this.ui.setCalendarEnabled(false);
+    this.startInboxWatcher(null);
     const currentUrl = this.router.url || '';
     this.isHomeRoute = currentUrl === '/home' || currentUrl.startsWith('/home?');
     this.isAccountRoute = currentUrl === '/account' || currentUrl.startsWith('/account/');
@@ -281,6 +358,7 @@ export class AppComponent implements OnDestroy {
         );
         this.inboxEnabled = !acceptedSnap.empty;
       } catch {}
+      this.startInboxWatcher(companyId);
       try {
         const unsub = onSnapshot(ref, (s) => {
           const d = (s && (s.data() as any)) || {};
@@ -315,6 +393,16 @@ export class AppComponent implements OnDestroy {
         this.endgameSub.unsubscribe();
       } catch {}
       this.endgameSub = null;
+    }
+    if (this.inboxWatchSub) {
+      try {
+        this.inboxWatchSub.unsubscribe();
+      } catch {}
+      this.inboxWatchSub = null;
+    }
+    if (this.emailToastTimer) {
+      clearTimeout(this.emailToastTimer);
+      this.emailToastTimer = null;
     }
   }
 }

@@ -1,13 +1,19 @@
 From: vlad@strtupify.io
-Subject: I installed a calendar
+Subject: How to calendar
 Banner: false
 Deleted: false
 
 Hello End User,
 
-This is Vlad from IT Support at startupify.io. Leadership asked for a calendar inside the app because apparently the clock was not enough. I installed a basic week view for the next week and pointed it at the same employee list you see in the other modules. You can click the colored dots to decide whose schedule you want to look at... their meetings show up in their color, yours stay white with their dots stamped inside so you remember who is sitting with you...
+This is Vlad from IT Support at startupify.io. I was told that your business would require meetings, so I've enabled the calendar on your system. In the future, this information should have been communicated to IT ahead of time...
 
-You can shuffle your own meetings around as long as you do not double book someone -- Bill cannot be in two places at once, even if you click harder. If you put meetings next to each other it leaves bigger empty chunks on the other side... leadership said big chunks of quiet time are better than a bunch of tiny gaps. There is a submit button to lock in whatever you rearranged so you can see how focused your week looks. Nothing else happens because I am very busy.
+The calendar shows you your meetings for the following week. This was a highly requested feature from other end users. Please submit any reschedule requests ahead of time. Doing things ahead of time is best practice. I wanted to remind you of this...
+
+You will not be able to reschedule other employee's meetings that you are not involved in. This was a confusing issue for end users. It is best practice to respect other peoples time...
+
+I've added in a scoring system that is dependent on how much uninterrupted focus time you are able to accumulate for that week. Must be nice to have such time...
+
+I am working on a very advanced feature to cancel meetings, so I will be very busy and may not be able to immediately respond to all of your emails...
 
 Thank you!
 Vlad

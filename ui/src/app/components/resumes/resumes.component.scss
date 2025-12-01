@@ -147,15 +147,9 @@
           padding: 6px 10px;
           border-radius: 6px;
           background: rgba(0, 0, 0, 0.03);
-          transition: transform 0.1s ease, box-shadow 0.15s ease;
 
           &.clickable {
             cursor: pointer;
-          }
-
-          &.clickable:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
           }
         }
       }
@@ -171,12 +165,6 @@
       font-weight: 400;
       cursor: pointer;
       min-width: 170px;
-      transition: transform 0.1s ease, box-shadow 0.15s ease;
-
-      &:hover:not(:disabled) {
-        transform: translateY(-1px);
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
-      }
 
       &:disabled {
         opacity: 0.6;

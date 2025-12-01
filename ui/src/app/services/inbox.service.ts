@@ -37,26 +37,31 @@ export class InboxService {
   constructor(private http: HttpClient) {}
 
   ensureWelcomeEmail(companyId: string): Promise<void> {
-    const welcomeRef = doc(db, `companies/${companyId}/inbox/welcome-vlad`);
+    const welcomeRef = doc(db, `companies/${companyId}/inbox/vlad-welcome`);
     return getDoc(welcomeRef).then((snapshot) => {
       if (snapshot.exists()) {
         return;
       }
       return new Promise<void>((resolve, reject) => {
         this.http
-          .get('emails/welcome-vlad.md', { responseType: 'text' })
+          .get('emails/vlad-welcome.md', { responseType: 'text' })
           .subscribe({
             next: async (text) => {
               const parsed = this.parseMarkdownEmail(text);
               const timestamp = new Date().toISOString();
               let toAddr = '';
               try {
-                const companySnap = await getDoc(doc(db, `companies/${companyId}`));
+                const companySnap = await getDoc(
+                  doc(db, `companies/${companyId}`)
+                );
                 let domain = `${companyId}.com`;
                 if (companySnap.exists()) {
                   const data = companySnap.data() as any;
                   if (data && data.company_name) {
-                    domain = String(data.company_name).replace(/\s+/g, '').toLowerCase() + '.com';
+                    domain =
+                      String(data.company_name)
+                        .replace(/\s+/g, '')
+                        .toLowerCase() + '.com';
                   }
                 }
                 toAddr = `me@${domain}`;
@@ -69,7 +74,7 @@ export class InboxService {
                   deleted: parsed.deleted ?? false,
                   banner: parsed.banner ?? false,
                   timestamp,
-                  threadId: 'welcome-vlad',
+                  threadId: 'vlad-welcome',
                   to: toAddr,
                   category: 'vlad',
                 });
@@ -143,7 +148,7 @@ export class InboxService {
       message: string;
       parentId?: string;
       from?: string;
-      timestamp?: string; 
+      timestamp?: string;
       to?: string;
       category?: string;
     }
@@ -161,7 +166,10 @@ export class InboxService {
       category: opts.category || undefined,
     };
     if (opts.parentId) payload.parentId = opts.parentId;
-    return setDoc(doc(db, `companies/${companyId}/inbox/${emailId}`), payload).then(() => emailId);
+    return setDoc(
+      doc(db, `companies/${companyId}/inbox/${emailId}`),
+      payload
+    ).then(() => emailId);
   }
 
   sendEmail(

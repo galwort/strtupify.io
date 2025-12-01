@@ -91,12 +91,12 @@
     box-sizing: border-box;
   }
 
-  input[type='number']::-webkit-outer-spin-button,
-  input[type='number']::-webkit-inner-spin-button {
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
   }
-  input[type='number'] {
+  input[type="number"] {
     -moz-appearance: textfield;
     appearance: textfield;
   }
@@ -181,7 +181,7 @@
     font-size: 1rem;
     cursor: pointer;
     transition: background 0.3s;
-    margin-top: 1rem;
+    margin-top: 3rem;
   }
 
   > button.primary:hover {

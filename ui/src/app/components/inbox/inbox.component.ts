@@ -137,9 +137,13 @@ export class InboxComponent implements OnInit, OnDestroy {
     return html;
   }
 
-  private parseEmailTemplate(
-    text: string
-  ): { from?: string; subject?: string; banner?: boolean; deleted?: boolean; body: string } {
+  private parseEmailTemplate(text: string): {
+    from?: string;
+    subject?: string;
+    banner?: boolean;
+    deleted?: boolean;
+    body: string;
+  } {
     const lines = (text || '').split(/\r?\n/);
     let i = 0;
     const meta: any = {};
@@ -252,7 +256,8 @@ export class InboxComponent implements OnInit, OnDestroy {
             this.enqueueTick();
           }
           if (d.calendarEmailSent) this.calendarEmailAt = null;
-          else if (typeof d.calendarEmailAt === 'number') this.calendarEmailAt = d.calendarEmailAt;
+          else if (typeof d.calendarEmailAt === 'number')
+            this.calendarEmailAt = d.calendarEmailAt;
         }
       );
       (this as any).__unsubInboxSim = unsub;
@@ -304,10 +309,10 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.pendingSelectionId = nextId;
     this.inboxService
       .deleteEmail(this.companyId, this.selectedEmail.id)
-      .then(() => {
-      })
+      .then(() => {})
       .finally(() => {
-        if (currentId) this.suppressedIds.set(currentId, Date.now() + this.suppressMs);
+        if (currentId)
+          this.suppressedIds.set(currentId, Date.now() + this.suppressMs);
         this.deleteInFlight = false;
       });
   }
@@ -331,7 +336,9 @@ export class InboxComponent implements OnInit, OnDestroy {
       .call(this.inboxService, this.companyId, this.selectedEmail.id)
       .then(() => {
         const currentId = this.selectedEmail ? this.selectedEmail.id : null;
-        const nextId = currentId ? this.nextSelectableId(currentId, this.inbox) : null;
+        const nextId = currentId
+          ? this.nextSelectableId(currentId, this.inbox)
+          : null;
         if (newDeletedState && currentId) {
           this.suppressedIds.set(currentId, Date.now() + this.suppressMs);
         }
@@ -496,7 +503,8 @@ export class InboxComponent implements OnInit, OnDestroy {
       const ref = doc(db, `companies/${this.companyId}`);
       const companySnap = await getDoc(ref);
       const data = (companySnap && (companySnap.data() as any)) || {};
-      if (data.calendarEmailSent || typeof data.calendarEmailAt === 'number') return;
+      if (data.calendarEmailSent || typeof data.calendarEmailAt === 'number')
+        return;
       const kickoffSnap = await getDocs(
         query(
           collection(db, `companies/${this.companyId}/inbox`),
@@ -525,7 +533,9 @@ export class InboxComponent implements OnInit, OnDestroy {
       const snap = await getDoc(doc(db, `companies/${this.companyId}`));
       const data = (snap && (snap.data() as any)) || {};
       const value = Number(data.simTime || this.simDate.getTime());
-      return Number.isFinite(value) && value > 0 ? value : this.simDate.getTime();
+      return Number.isFinite(value) && value > 0
+        ? value
+        : this.simDate.getTime();
     } catch {
       return this.simDate.getTime();
     }
@@ -929,7 +939,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       let category = (this.selectedEmail as any).category || '';
       if (!category) {
         const tid = String(threadId);
-        if (tid === 'welcome-vlad' || tid.includes('vlad')) category = 'vlad';
+        if (tid === 'vlad-welcome' || tid.includes('vlad')) category = 'vlad';
         else if (tid.startsWith('kickoff-')) category = 'kickoff';
         else if (tid.startsWith('mom-')) category = 'mom';
         else category = 'generic';
@@ -1012,20 +1022,17 @@ export class InboxComponent implements OnInit, OnDestroy {
     const emailId = `calendar-${Date.now()}`;
     const timestampIso = new Date(simTimestamp).toISOString();
     try {
-      await setDoc(
-        doc(db, `companies/${this.companyId}/inbox/${emailId}`),
-        {
-          from: parsed.from || 'vlad@strtupify.io',
-          subject: parsed.subject || 'New calendar feature',
-          message: parsed.body,
-          deleted: parsed.deleted ?? false,
-          banner: parsed.banner ?? false,
-          timestamp: timestampIso,
-          threadId: emailId,
-          to: this.meAddress,
-          category: 'calendar',
-        }
-      );
+      await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+        from: parsed.from || 'vlad@strtupify.io',
+        subject: parsed.subject || 'New calendar feature',
+        message: parsed.body,
+        deleted: parsed.deleted ?? false,
+        banner: parsed.banner ?? false,
+        timestamp: timestampIso,
+        threadId: emailId,
+        to: this.meAddress,
+        category: 'calendar',
+      });
       await updateDoc(ref, {
         calendarEmailSent: true,
         calendarEmailInProgress: false,
@@ -1048,7 +1055,9 @@ export class InboxComponent implements OnInit, OnDestroy {
     body: string;
   }> {
     try {
-      const text = await this.http.get('emails/vlad-calendar.md', { responseType: 'text' }).toPromise();
+      const text = await this.http
+        .get('emails/vlad-calendar.md', { responseType: 'text' })
+        .toPromise();
       const parsed = this.parseEmailTemplate(text || '');
       if (parsed.body) return parsed;
     } catch {}
@@ -1076,13 +1085,19 @@ export class InboxComponent implements OnInit, OnDestroy {
     try {
       const simNow = await this.getCompanySimTime();
       const target = simNow + this.kickoffDelayMs;
-      const realDelay = Math.max(250, Math.floor(this.kickoffDelayMs / Math.max(1, this.speed)));
+      const realDelay = Math.max(
+        250,
+        Math.floor(this.kickoffDelayMs / Math.max(1, this.speed))
+      );
       const ref = doc(db, `companies/${this.companyId}`);
       await runTransaction(db, async (tx) => {
         const snap = await tx.get(ref);
         const data = (snap && (snap.data() as any)) || {};
         if (data.calendarEmailSent) return;
-        const existing = typeof data.calendarEmailAt === 'number' ? data.calendarEmailAt : null;
+        const existing =
+          typeof data.calendarEmailAt === 'number'
+            ? data.calendarEmailAt
+            : null;
         if (existing && simNow <= existing + this.kickoffDelayMs) {
           this.calendarEmailAt = existing;
           return;
@@ -1133,7 +1148,10 @@ export class InboxComponent implements OnInit, OnDestroy {
     return base;
   }
 
-  private nextSelectableId(currentId: string | null, list: Email[]): string | null {
+  private nextSelectableId(
+    currentId: string | null,
+    list: Email[]
+  ): string | null {
     if (!currentId || !list.length) return null;
     const idx = list.findIndex((e) => e.id === currentId);
     if (idx === -1) return null;
@@ -1158,7 +1176,10 @@ export class InboxComponent implements OnInit, OnDestroy {
     });
 
     let desiredId =
-      opts?.preferredId ?? this.pendingSelectionId ?? this.selectedEmail?.id ?? null;
+      opts?.preferredId ??
+      this.pendingSelectionId ??
+      this.selectedEmail?.id ??
+      null;
     if (desiredId && !avoid.has(desiredId)) {
       const found = this.inbox.find((e) => e.id === desiredId);
       if (found) {
@@ -1438,7 +1459,13 @@ export class InboxComponent implements OnInit, OnDestroy {
       });
     } catch {}
     if (!proceed) return;
-    let parsed: { from?: string; subject?: string; banner?: boolean; deleted?: boolean; body: string } = {
+    let parsed: {
+      from?: string;
+      subject?: string;
+      banner?: boolean;
+      deleted?: boolean;
+      body: string;
+    } = {
       body: '',
     };
     try {
@@ -1455,20 +1482,17 @@ export class InboxComponent implements OnInit, OnDestroy {
     if (!parsed.subject) parsed.subject = 'New calendar feature';
     const emailId = `calendar-${Date.now()}`;
     try {
-      await setDoc(
-        doc(db, `companies/${this.companyId}/inbox/${emailId}`),
-        {
-          from: parsed.from || 'vlad@strtupify.io',
-          subject: parsed.subject || 'New calendar feature',
-          message: parsed.body,
-          deleted: parsed.deleted ?? false,
-          banner: parsed.banner ?? false,
-          timestamp: this.simDate.toISOString(),
-          threadId: emailId,
-          to: this.meAddress,
-          category: 'calendar',
-        }
-      );
+      await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+        from: parsed.from || 'vlad@strtupify.io',
+        subject: parsed.subject || 'New calendar feature',
+        message: parsed.body,
+        deleted: parsed.deleted ?? false,
+        banner: parsed.banner ?? false,
+        timestamp: this.simDate.toISOString(),
+        threadId: emailId,
+        to: this.meAddress,
+        category: 'calendar',
+      });
       await updateDoc(ref, {
         calendarEmailSent: true,
         calendarEmailInProgress: false,

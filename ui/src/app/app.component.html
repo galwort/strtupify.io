@@ -33,16 +33,6 @@
           <span class="material-symbols-outlined"> mail </span>
         </button>
         <button
-          *ngIf="currentCompanyId && workEnabled"
-          type="button"
-          class="company-logo"
-          (click)="openWork()"
-          aria-label="Kanban"
-          [class.active]="currentModule === 'work' && !showCompanyProfile"
-        >
-          <span class="material-symbols-outlined"> task </span>
-        </button>
-        <button
           *ngIf="currentCompanyId && calendarEnabled"
           type="button"
           class="company-logo"
@@ -51,6 +41,16 @@
           [class.active]="currentModule === 'calendar' && !showCompanyProfile"
         >
           <span class="material-symbols-outlined"> event </span>
+        </button>
+        <button
+          *ngIf="currentCompanyId && workEnabled"
+          type="button"
+          class="company-logo"
+          (click)="openWork()"
+          aria-label="Kanban"
+          [class.active]="currentModule === 'work' && !showCompanyProfile"
+        >
+          <span class="material-symbols-outlined"> task </span>
         </button>
         <button
           *ngIf="currentCompanyId && hrEnabled"
@@ -89,7 +89,10 @@
     <ion-router-outlet id="main-content"></ion-router-outlet>
   </ion-content>
 
-  <app-clock *ngIf="currentCompanyId && inboxEnabled && !endgameActive" [companyId]="currentCompanyId"></app-clock>
+  <app-clock
+    *ngIf="currentCompanyId && inboxEnabled && !endgameActive"
+    [companyId]="currentCompanyId"
+  ></app-clock>
   <app-endgame-overlay
     [active]="endgameActive"
     [resetting]="endgameResetting"

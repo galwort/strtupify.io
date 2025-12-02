@@ -71,9 +71,12 @@ export class ApplicationPage implements OnInit {
       }
 
       const logoUrl = 'https://fa-strtupifyio.azurewebsites.net/api/logo';
-      const logoBody = { input: this.companyDescription };
-      const logoResponse = await firstValueFrom(this.http.post(logoUrl, logoBody, { responseType: 'text' as 'json' }));
-      this.logoValue = (logoResponse as unknown as string) || '';
+      const logoBody = { input: this.companyDescription, limit: 1 };
+      const logoResponse = await firstValueFrom(
+        this.http.post<{ best?: string; matches?: { icon: string; score: number }[] }>(logoUrl, logoBody)
+      );
+      const topMatch = Array.isArray(logoResponse?.matches) ? logoResponse.matches[0]?.icon : '';
+      this.logoValue = topMatch || logoResponse?.best || '';
 
       const fundingUrl = 'https://fa-strtupifyio.azurewebsites.net/api/funding';
       const jobsUrl = 'https://fa-strtupifyio.azurewebsites.net/api/jobs';

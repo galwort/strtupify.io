@@ -50,39 +50,51 @@
     </div>
   </div>
 
-  <div class="picker" *ngIf="picking">
-    <div class="picker-header">
-      <input
-        type="text"
-        placeholder="Search Material icons…"
-        [(ngModel)]="query"
-        (ngModelChange)="onSearchChange($event)"
-      />
-      <div class="preview">
-        <span class="material-symbols-outlined"> {{ selectedIcon || query || 'help' }} </span>
+  <div class="picker-overlay" *ngIf="picking">
+    <div class="picker-backdrop" (click)="cancelPicker()"></div>
+    <div class="picker-panel" role="dialog" aria-modal="true">
+      <div class="picker-header">
+        <input
+          type="text"
+          placeholder="Search or describe a logo"
+          [(ngModel)]="query"
+          (ngModelChange)="onSearchChange($event)"
+        />
       </div>
-    </div>
 
-    <div class="icon-grid">
-      <button
-        *ngFor="let icon of filtered"
-        type="button"
-        class="icon-tile"
-        [class.selected]="icon === selectedIcon"
-        (click)="choose(icon)"
-      >
-        <span class="material-symbols-outlined"> {{ icon }} </span>
-        <div class="name">{{ icon }}</div>
-      </button>
-    </div>
+      <ng-container *ngIf="aiSearching; else iconsList">
+        <div class="icon-grid loading-grid">
+          <div class="grid-spinner"></div>
+          <div class="loading-text">Finding logos...</div>
+        </div>
+      </ng-container>
 
-    <div class="no-results" *ngIf="filtered.length === 0">
-      No matching logos
-    </div>
+      <ng-template #iconsList>
+        <div class="icon-grid">
+          <button
+            *ngFor="let icon of filtered"
+            type="button"
+            class="icon-tile"
+            [class.selected]="icon === selectedIcon"
+            (click)="choose(icon)"
+          >
+            <span class="material-symbols-outlined"> {{ icon }} </span>
+            <div class="name">{{ icon }}</div>
+          </button>
+        </div>
 
-    <div class="actions">
-      <button type="button" class="primary" (click)="saveIcon()">Save</button>
-      <button type="button" class="secondary" (click)="cancelPicker()">Cancel</button>
+        <div class="no-results" *ngIf="filtered.length === 0 && !aiError">
+          No matching logos
+        </div>
+        <div class="error-inline" *ngIf="aiError">
+          {{ aiError }}
+        </div>
+      </ng-template>
+
+      <div class="actions">
+        <button type="button" class="primary" (click)="saveIcon()">Save</button>
+        <button type="button" class="secondary" (click)="cancelPicker()">Cancel</button>
+      </div>
     </div>
   </div>
 </div>

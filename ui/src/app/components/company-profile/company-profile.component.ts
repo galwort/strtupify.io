@@ -28,6 +28,12 @@ export class CompanyProfileComponent implements OnInit {
   filtered: string[] = [];
   private allIcons: string[] = [];
   selectedIcon = '';
+  aiSearching = false;
+  aiError = '';
+  private searchTimeout: any = null;
+  private searchToken = 0;
+  private lastSearchText = '';
+  private recommended: string[] = [];
   funding: { approved: boolean; amount: number; grace_period_days: number; first_payment: number } | null = null;
   foundedAt: string = '';
   hires: { id: string; name: string; title: string }[] = [];
@@ -64,12 +70,14 @@ export class CompanyProfileComponent implements OnInit {
     });
 
     await this.loadIcons();
-    this.onSearchChange('');
+    this.filtered = this.filterIcons();
+    this.queueSemanticSearch();
   }
 
   openPicker() {
     this.picking = true;
-    this.onSearchChange(this.query);
+    this.filtered = this.filterIcons();
+    this.queueSemanticSearch();
   }
 
   cancelPicker() {
@@ -79,13 +87,13 @@ export class CompanyProfileComponent implements OnInit {
 
   onSearchChange(q: string) {
     this.query = q || '';
-    const ql = this.query.toLowerCase();
-    const base = this.allIcons.length ? this.allIcons : MATERIAL_ICONS;
-    const withoutReserved = base.filter((n) => !RESERVED_ICONS.includes(n));
-    const list = ql
-      ? withoutReserved.filter((n) => n.toLowerCase().includes(ql))
-      : withoutReserved;
-    this.filtered = list.slice(0, 200);
+    if (!this.query.trim()) {
+      this.recommended = [];
+      this.filtered = [];
+      this.lastSearchText = '';
+      this.aiError = '';
+    }
+    this.queueSemanticSearch();
   }
 
   choose(icon: string) {
@@ -101,6 +109,75 @@ export class CompanyProfileComponent implements OnInit {
     try {
       window.dispatchEvent(new CustomEvent('company-logo-changed', { detail: this.logo }));
     } catch {}
+  }
+
+  private queueSemanticSearch() {
+    if (this.searchTimeout) clearTimeout(this.searchTimeout);
+    this.searchTimeout = setTimeout(() => this.semanticSearch(), 350);
+  }
+
+  private async semanticSearch() {
+    if (this.aiSearching) return;
+    const text = (this.query || '').trim();
+    if (!text) {
+      this.recommended = [];
+      this.filtered = [];
+      this.lastSearchText = '';
+      this.aiError = '';
+      return;
+    }
+    if (text === this.lastSearchText) return;
+    const token = ++this.searchToken;
+
+    this.aiError = '';
+    this.aiSearching = true;
+    try {
+      const logoUrl = 'https://fa-strtupifyio.azurewebsites.net/api/logo';
+      const res = await firstValueFrom(
+        this.http.post<{ best?: string; matches?: { icon: string; score: number }[] }>(
+          logoUrl,
+          { input: text, min_score: 0.55, limit: 24 }
+        )
+      );
+      if (token !== this.searchToken) return;
+      const matches = Array.isArray(res?.matches)
+        ? res.matches.filter((m) => m && typeof m.icon === 'string')
+        : [];
+      const iconName = matches[0]?.icon || res?.best || '';
+      if (iconName && !RESERVED_ICONS.includes(iconName)) {
+        const iconsFromMatches = matches
+          .map((m) => m.icon)
+          .filter((i) => i && !RESERVED_ICONS.includes(i));
+
+        // Merge all returned icons into the known list to keep them visible.
+        const known = new Set(this.allIcons);
+        for (const icon of iconsFromMatches) {
+          if (!known.has(icon)) {
+            this.allIcons.unshift(icon);
+            known.add(icon);
+          }
+        }
+        if (!known.has(iconName)) {
+          this.allIcons.unshift(iconName);
+        }
+
+        this.selectedIcon = iconName;
+        this.recommended = iconsFromMatches;
+        this.lastSearchText = text;
+        this.filtered = this.filterIcons();
+      } else {
+        this.recommended = [];
+        this.aiError = 'Could not fetch a logo suggestion. Please try again.';
+      }
+    } catch (e) {
+      if (token === this.searchToken) {
+        this.aiError = 'Could not fetch a logo suggestion. Please try again.';
+      }
+    } finally {
+      if (token === this.searchToken) {
+        this.aiSearching = false;
+      }
+    }
   }
 
   private async loadIcons() {
@@ -127,11 +204,30 @@ export class CompanyProfileComponent implements OnInit {
         try {
           localStorage.setItem('materialIconsList', JSON.stringify(names));
         } catch {}
+        this.filtered = this.filterIcons();
         return;
       }
     } catch {}
 
 
     this.allIcons = MATERIAL_ICONS;
+    this.filtered = this.filterIcons();
+  }
+
+  private filterIcons(): string[] {
+    if (!this.query.trim()) return [];
+
+    const rec = this.recommended.filter((n) => n && !RESERVED_ICONS.includes(n));
+    let list = rec.length ? Array.from(new Set(rec)) : [];
+
+    if (
+      this.selectedIcon &&
+      !RESERVED_ICONS.includes(this.selectedIcon) &&
+      !list.includes(this.selectedIcon)
+    ) {
+      list = [this.selectedIcon, ...list];
+    }
+
+    return list.slice(0, 200);
   }
 }

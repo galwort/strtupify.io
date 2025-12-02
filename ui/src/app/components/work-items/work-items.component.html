@@ -1,83 +1,85 @@
-<div class="page-container">
+<div class="content-container">
   <div class="header">
     <div class="title">Kanban</div>
   </div>
 
-  <div class="kanban">
-    <div class="column" (dragover)="onDragOver($event)" (drop)="onDrop($event, 'todo')">
-      <div class="col-header">
-        <div class="col-title">Do</div>
-        <div class="count">{{ todo.length }}</div>
-      </div>
-      <div class="cards">
-        <div
-          class="card"
-          *ngFor="let it of todo"
-          draggable="true"
-          (dragstart)="onDragStart($event, it)"
-        >
-          <div class="card-title">{{ it.title }}</div>
-          <div class="assign">
-            <select (change)="reassign(it, $any($event.target).value)">
-              <option value="" [selected]="!it.assignee_id">Unassigned</option>
-              <option *ngFor="let e of hires" [value]="e.id" [selected]="e.id === it.assignee_id">{{ e.name }} ({{ e.title }})</option>
-            </select>
+  <div class="content-body">
+    <div class="kanban">
+      <div class="column" (dragover)="onDragOver($event)" (drop)="onDrop($event, 'todo')">
+        <div class="col-header">
+          <div class="col-title">Do</div>
+          <div class="count">{{ todo.length }}</div>
+        </div>
+        <div class="cards">
+          <div
+            class="card"
+            *ngFor="let it of todo"
+            draggable="true"
+            (dragstart)="onDragStart($event, it)"
+          >
+            <div class="card-title">{{ it.title }}</div>
+            <div class="assign">
+              <select (change)="reassign(it, $any($event.target).value)">
+                <option value="" [selected]="!it.assignee_id">Unassigned</option>
+                <option *ngFor="let e of hires" [value]="e.id" [selected]="e.id === it.assignee_id">{{ e.name }} ({{ e.title }})</option>
+              </select>
+            </div>
+            <div class="blockers" [attr.title]="blockerTitle(it)">Blockers: {{ remainingBlockers(it) }}</div>
+            <div class="card-desc">{{ it.description }}</div>
           </div>
-          <div class="blockers" [attr.title]="blockerTitle(it)">Blockers: {{ remainingBlockers(it) }}</div>
-          <div class="card-desc">{{ it.description }}</div>
         </div>
       </div>
-    </div>
 
-    <div class="column" (dragover)="onDragOver($event)" (drop)="onDrop($event, 'doing')">
-      <div class="col-header">
-        <div class="col-title">Doing</div>
-        <div class="count">{{ doing.length }}</div>
-      </div>
-      <div class="cards">
-        <div
-          class="card doing"
-          *ngFor="let it of doing"
-          draggable="true"
-          (dragstart)="onDragStart($event, it)"
-        >
-          <div class="card-title">{{ it.title }}</div>
-          <div class="assign">
-            <select (change)="reassign(it, $any($event.target).value)">
-              <option value="" [selected]="!it.assignee_id">Unassigned</option>
-              <option *ngFor="let e of hires" [value]="e.id" [selected]="e.id === it.assignee_id">{{ e.name }} ({{ e.title }})</option>
-            </select>
+      <div class="column" (dragover)="onDragOver($event)" (drop)="onDrop($event, 'doing')">
+        <div class="col-header">
+          <div class="col-title">Doing</div>
+          <div class="count">{{ doing.length }}</div>
+        </div>
+        <div class="cards">
+          <div
+            class="card doing"
+            *ngFor="let it of doing"
+            draggable="true"
+            (dragstart)="onDragStart($event, it)"
+          >
+            <div class="card-title">{{ it.title }}</div>
+            <div class="assign">
+              <select (change)="reassign(it, $any($event.target).value)">
+                <option value="" [selected]="!it.assignee_id">Unassigned</option>
+                <option *ngFor="let e of hires" [value]="e.id" [selected]="e.id === it.assignee_id">{{ e.name }} ({{ e.title }})</option>
+              </select>
+            </div>
+            <div class="progress">
+              <div class="bar"><div class="fill" [style.width.%]="progress(it)"></div></div>
+              <div class="pct">{{ progress(it) }}%</div>
+            </div>
+            <div class="blockers" [attr.title]="blockerTitle(it)">Blockers: {{ remainingBlockers(it) }}</div>
+            <div class="card-desc">{{ it.description }}</div>
           </div>
-          <div class="progress">
-            <div class="bar"><div class="fill" [style.width.%]="progress(it)"></div></div>
-            <div class="pct">{{ progress(it) }}%</div>
-          </div>
-          <div class="blockers" [attr.title]="blockerTitle(it)">Blockers: {{ remainingBlockers(it) }}</div>
-          <div class="card-desc">{{ it.description }}</div>
         </div>
       </div>
-    </div>
 
-    <div class="column" (dragover)="onDragOver($event)" (drop)="onDrop($event, 'done')">
-      <div class="col-header">
-        <div class="col-title">Done</div>
-        <div class="count">{{ done.length }}</div>
-      </div>
-      <div class="cards">
-        <div
-          class="card done"
-          *ngFor="let it of done"
-          [attr.draggable]="false"
-        >
-          <div class="card-title">{{ it.title }}</div>
-          <div class="assign">
-            <select disabled>
-              <option value="" [selected]="!it.assignee_id">Unassigned</option>
-              <option *ngFor="let e of hires" [value]="e.id" [selected]="e.id === it.assignee_id">{{ e.name }} ({{ e.title }})</option>
-            </select>
+      <div class="column" (dragover)="onDragOver($event)" (drop)="onDrop($event, 'done')">
+        <div class="col-header">
+          <div class="col-title">Done</div>
+          <div class="count">{{ done.length }}</div>
+        </div>
+        <div class="cards">
+          <div
+            class="card done"
+            *ngFor="let it of done"
+            [attr.draggable]="false"
+          >
+            <div class="card-title">{{ it.title }}</div>
+            <div class="assign">
+              <select disabled>
+                <option value="" [selected]="!it.assignee_id">Unassigned</option>
+                <option *ngFor="let e of hires" [value]="e.id" [selected]="e.id === it.assignee_id">{{ e.name }} ({{ e.title }})</option>
+              </select>
+            </div>
+            <div class="blockers" [attr.title]="blockerTitle(it)">Blockers: {{ remainingBlockers(it) }}</div>
+            <div class="card-desc">{{ it.description }}</div>
           </div>
-          <div class="blockers" [attr.title]="blockerTitle(it)">Blockers: {{ remainingBlockers(it) }}</div>
-          <div class="card-desc">{{ it.description }}</div>
         </div>
       </div>
     </div>

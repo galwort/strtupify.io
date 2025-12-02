@@ -1,63 +1,65 @@
-<div class="page-container">
+<div class="content-container">
   <div class="header">
     <div class="title">Calendar</div>
   </div>
 
-  <div class="layout">
-    <div class="calendar">
-      <div class="time-column">
-        <div class="time-slot" *ngFor="let t of timeTicks">{{ t }}</div>
-      </div>
-      <div class="day-column" *ngFor="let d of weekDays; let di = index">
-        <div class="day-header">{{ dayLabel(d) }}</div>
-        <div class="day-body" (dragover)="onDayDragOver($event)" (drop)="onDayDrop($event, di)">
-          <div
-            class="meeting"
-            *ngFor="let ev of visualByDay[di]"
-            [class.user]="ev.owner === 'me'"
-            [class.selected]="ev.id === selectedMeetingId && ev.owner === 'me'"
-            [class.dragging]="ev.id === draggingMeetingId"
-            [attr.draggable]="ev.owner === 'me' ? 'true' : null"
-            [style.top.%]="ev.top"
-            [style.height.%]="ev.height"
-            [style.left.%]="ev.left"
-            [style.width.%]="ev.width"
-            [style.background]="ev.bg"
-            [style.borderColor]="ev.border"
-            (click)="onMeetingClick(ev)"
-            (dragstart)="onMeetingDragStart($event, ev)"
-            (dragend)="onMeetingDragEnd()"
-            [attr.title]="meetingTitle(ev)"
-          >
-            <div class="dots" *ngIf="ev.participantDots.length">
-              <span *ngFor="let c of ev.participantDots" [style.background]="c"></span>
+  <div class="content-body">
+    <div class="layout">
+      <div class="calendar">
+        <div class="time-column">
+          <div class="time-slot" *ngFor="let t of timeTicks">{{ t }}</div>
+        </div>
+        <div class="day-column" *ngFor="let d of weekDays; let di = index">
+          <div class="day-header">{{ dayLabel(d) }}</div>
+          <div class="day-body" (dragover)="onDayDragOver($event)" (drop)="onDayDrop($event, di)">
+            <div
+              class="meeting"
+              *ngFor="let ev of visualByDay[di]"
+              [class.user]="ev.owner === 'me'"
+              [class.selected]="ev.id === selectedMeetingId && ev.owner === 'me'"
+              [class.dragging]="ev.id === draggingMeetingId"
+              [attr.draggable]="ev.owner === 'me' ? 'true' : null"
+              [style.top.%]="ev.top"
+              [style.height.%]="ev.height"
+              [style.left.%]="ev.left"
+              [style.width.%]="ev.width"
+              [style.background]="ev.bg"
+              [style.borderColor]="ev.border"
+              (click)="onMeetingClick(ev)"
+              (dragstart)="onMeetingDragStart($event, ev)"
+              (dragend)="onMeetingDragEnd()"
+              [attr.title]="meetingTitle(ev)"
+            >
+              <div class="dots" *ngIf="ev.participantDots.length">
+                <span *ngFor="let c of ev.participantDots" [style.background]="c"></span>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="sidebar">
-      <div class="panel focus-panel">
-        <div class="week-label" *ngIf="weekLabel">{{ weekLabel }}</div>
-        <div class="score">Focus score: {{ focusScore | number: '1.0-1' }}</div>
-        <button type="button" class="submit" (click)="submitSchedule()">Send reschedules</button>
-        <div class="status" *ngIf="submittedScore !== null">Submitted: {{ submittedScore | number: '1.0-1' }}</div>
-      </div>
+      <div class="sidebar">
+        <div class="panel focus-panel">
+          <div class="week-label" *ngIf="weekLabel">{{ weekLabel }}</div>
+          <div class="score">Focus score: {{ focusScore | number: '1.0-1' }}</div>
+          <button type="button" class="submit" (click)="submitSchedule()">Send reschedules</button>
+          <div class="status" *ngIf="submittedScore !== null">Submitted: {{ submittedScore | number: '1.0-1' }}</div>
+        </div>
 
-      <div class="panel">
-        <div class="control-title">Calendars</div>
-        <div class="employees">
-          <label *ngFor="let emp of employees">
-            <input
-              type="checkbox"
-              [checked]="selectedEmployees.has(emp.id)"
-              (change)="toggleEmployee(emp.id, $any($event.target).checked)"
-              [style.accentColor]="emp.color"
-            />
-            <span class="dot" [style.background]="emp.color"></span>
-            <span class="name">{{ emp.name }}</span>
-          </label>
+        <div class="panel">
+          <div class="control-title">Calendars</div>
+          <div class="employees">
+            <label *ngFor="let emp of employees">
+              <input
+                type="checkbox"
+                [checked]="selectedEmployees.has(emp.id)"
+                (change)="toggleEmployee(emp.id, $any($event.target).checked)"
+                [style.accentColor]="emp.color"
+              />
+              <span class="dot" [style.background]="emp.color"></span>
+              <span class="name">{{ emp.name }}</span>
+            </label>
+          </div>
         </div>
       </div>
     </div>

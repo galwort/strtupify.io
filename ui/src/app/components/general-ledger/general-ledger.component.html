@@ -4,22 +4,27 @@
   </div>
 
   <div class="filter-container">
-    <div class="stat">
-      <div class="label">Opening Loan</div>
-      <div class="value">{{ openingCredit | currency: 'USD':'symbol':'1.0-0' }}</div>
+    <label class="search">
+      <input
+        type="text"
+        placeholder="Search description or payee"
+        aria-label="Search general ledger entries"
+        [value]="searchTerm"
+        (input)="onSearch($any($event.target).value)"
+      />
+    </label>
+    <div class="stat filtered">
+      <div class="label">Filtered Total</div>
+      <div class="value">{{ filteredTotal | currency: 'USD':'symbol' }}</div>
     </div>
-    <div class="stat">
-      <div class="label">Total Payroll Paid</div>
-      <div class="value">{{ totalPayroll | currency: 'USD':'symbol' }}</div>
-    </div>
-    <div class="stat">
+    <div class="stat current">
       <div class="label">Current Balance</div>
       <div class="value">{{ currentBalance | currency: 'USD':'symbol' }}</div>
     </div>
   </div>
 
   <div class="ledger-body" *ngIf="!loading">
-    <div class="ledger-table">
+    <div class="ledger-table" *ngIf="filteredRows.length; else noMatches">
       <div class="thead">
         <div class="th date">Date</div>
         <div class="th desc">Description</div>
@@ -28,7 +33,7 @@
         <div class="th right">Balance</div>
       </div>
       <div class="tbody">
-        <div class="tr" *ngFor="let r of rows" [class.sub]="r.sub">
+        <div class="tr" *ngFor="let r of filteredRows" [class.sub]="r.sub">
           <div class="td date">{{ r.date }}</div>
           <div class="td desc">{{ r.description }}</div>
           <div class="td payee">{{ r.payee || '' }}</div>
@@ -37,5 +42,11 @@
         </div>
       </div>
     </div>
+    <ng-template #noMatches>
+      <div class="empty-state">
+        <div class="title">No entries match your search</div>
+        <div class="hint">Try another keyword in the description or payee.</div>
+      </div>
+    </ng-template>
   </div>
 </div>

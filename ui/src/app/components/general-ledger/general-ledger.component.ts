@@ -29,8 +29,11 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
   loading = true;
   openingCredit = 0;
   rows: LedgerRow[] = [];
+  filteredRows: LedgerRow[] = [];
+  searchTerm = '';
   totalPayroll = 0;
   currentBalance = 0;
+  filteredTotal = 0;
   private unsub: (() => void) | null = null;
 
   async ngOnInit() {
@@ -148,6 +151,7 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
       }
       this.totalPayroll = payrollTotal;
       this.rows = rows;
+      this.applyFilter();
       this.currentBalance = running;
       this.loading = false;
     });
@@ -156,6 +160,35 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     try { if (this.unsub) this.unsub(); } catch {}
     this.unsub = null;
+  }
+
+  onSearch(term: string) {
+    this.searchTerm = term;
+    this.applyFilter();
+  }
+
+  private applyFilter() {
+    const term = this.searchTerm.trim().toLowerCase();
+    if (!term) {
+      this.filteredRows = this.rows;
+      this.filteredTotal = this.computeTotal(this.filteredRows);
+      return;
+    }
+    this.filteredRows = this.rows.filter((row) => {
+      const desc = (row.description || '').toLowerCase();
+      const payee = (row.payee || '').toLowerCase();
+      return desc.includes(term) || payee.includes(term);
+    });
+    this.filteredTotal = this.computeTotal(this.filteredRows);
+  }
+
+  private computeTotal(rows: LedgerRow[]): number {
+    // Only count top-level rows to avoid double-counting sub-rows
+    return rows.reduce((sum, row) => {
+      if (row.sub) return sum;
+      const amt = Number(row.amount);
+      return isFinite(amt) ? sum + amt : sum;
+    }, 0);
   }
 
 

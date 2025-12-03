@@ -40,7 +40,6 @@ Updating LinkedIn
 Debugging picnic errors
 Debugging user error
 Debugging RTFM error
-Creating raving fans
 Tracking changes
 Removing comments from code
 Submitting tickets
@@ -90,7 +89,7 @@ Engineering prompts
 Pivoting to an "everything" company
 Feeling the AGI
 Applying to grad school
-Browsing indeed
+Browsing Indeed.com
 Crushing it
 Pre-ordering a robot
 Googling what web3 means

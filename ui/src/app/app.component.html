@@ -91,7 +91,7 @@
   </ion-content>
 
   <app-clock
-    *ngIf="currentCompanyId && inboxEnabled && !endgameActive"
+    *ngIf="currentCompanyId && inboxEnabled && endgameStatus === 'idle'"
     [companyId]="currentCompanyId"
   ></app-clock>
   <div

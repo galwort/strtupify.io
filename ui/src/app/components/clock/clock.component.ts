@@ -91,13 +91,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
 
   ngOnDestroy(): void {
     if (this.unsub) this.unsub();
-    this.clockActive = false;
-    if (this.tickTimer) clearTimeout(this.tickTimer);
-    if (this.displayAnimFrame !== null) {
-      cancelAnimationFrame(this.displayAnimFrame);
-      this.displayAnimFrame = null;
-    }
-    this.displayAnimCancelAt = null;
+    this.stopClock();
     if (this.unsubItems) this.unsubItems();
     if (this.unsubEmployees) this.unsubEmployees();
   }
@@ -107,13 +101,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
       this.unsub();
       this.unsub = null;
     }
-    if (this.tickTimer) {
-      clearTimeout(this.tickTimer);
-      this.tickTimer = null;
-    }
-    this.cancelDisplayWind();
-    this.tickInFlight = false;
-    this.clockActive = false;
+    this.stopClock();
     if (this.unsubItems) {
       this.unsubItems();
       this.unsubItems = null;
@@ -131,15 +119,14 @@ export class ClockComponent implements OnChanges, OnDestroy {
       this.simTime = Number.isFinite(st) ? st : Date.now();
       this.speed = Number.isFinite(sp) ? this.clampSpeed(sp) : this.baseSpeed;
       this.setDisplayTime(this.simTime, false);
+      const endgameEngaged = !!data.endgameTriggered || !!data.endgameResolved;
+      if (endgameEngaged) {
+        this.stopClock();
+        return;
+      }
       // Only run the clock after Inbox has started the simulation
       if (!data.simStarted) {
-        if (this.tickTimer) {
-          clearTimeout(this.tickTimer);
-          this.tickTimer = null;
-        }
-        this.tickInFlight = false;
-        this.clockActive = false;
-        this.cancelDisplayWind();
+        this.stopClock();
         return;
       }
       this.clockActive = true;
@@ -218,6 +205,10 @@ export class ClockComponent implements OnChanges, OnDestroy {
 
   private async runTick(): Promise<void> {
     if (!this.companyId) {
+      this.tickInFlight = false;
+      return;
+    }
+    if (!this.clockActive) {
       this.tickInFlight = false;
       return;
     }
@@ -400,5 +391,15 @@ export class ClockComponent implements OnChanges, OnDestroy {
 
   private clampSpeed(value: number): number {
     return Math.min(this.maxSpeed, Math.max(this.minSpeed, value));
+  }
+
+  private stopClock(): void {
+    this.clockActive = false;
+    this.tickInFlight = false;
+    if (this.tickTimer) {
+      clearTimeout(this.tickTimer);
+      this.tickTimer = null;
+    }
+    this.cancelDisplayWind();
   }
 }

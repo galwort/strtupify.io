@@ -190,6 +190,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   private intervalId: any;
   private tickQueue = Promise.resolve();
   private tickDelayHandle: any;
+  private tickDelayResolver: (() => void) | null = null;
   private destroyed = false;
   private deleteInFlight = false;
   private suppressedIds = new Map<string, number>();
@@ -226,6 +227,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   private inboxSub: Subscription | null = null;
   private endgameStatus: EndgameStatus = 'idle';
   private endgameSub: Subscription | null = null;
+  private endgameTriggeredAtMs: number | null = null;
   private inboxPreferredSub: Subscription | null = null;
   private preferredInboxEmailId: string | null = null;
 
@@ -252,6 +254,11 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.endgame.setCompany(this.companyId);
     this.endgameSub = this.endgame.state$.subscribe((s) => {
       this.endgameStatus = s.status;
+      const trig = Number(s.triggeredAt);
+      this.endgameTriggeredAtMs = Number.isFinite(trig) ? trig : null;
+      if (this.endgameStatus !== 'idle') {
+        this.stopSimTimers();
+      }
       this.updateInboxView(this.allEmails);
     });
 
@@ -285,8 +292,7 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.destroyed = true;
-    if (this.intervalId) clearInterval(this.intervalId);
-    if (this.tickDelayHandle) clearTimeout(this.tickDelayHandle);
+    this.stopSimTimers();
     if (this.inboxSub) {
       try {
         this.inboxSub.unsubscribe();
@@ -559,9 +565,14 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   private startClock(): void {
+    if (this.endgameStatus !== 'idle') return;
     const ref = doc(db, `companies/${this.companyId}`);
 
     this.intervalId = setInterval(async () => {
+      if (this.endgameStatus !== 'idle') {
+        this.stopSimTimers();
+        return;
+      }
       this.simDate = new Date(
         this.simDate.getTime() + this.speed * this.tickMs
       );
@@ -590,6 +601,22 @@ export class InboxComponent implements OnInit, OnDestroy {
     }, this.tickMs);
   }
 
+  private stopSimTimers(): void {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    if (this.tickDelayHandle) {
+      clearTimeout(this.tickDelayHandle);
+      this.tickDelayHandle = null;
+    }
+    if (this.tickDelayResolver) {
+      this.tickDelayResolver();
+      this.tickDelayResolver = null;
+    }
+    this.tickQueue = Promise.resolve();
+  }
+
   private updateDisplay(): void {
     this.displayDate = this.simDate.toLocaleDateString();
     this.displayTime = this.simDate.toLocaleTimeString('en-US', {
@@ -599,19 +626,25 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   private enqueueTick(): void {
+    if (this.endgameStatus !== 'idle') return;
     this.tickQueue = this.tickQueue
       .then(() => this.runTickOnce())
       .catch(() => {});
   }
 
   private async runTickOnce(): Promise<void> {
-    if (!this.companyId || this.destroyed) return;
+    if (!this.companyId || this.destroyed || this.endgameStatus !== 'idle') return;
     const delay = this.randomInt(this.tickMinDelayMs, this.tickMaxDelayMs);
     await new Promise<void>((resolve) => {
-      this.tickDelayHandle = setTimeout(resolve, delay);
+      this.tickDelayResolver = resolve;
+      this.tickDelayHandle = setTimeout(() => {
+        this.tickDelayResolver = null;
+        resolve();
+      }, delay);
     });
     this.tickDelayHandle = null;
-    if (this.destroyed) return;
+    this.tickDelayResolver = null;
+    if (this.destroyed || this.endgameStatus !== 'idle') return;
     try {
       await this.checkSuperEatsEmail();
       await this.checkKickoffEmail();
@@ -1147,8 +1180,22 @@ export class InboxComponent implements OnInit, OnDestroy {
       if (category === 'calendar') return true;
       return false;
     };
+    const cutoff = this.endgameTriggeredAtMs;
+    const shouldHideForEndgame = (e: Email): boolean => {
+      if (allowEndgameEmail(e)) return false;
+      if (this.isEndgameFlagged(e)) return true;
+      if (cutoff !== null) {
+        const ts = this.emailTimestampMs(e);
+        if (ts > 0 && ts < cutoff) return true;
+      }
+      return false;
+    };
 
     let base = emails;
+    if (endgameEngaged || cutoff !== null) {
+      base = base.filter((e) => !shouldHideForEndgame(e));
+    }
+
     if (this.showDeleted) base = base.filter((e) => !!e.deleted);
     else base = base.filter((e) => !e.deleted);
 
@@ -1156,10 +1203,6 @@ export class InboxComponent implements OnInit, OnDestroy {
       base = base.filter((e) => (e as any).sender === this.meAddress);
     } else {
       base = base.filter((e) => (e as any).sender !== this.meAddress);
-    }
-
-    if (endgameEngaged) {
-      base = base.filter((e) => allowEndgameEmail(e));
     }
 
     return base;
@@ -1175,6 +1218,21 @@ export class InboxComponent implements OnInit, OnDestroy {
     if (idx + 1 < list.length) return list[idx + 1].id;
     if (idx - 1 >= 0) return list[idx - 1].id;
     return null;
+  }
+
+  private emailTimestampMs(email: Email): number {
+    const raw: any = (email as any)?.timestamp;
+    const ts = raw ? new Date(raw).getTime() : NaN;
+    return Number.isFinite(ts) ? ts : 0;
+  }
+
+  private isEndgameFlagged(email: Email): boolean {
+    const flag = (email as any)?.endgame;
+    if (flag === true) return true;
+    if (flag === 1) return true;
+    if (typeof flag === 'string' && flag.toLowerCase() === 'true') return true;
+    const category = ((email as any).category || '').toLowerCase();
+    return category === 'endgame' || category.includes('endgame');
   }
 
   private updateInboxView(

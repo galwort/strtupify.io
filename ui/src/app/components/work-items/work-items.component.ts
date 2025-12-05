@@ -114,6 +114,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   private assistTriggerPersisted = new Set<string>();
   private endgameStatus: EndgameStatus = 'idle';
   private endgameSub: Subscription | null = null;
+  private companySnapshotSeen = false;
 
   constructor(private ui: UiStateService, private endgame: EndgameService) {}
 
@@ -123,6 +124,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     this.endgame.setCompany(this.companyId);
     this.endgameSub = this.endgame.state$.subscribe((state) => {
       this.endgameStatus = state.status;
+      this.handleEndgameState();
     });
 
     const itemsRef = collection(db, `companies/${this.companyId}/workitems`);
@@ -189,6 +191,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
 
     this.unsubCompany = onDocSnapshot(doc(db, `companies/${this.companyId}`), (snapshot) => {
       const x = (snapshot && (snapshot.data() as any)) || {};
+      this.companySnapshotSeen = true;
       const incomingSim = Number(x.simTime || Date.now());
       if (!Number.isFinite(this.simTime) || !this.intervalId) {
         this.simTime = Number.isFinite(incomingSim) ? incomingSim : Date.now();
@@ -214,7 +217,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.unsubItems) this.unsubItems();
     if (this.unsubCompany) this.unsubCompany();
-    if (this.intervalId) clearInterval(this.intervalId);
+    this.stopLocalClock();
     if (this.endgameSub) {
       try {
         this.endgameSub.unsubscribe();
@@ -342,6 +345,8 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
 
   private startLocalClock() {
     if (this.intervalId) return;
+    if (this.endgameStatus !== 'idle') return;
+    if (!this.companySnapshotSeen) return;
     let assistTick = 0;
     this.intervalId = setInterval(() => {
       this.simTime = this.simTime + this.speed * this.tickMs;
@@ -350,6 +355,22 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
         void this.checkAssistanceNeeds();
       }
     }, this.tickMs);
+  }
+
+  private stopLocalClock(): void {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+  }
+
+  private handleEndgameState(): void {
+    const paused = this.endgameStatus !== 'idle';
+    if (paused) {
+      this.stopLocalClock();
+    } else {
+      this.startLocalClock();
+    }
   }
 
   private scheduleRateGeneration(force = false) {
@@ -443,6 +464,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   }
 
   private async checkAssistanceNeeds(force = false): Promise<void> {
+    if (this.endgameStatus !== 'idle') return;
     if (!this.companyId || !this.doing.length) return;
     if (!this.productInfo) await this.ensureProductInfo();
     if (!this.productInfo) return;

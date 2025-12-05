@@ -56,6 +56,18 @@ export class ReplyRouterService {
       await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), payload);
       return;
     }
+    if (cat === 'mom') {
+      const replyText = await this.getReplyBody(opts.companyId, opts.parentId || '');
+      await this.handleMomConversation({
+        companyId: opts.companyId,
+        subject: opts.subject,
+        message: replyText,
+        threadId: opts.threadId,
+        parentId: opts.parentId,
+        timestamp: opts.timestamp,
+      });
+      return;
+    }
     if (cat === 'kickoff') {
       const meAddress = await this.getMeAddress(opts.companyId);
       const replyText = await this.getReplyBody(opts.companyId, opts.parentId || '');
@@ -267,6 +279,17 @@ export class ReplyRouterService {
       });
       return;
     }
+    if (normalized === 'mom@altavista.net') {
+      await this.handleMomConversation({
+        companyId: opts.companyId,
+        subject: opts.subject,
+        message: opts.message,
+        threadId: opts.threadId,
+        parentId: opts.parentId,
+        timestamp: opts.timestamp,
+      });
+      return;
+    }
     await this.sendMailerDaemonBounce({
       companyId: opts.companyId,
       to: opts.to,
@@ -276,6 +299,78 @@ export class ReplyRouterService {
       parentId: opts.parentId,
       timestamp: opts.timestamp,
     });
+  }
+
+  private async handleMomConversation(opts: {
+    companyId: string;
+    subject: string;
+    message: string;
+    threadId: string;
+    parentId?: string;
+    timestamp?: string;
+  }): Promise<void> {
+    const meAddress = await this.getMeAddress(opts.companyId);
+    const payload = {
+      company: opts.companyId,
+      subject: opts.subject || '(no subject)',
+      message: opts.message || '',
+    };
+    let res: any = null;
+    try {
+      res = await this.http
+        .post<any>('https://fa-strtupifyio.azurewebsites.net/api/mom_reply', payload)
+        .toPromise();
+    } catch (err) {
+      console.error('mom reply failed', err);
+    }
+    const status = String(res?.status || '').toLowerCase();
+    const grant = status === 'grant' && res?.grant && Number(res?.amount) > 0;
+    const amount = grant ? Number(res?.amount) : 0;
+    const memo = grant ? String(res?.ledgerMemo || 'Gift from Mom') : '';
+    const from = res?.from || 'mom@altavista.net';
+    const subject = res?.subject || opts.subject || '(no subject)';
+    let body = res?.body || '';
+    if (!body || !body.trim()) {
+      body =
+        status === 'grant'
+          ? 'Sweetie, you were so thoughtful. I just sent you $10,000. Try not to spend it all at once. Love, Mom.'
+          : 'Hi, thanks for writing. I am worried about you—do you need money? Love, Mom.';
+    }
+    const emailId = `mom-reply-${Date.now()}`;
+    const baseTs = opts.timestamp ? new Date(opts.timestamp) : new Date();
+    const timestampIso = new Date(baseTs.getTime() + 1).toISOString(); // ensure replies sort after the outbound message
+    const category = grant ? 'mom-gift' : 'mom-reply';
+    const docPayload: any = {
+      from,
+      to: meAddress,
+      subject,
+      message: body,
+      deleted: false,
+      banner: false,
+      timestamp: timestampIso,
+      threadId: opts.threadId,
+      category,
+    };
+    if (opts.parentId) docPayload.parentId = opts.parentId;
+    if (grant) {
+      docPayload.ledgerAmount = amount;
+      docPayload.ledgerMemo = memo;
+      docPayload.ledger = { type: 'mom-gift', amount, memo };
+      docPayload.momGiftAmount = amount;
+    }
+    await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), docPayload);
+    if (grant) {
+      try {
+        await setDoc(
+          doc(db, `companies/${opts.companyId}`),
+          {
+            ledgerEnabled: true,
+            momGiftGranted: true,
+          },
+          { merge: true }
+        );
+      } catch {}
+    }
   }
 
   private async sendMailerDaemonBounce(opts: {

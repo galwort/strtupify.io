@@ -1044,6 +1044,9 @@ export class InboxComponent implements OnInit, OnDestroy {
     if (normalized === 'vlad@strtupify.io') {
       return 'vlad';
     }
+    if (normalized === 'mom@altavista.net') {
+      return 'mom';
+    }
     return 'outbound';
   }
 

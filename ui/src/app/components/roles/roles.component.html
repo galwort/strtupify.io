@@ -55,9 +55,18 @@
       </div>
     </div>
   </div>
-  <button type="button" class="add-custom" (click)="addCustomRole()">
-    + Add custom role
-  </button>
+  <div class="custom-actions-row">
+    <button type="button" class="add-custom" (click)="addCustomRole()">
+      + Add custom role
+    </button>
+    <button
+      type="button"
+      class="add-custom ai-generator"
+      (click)="generateAiRole()"
+    >
+      + Generate High-Impact Role with AI
+    </button>
+  </div>
   <button
     type="button"
     class="primary"

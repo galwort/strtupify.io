@@ -171,6 +171,17 @@
     box-shadow: none;
   }
 
+  .add-custom.ai-generator {
+    color: var(--theme-accent);
+    border-color: var(--theme-accent);
+  }
+
+  .custom-actions-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
   > button.primary {
     width: 300px;
     padding: 0.75rem;

@@ -24,6 +24,40 @@ type RoleEntry = {
   isCustom?: boolean;
 };
 
+const PART_ONE_OPTIONS = ['Senior', 'Associate', 'Executive'];
+const PART_TWO_OPTIONS = ['Vice President', 'Manager', 'Director'];
+const PART_THREE_OPTIONS = [
+  'Global',
+  'Operational',
+  'Enterprise',
+  'Digital',
+  'Corporate',
+  'Strategic',
+  'Executive',
+  'Business',
+];
+const PART_FOUR_OPTIONS = [
+  'Management',
+  'Initiatives',
+  'Excellence',
+  'Strategy',
+  'Partnerships',
+  'Development',
+  'Alignment',
+  'Integration',
+  'Growth',
+  'Innovation',
+  'Solutions',
+  'Alignment',
+  'Synergy',
+  'Transformation',
+  'AI',
+  'Sales',
+  'Architecture',
+  'Services',
+  'Acceleration',
+];
+
 function generateResumeCount(openings: number, cap: number = 20): number {
   const maxMultiplier = 1.5 + (2.5 - 2.5 * (openings / cap));
   const multiplier = Math.random() * (Math.max(1.2, maxMultiplier) - 1.1) + 1.1;
@@ -227,6 +261,39 @@ export class RolesComponent implements OnInit {
         isCustom: true,
       },
     ];
+  }
+
+  generateAiRole() {
+    const title = this.generateAiTitle();
+    this.customRoleCounter += 1;
+    this.roles = [
+      ...this.roles,
+      {
+        id: `ai-${Date.now()}-${this.customRoleCounter}`,
+        title,
+        count: 0,
+        isCustom: true,
+      },
+    ];
+  }
+
+  private generateAiTitle(): string {
+    const partOne = this.buildPartOne();
+    const partTwo = this.pickRandom(PART_TWO_OPTIONS);
+    const partThree = this.pickRandom(PART_THREE_OPTIONS);
+    const partFour = this.pickRandom(PART_FOUR_OPTIONS);
+    return `${partOne} ${partTwo} of ${partThree} ${partFour}`;
+  }
+
+  private buildPartOne(): string {
+    const shuffled = [...PART_ONE_OPTIONS].sort(() => Math.random() - 0.5);
+    const count =
+      Math.floor(Math.random() * PART_ONE_OPTIONS.length) + 1; // 1 to 3 words
+    return shuffled.slice(0, count).join(' ');
+  }
+
+  private pickRandom(options: string[]): string {
+    return options[Math.floor(Math.random() * options.length)];
   }
 
   removeCustomRole(role: RoleEntry) {

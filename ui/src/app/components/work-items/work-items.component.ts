@@ -885,6 +885,13 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     if (this.hrActivated) return;
     this.hrActivated = true;
     this.ui.setHrEnabled(true);
+    if (this.companyId) {
+      try {
+        void updateDoc(doc(db, `companies/${this.companyId}`), { hrEnabled: true });
+      } catch {
+        // best-effort persistence
+      }
+    }
   }
 
   private fallbackEstimateHours(complexity: number, empLevel: number): number {

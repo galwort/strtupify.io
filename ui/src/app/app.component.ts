@@ -414,6 +414,9 @@ export class AppComponent implements OnDestroy {
       this.companyLogo = data?.logo || '';
       this.companyProfileEnabled = true;
       this.ui.setCompanyProfileEnabled(true);
+      const hrEnabled = !!data?.hrEnabled;
+      this.hrEnabled = hrEnabled;
+      this.ui.setHrEnabled(hrEnabled);
       const domain =
         typeof data?.company_name === 'string' && data.company_name.trim()
           ? data.company_name.replace(/\s+/g, '').toLowerCase() + '.com'
@@ -443,6 +446,9 @@ export class AppComponent implements OnDestroy {
           const cal = !!d.calendarEnabled;
           this.calendarEnabled = cal;
           this.ui.setCalendarEnabled(cal);
+          const hrEnabled = !!d.hrEnabled;
+          this.hrEnabled = hrEnabled;
+          this.ui.setHrEnabled(hrEnabled);
           this.ui.setWorkEnabled(this.workEnabled);
         });
         (window as any).__companyDocUnsub = unsub;

@@ -9,18 +9,64 @@
 
   <div *ngFor="let emp of employees" class="employee-card">
     <div class="card-head">
-      <div class="name">{{ emp.name }}</div>
+      <div class="identity">
+        <div class="avatar" [class.fallback]="!emp.avatar">
+          <img *ngIf="emp.avatar" [src]="emp.avatar" [alt]="emp.name + ' profile photo'" />
+          <span *ngIf="!emp.avatar" class="material-symbols-outlined">person</span>
+        </div>
+        <div class="name-block">
+          <div class="name">{{ emp.name }}</div>
+          <div class="subtitle">{{ emp.title }}</div>
+        </div>
+      </div>
       <div class="status" [ngClass]="statusClass(emp)">{{ statusLabel(emp) }}</div>
     </div>
-    <div class="subtitle">{{ emp.title }}</div>
-    <div class="progress-bar" [ngClass]="statusClass(emp)">
-      <div
-        class="progress-fill"
-        [style.width.%]="emp.stress"
-        [class.full-skill]="emp.stress >= 100"
-        [ngClass]="statusClass(emp)"
-      ></div>
+
+    <div *ngIf="emp.description; else noDescription" class="description">
+      {{ emp.description }}
     </div>
-    <div class="meta">Tasks in progress: {{ emp.load }}</div>
+    <ng-template #noDescription>
+      <div class="description muted">No description yet.</div>
+    </ng-template>
+
+    <div class="metrics">
+      <div class="metric wide">
+        <div class="label">Stress</div>
+        <div class="progress-bar" [ngClass]="statusClass(emp)">
+          <div
+            class="progress-fill"
+            [style.width.%]="emp.stress"
+            [class.full-skill]="emp.stress >= 100"
+            [ngClass]="statusClass(emp)"
+          ></div>
+        </div>
+      </div>
+      <div class="metric">
+        <div class="label">Salary</div>
+        <div class="value">
+          {{ emp.salary ? (emp.salary | currency : "USD" : "symbol" : "1.0-0") : "Not set" }}
+        </div>
+      </div>
+      <div class="metric">
+        <div class="label">Tasks in progress</div>
+        <div class="value">{{ emp.load }}</div>
+      </div>
+    </div>
+
+    <div class="skills-section">
+      <div class="label">Skill set</div>
+      <div *ngIf="emp.skills?.length; else skillsEmpty" class="skills">
+        <div class="skill-pill" *ngFor="let skill of emp.skills">
+          <span class="skill-name">{{ skill.name }}</span>
+          <div class="skill-meter">
+            <div class="skill-fill" [style.width.%]="(skill.level / 10) * 100"></div>
+          </div>
+          <span class="skill-level">{{ skill.level }}/10</span>
+        </div>
+      </div>
+      <ng-template #skillsEmpty>
+        <div class="muted">No skills added yet.</div>
+      </ng-template>
+    </div>
   </div>
 </div>

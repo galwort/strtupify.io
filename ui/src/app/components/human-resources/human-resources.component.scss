@@ -26,7 +26,7 @@
 .employee-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   padding: 12px;
   border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 6px;
@@ -35,11 +35,51 @@
 
 .card-head {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 10px;
 
-  .name {
-    font-weight: 600;
+  .identity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    .avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      &.fallback {
+        background: rgba(0, 0, 0, 0.03);
+        border-style: dashed;
+      }
+
+      .material-symbols-outlined {
+        color: rgba(0, 0, 0, 0.6);
+        font-size: 24px;
+      }
+    }
+
+    .name-block {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+
+      .name {
+        font-weight: 600;
+      }
+    }
   }
 
   .status {
@@ -68,6 +108,48 @@
 .subtitle {
   font-size: 12px;
   color: rgba(0, 0, 0, 0.6);
+}
+
+.description {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.muted {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 6px;
+  background: #f9f9f9;
+
+  &.wide {
+    grid-column: 1 / -1;
+  }
+
+  .label {
+    font-size: 12px;
+    text-transform: uppercase;
+    color: rgba(0, 0, 0, 0.6);
+    letter-spacing: 0.02em;
+  }
+
+  .value {
+    font-weight: 600;
+    color: var(--theme-text);
+    font-size: 14px;
+  }
 }
 
 .progress-bar {
@@ -116,7 +198,57 @@
   }
 }
 
-.meta {
+.skills-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skills {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  align-items: flex-start;
+}
+
+.skill-pill {
+  display: grid;
+  grid-template-columns: 170px 220px 60px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  background: #fff;
+  width: 100%;
+  max-width: 520px;
+}
+
+.skill-name {
+  font-weight: 600;
+  color: var(--theme-text);
+  text-align: left;
+}
+
+.skill-meter {
+  width: 100%;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.skill-fill {
+  height: 100%;
+  background: var(--theme-primary, #3f8cff);
+  border-radius: 6px;
+}
+
+.skill-level {
   font-size: 12px;
   color: rgba(0, 0, 0, 0.7);
+  text-align: left;
+  min-width: 40px;
 }

@@ -126,6 +126,11 @@
       font-size: 18px;
       align-self: flex-start;
     }
+    .score.sub {
+      font-weight: 600;
+      font-size: 14px;
+      opacity: 0.8;
+    }
     .submit {
       width: 160px;
       padding: 0.75rem;
@@ -142,6 +147,10 @@
     .submit:hover {
       border: 1.5px solid var(--theme-primary);
       box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    }
+    .submit[disabled] {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
     .calendar {
       display: grid;

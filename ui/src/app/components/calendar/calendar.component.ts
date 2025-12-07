@@ -11,6 +11,8 @@ import {
   where,
   DocumentData,
   QuerySnapshot,
+  runTransaction,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 
@@ -67,6 +69,9 @@ export class CalendarComponent implements OnInit, OnDestroy {
   submittedScore: number | null = null;
   focusScore = 0;
   focusHours = 0;
+  focusPoints = 0;
+  lastEarnedPoints: number | null = null;
+  isSubmitting = false;
   timeTicks: string[] = [];
 
   private simTime = Date.now();
@@ -120,10 +125,36 @@ export class CalendarComponent implements OnInit, OnDestroy {
     this.statusError = '';
   }
 
-  submitSchedule(): void {
+  get focusPointEstimate(): number {
+    return Math.max(0, Math.round(this.focusScore));
+  }
+
+  async submitSchedule(): Promise<void> {
     this.submittedScore = this.focusScore;
+    this.lastEarnedPoints = this.focusPointEstimate;
     this.statusError = '';
-    this.statusMessage = 'Submitted your reschedule plan for scoring.';
+    this.statusMessage = 'Submitting your reschedule plan...';
+    if (!this.companyId) {
+      this.statusError = 'No company selected.';
+      this.statusMessage = '';
+      return;
+    }
+    this.isSubmitting = true;
+    try {
+      const added = await this.persistFocusPoints(this.focusPointEstimate);
+      if (added > 0) {
+        this.statusMessage = `Submitted and banked ${added.toLocaleString()} focus points.`;
+        this.lastEarnedPoints = added;
+      } else {
+        this.statusMessage = 'Submitted your reschedule plan for scoring.';
+      }
+    } catch (err) {
+      console.error('Failed to store focus points', err);
+      this.statusError = 'Failed to store focus points. Please try again.';
+      this.statusMessage = '';
+    } finally {
+      this.isSubmitting = false;
+    }
   }
 
   meetingTitle(ev: VisualMeeting): string {
@@ -156,6 +187,8 @@ export class CalendarComponent implements OnInit, OnDestroy {
         this.simTime = st;
         this.updateWeekIfNeeded();
       }
+      const fp = Number(data.focusPoints || 0);
+      this.focusPoints = Number.isFinite(fp) ? Math.max(0, Math.round(fp)) : 0;
     });
   }
 
@@ -584,6 +617,33 @@ export class CalendarComponent implements OnInit, OnDestroy {
     }
     this.focusHours = Math.round(freeHours * 10) / 10;
     this.focusScore = Math.round(score * 10) / 10;
+  }
+
+  private async persistFocusPoints(earned: number): Promise<number> {
+    if (!this.companyId || earned <= 0) return 0;
+    const ref = doc(db, `companies/${this.companyId}`);
+    const result = await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      const data = (snap && (snap.data() as any)) || {};
+      const current = Number.isFinite(Number(data.focusPoints))
+        ? Math.max(0, Math.round(Number(data.focusPoints)))
+        : 0;
+      const next = current + earned;
+      tx.set(
+        ref,
+        {
+          focusPoints: next,
+          lastFocusScore: this.focusScore,
+          lastFocusHours: this.focusHours,
+          lastFocusPointsEarned: earned,
+          focusPointsUpdatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      return { current, next };
+    });
+    this.focusPoints = result.next;
+    return Math.max(0, result.next - result.current);
   }
 
   private syncSelection(): void {

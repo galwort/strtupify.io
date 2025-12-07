@@ -42,8 +42,19 @@
         <div class="panel focus-panel">
           <div class="week-label" *ngIf="weekLabel">{{ weekLabel }}</div>
           <div class="score">Focus score: {{ focusScore | number: '1.0-1' }}</div>
-          <button type="button" class="submit" (click)="submitSchedule()">Send reschedules</button>
-          <div class="status" *ngIf="submittedScore !== null">Submitted: {{ submittedScore | number: '1.0-1' }}</div>
+          <div class="score sub">Potential focus points: {{ focusPointEstimate | number: '1.0-0' }}</div>
+          <div class="score sub">Banked focus points: {{ focusPoints | number: '1.0-0' }}</div>
+          <button type="button" class="submit" [disabled]="isSubmitting" (click)="submitSchedule()">
+            {{ isSubmitting ? 'Submitting...' : 'Send reschedules' }}
+          </button>
+          <div class="status" *ngIf="isSubmitting">Saving focus points...</div>
+          <div class="status" *ngIf="!isSubmitting && lastEarnedPoints !== null">
+            Last submission added {{ lastEarnedPoints | number: '1.0-0' }} focus points
+          </div>
+          <div class="status" *ngIf="!isSubmitting && submittedScore !== null">
+            Submitted: {{ submittedScore | number: '1.0-1' }}
+          </div>
+          <div class="error" *ngIf="statusError">{{ statusError }}</div>
         </div>
 
         <div class="panel">

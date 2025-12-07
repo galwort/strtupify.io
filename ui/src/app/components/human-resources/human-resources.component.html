@@ -3,6 +3,21 @@
     <div class="title">Human Resources</div>
   </div>
 
+  <div class="focus-bank">
+    <div class="bank-top">
+      <div>
+        <div class="bank-label">Focus points</div>
+        <div class="bank-sub">Spend {{ skillPointCost | number: '1.0-0' }} focus points to raise a skill by 1.</div>
+      </div>
+      <div class="bank-balance">{{ focusPoints | number: '1.0-0' }}</div>
+    </div>
+    <div class="bank-status">
+      <span *ngIf="refreshingRates" class="muted">Refreshing work item rates...</span>
+      <span *ngIf="spendMessage && !refreshingRates" class="muted">{{ spendMessage }}</span>
+      <span *ngIf="spendError" class="error">{{ spendError }}</span>
+    </div>
+  </div>
+
   <div *ngIf="!employees.length" class="empty-state">
     No active employees yet.
   </div>
@@ -57,11 +72,30 @@
       <div class="label">Skill set</div>
       <div *ngIf="emp.skills?.length; else skillsEmpty" class="skills">
         <div class="skill-pill" *ngFor="let skill of emp.skills">
-          <span class="skill-name">{{ skill.name }}</span>
+          <div class="skill-name">
+            <div class="skill-label">{{ skill.name }}</div>
+            <div class="skill-cost" *ngIf="skill.level < 10">
+              {{ skillPointCost | number: '1.0-0' }} pts to add 1 level
+            </div>
+          </div>
           <div class="skill-meter">
             <div class="skill-fill" [style.width.%]="(skill.level / 10) * 100"></div>
           </div>
           <span class="skill-level">{{ skill.level }}/10</span>
+          <button
+            type="button"
+            class="skill-upgrade"
+            [disabled]="spending || refreshingRates || skill.level >= 10 || focusPoints < skillPointCost"
+            (click)="upgradeSkill(emp, skill)"
+          >
+            {{
+              skill.level >= 10
+                ? 'Maxed'
+                : spending
+                ? 'Working...'
+                : 'Upgrade'
+            }}
+          </button>
         </div>
       </div>
       <ng-template #skillsEmpty>

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { initializeApp, getApps } from 'firebase/app';
 import {
   collection,
+  doc,
   getDocs,
   getFirestore,
   onSnapshot,
@@ -10,6 +11,8 @@ import {
   DocumentData,
   where,
   query,
+  runTransaction,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 import { buildAvatarUrl } from 'src/app/utils/avatar';
@@ -50,10 +53,23 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
 
   employees: EmployeeProfile[] = [];
   private unsub: (() => void) | null = null;
+  private unsubCompany: (() => void) | null = null;
   private skillsToken = 0;
+  focusPoints = 0;
+  spendError = '';
+  spendMessage = '';
+  spending = false;
+  refreshingRates = false;
+  readonly skillPointCost = 1000;
 
   ngOnInit(): void {
     if (!this.companyId) return;
+    const companyRef = doc(db, `companies/${this.companyId}`);
+    this.unsubCompany = onSnapshot(companyRef, (snap) => {
+      const data = (snap && (snap.data() as any)) || {};
+      const pts = Number(data.focusPoints || 0);
+      this.focusPoints = Number.isFinite(pts) ? Math.max(0, Math.round(pts)) : 0;
+    });
     const ref = query(
       collection(db, `companies/${this.companyId}/employees`),
       where('hired', '==', true)
@@ -95,6 +111,7 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     if (this.unsub) this.unsub();
+    if (this.unsubCompany) this.unsubCompany();
   }
 
   statusLabel(emp: EmployeeProfile): string {
@@ -107,6 +124,133 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
     if (emp.stress <= 10) return 'bandwidth';
     if (emp.stress >= 90) return 'burnout';
     return 'active';
+  }
+
+  async upgradeSkill(emp: EmployeeProfile, skill: EmployeeSkill): Promise<void> {
+    if (!this.companyId) return;
+    if (this.spending) return;
+    this.spendError = '';
+    this.spendMessage = '';
+    if (skill.level >= 10) {
+      this.spendError = `${skill.name} is already at max level.`;
+      return;
+    }
+    if (this.focusPoints < this.skillPointCost) {
+      this.spendError = `You need ${this.skillPointCost.toLocaleString()} focus points to add a skill level.`;
+      return;
+    }
+    this.spending = true;
+    try {
+      const nextLevel = await this.applySkillUpgrade(emp, skill);
+      this.bumpLocalSkill(emp.id, skill.id, skill.name, nextLevel);
+      this.focusPoints = Math.max(0, this.focusPoints - this.skillPointCost);
+      this.spendMessage = `Upgraded ${skill.name} for ${emp.name} to level ${nextLevel}.`;
+      await this.refreshRatesAfterSpend(emp, { ...skill, level: nextLevel });
+    } catch (err: any) {
+      const msg = typeof err?.message === 'string' ? err.message : '';
+      if (msg === 'insufficient') this.spendError = 'Not enough focus points to spend.';
+      else if (msg === 'max_level') this.spendError = `${skill.name} is already at max level.`;
+      else this.spendError = 'Could not spend focus points right now.';
+    } finally {
+      this.spending = false;
+    }
+  }
+
+  private bumpLocalSkill(empId: string, skillId: string, skillName: string, level: number): void {
+    this.employees = this.employees.map((emp) => {
+      if (emp.id !== empId) return emp;
+      const found = emp.skills?.some((s) => s.id === skillId);
+      const skills = (emp.skills || []).map((s) =>
+        s.id === skillId ? { ...s, level } : s
+      );
+      if (!found) skills.push({ id: skillId, name: skillName || 'Skill', level });
+      return { ...emp, skills };
+    });
+  }
+
+  private async applySkillUpgrade(emp: EmployeeProfile, skill: EmployeeSkill): Promise<number> {
+    if (!this.companyId) throw new Error('missing_company');
+    const skillDocId =
+      skill.id ||
+      skill.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') ||
+      'skill';
+    const companyRef = doc(db, `companies/${this.companyId}`);
+    const skillRef = doc(db, `companies/${this.companyId}/employees/${emp.id}/skills/${skillDocId}`);
+    const nextLevel = await runTransaction(db, async (tx) => {
+      const companySnap = await tx.get(companyRef);
+      const data = (companySnap && (companySnap.data() as any)) || {};
+      const currentPoints = Number.isFinite(Number(data.focusPoints))
+        ? Math.max(0, Math.round(Number(data.focusPoints)))
+        : 0;
+      if (currentPoints < this.skillPointCost) throw new Error('insufficient');
+
+      const skillSnap = await tx.get(skillRef);
+      const skillData = (skillSnap && (skillSnap.data() as any)) || {};
+      const existingRaw = Number(skillData.level ?? skill.level ?? 1);
+      const existingLevel = Number.isFinite(existingRaw)
+        ? Math.max(1, Math.min(10, Math.round(existingRaw)))
+        : 1;
+      if (existingLevel >= 10) throw new Error('max_level');
+      const updatedLevel = Math.min(10, existingLevel + 1);
+
+      tx.set(
+        companyRef,
+        {
+          focusPoints: currentPoints - this.skillPointCost,
+          focusPointsUpdatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      tx.set(
+        skillRef,
+        {
+          skill: skill.name,
+          level: updatedLevel,
+          updated: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      return updatedLevel;
+    });
+    return nextLevel;
+  }
+
+  private async refreshRatesAfterSpend(emp: EmployeeProfile, skill: EmployeeSkill): Promise<void> {
+    if (!this.companyId) return;
+    this.refreshingRates = true;
+    try {
+      const payload = {
+        company: this.companyId,
+        trigger: 'focus_spend',
+        employee_id: emp.id,
+        skill_id: skill.id || '',
+        skill_name: skill.name,
+      };
+      const resp = await fetch('https://fa-strtupifyio.azurewebsites.net/api/focus_rates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      let ok = false;
+      if (resp.ok) {
+        try {
+          const data = await resp.json();
+          ok = !!data?.ok;
+        } catch {
+          ok = resp.ok;
+        }
+      }
+      if (ok) {
+        this.spendMessage = `${this.spendMessage || 'Upgrade applied.'} Work item rates are updating.`;
+      } else {
+        this.spendMessage = `${this.spendMessage || 'Upgrade applied.'} Work item rates will refresh shortly.`;
+      }
+    } catch (err) {
+      console.error('Failed to refresh rates after focus spend', err);
+      this.spendError = this.spendError || 'Skill applied but work rates may take longer to update.';
+    } finally {
+      this.refreshingRates = false;
+    }
   }
 
   private async loadSkills(list: EmployeeProfile[]) {

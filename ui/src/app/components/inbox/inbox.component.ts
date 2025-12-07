@@ -235,7 +235,6 @@ export class InboxComponent implements OnInit, OnDestroy {
   showDeleted = false;
   meAddress = '';
   showSent = false;
-  showCadabraTest = true; // Temporary for manual Cadabra testing; remove when no longer needed.
   private inboxSub: Subscription | null = null;
   private endgameStatus: EndgameStatus = 'idle';
   private endgameSub: Subscription | null = null;
@@ -358,22 +357,6 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.showComposeBox = false;
     this.composeError = '';
     this.subscribeToInbox();
-  }
-
-  async sendCadabraNow(): Promise<void> {
-    if (this.cadabraProcessing || !this.companyId) return;
-    try {
-      const now = this.simDate.getTime();
-      const ref = doc(db, `companies/${this.companyId}`);
-      await updateDoc(ref, {
-        cadabraNextAt: now,
-        cadabraEmailInProgress: false,
-      });
-      this.cadabraSendTime = now;
-      await this.checkCadabraEmail();
-    } catch (err) {
-      console.error('Failed to trigger Cadabra test send', err);
-    }
   }
 
   toggleDelete(): void {

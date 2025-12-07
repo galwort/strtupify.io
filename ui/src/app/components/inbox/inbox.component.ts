@@ -23,6 +23,7 @@ import {
 import { environment } from 'src/environments/environment';
 import { EndgameService, EndgameStatus } from '../../services/endgame.service';
 import { UiStateService } from '../../services/ui-state.service';
+import { buildAvatarUrl } from 'src/app/utils/avatar';
 
 const fbApp = getApps().length
   ? getApps()[0]
@@ -31,6 +32,12 @@ const db = getFirestore(fbApp);
 const kickoffUrl = 'https://fa-strtupifyio.azurewebsites.net/api/kickoff_email';
 const momUrl = 'https://fa-strtupifyio.azurewebsites.net/api/mom_email';
 const cadabraUrl = 'https://fa-strtupifyio.azurewebsites.net/api/order';
+
+type InboxEmail = Email & {
+  displaySender?: string;
+  senderInitials?: string;
+  senderAvatarUrl?: string | null;
+};
 
 @Component({
   selector: 'app-inbox',
@@ -42,9 +49,9 @@ const cadabraUrl = 'https://fa-strtupifyio.azurewebsites.net/api/order';
 export class InboxComponent implements OnInit, OnDestroy {
   @Input() companyId = '';
 
-  inbox: Email[] = [];
-  private allEmails: Email[] = [];
-  selectedEmail: Email | null = null;
+  inbox: InboxEmail[] = [];
+  private allEmails: InboxEmail[] = [];
+  selectedEmail: InboxEmail | null = null;
 
   showReplyBox = false;
   replyText = '';
@@ -66,7 +73,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     return base.startsWith('Re:') ? base : `Re: ${base}`;
   }
 
-  get threadMessages(): Email[] {
+  get threadMessages(): InboxEmail[] {
     if (!this.selectedEmail) return [];
     const tid = (this.selectedEmail as any).threadId || this.selectedEmail.id;
     const selectedTs = new Date(this.selectedEmail.timestamp || '').getTime();
@@ -173,6 +180,125 @@ export class InboxComponent implements OnInit, OnDestroy {
     return { ...meta, body };
   }
 
+  private async loadEmployeeAvatars(): Promise<void> {
+    if (!this.companyId) return;
+    try {
+      const ref = query(
+        collection(db, `companies/${this.companyId}/employees`),
+        where('hired', '==', true)
+      );
+      const snap = await getDocs(ref);
+      const map = new Map<string, string>();
+      snap.docs.forEach((d) => {
+        const data = (d.data() as any) || {};
+        const name = String(data.name || '').trim();
+        if (!name) return;
+        const directUrl = String(data.avatarUrl || data.avatar_url || '').trim();
+        const avatarName = String(
+          data.avatar || data.photo || data.photoUrl || data.image || ''
+        ).trim();
+        const avatarUrl = directUrl || buildAvatarUrl(avatarName, 'neutral');
+        if (avatarUrl) {
+          map.set(this.normalizeName(name), avatarUrl);
+        }
+      });
+      this.employeeAvatars = map;
+      this.refreshEmailAvatars();
+    } catch (err) {
+      console.error('Failed to load employee avatars', err);
+    }
+  }
+
+  private refreshEmailAvatars(): void {
+    if (!this.allEmails.length) return;
+    this.allEmails = this.allEmails.map((e) => this.decorateEmail(e));
+    this.updateInboxView(this.allEmails);
+  }
+
+  private decorateEmail(email: Email): InboxEmail {
+    const displaySender = this.resolveSenderName(email);
+    const senderAvatarUrl = this.resolveSenderAvatar(email, displaySender);
+    const senderInitials = this.initialsFor(displaySender || email.sender);
+    return {
+      ...email,
+      displaySender,
+      senderAvatarUrl,
+      senderInitials,
+    };
+  }
+
+  private resolveSenderName(email: Email): string {
+    const candidates = [
+      (email as any).senderName,
+      (email as any).sender_name,
+      this.extractNameFromEmail(email.sender),
+    ];
+    for (const name of candidates) {
+      const clean = String(name || '').trim();
+      if (clean) return clean;
+    }
+    return email.sender || 'Unknown sender';
+  }
+
+  private resolveSenderAvatar(email: Email, displayName: string): string | null {
+    const existing = (email as any).senderAvatarUrl;
+    if (typeof existing === 'string' && existing.trim()) return existing;
+    const direct = (email as any).avatarUrl || (email as any).avatar_url;
+    if (typeof direct === 'string' && direct.trim()) return direct;
+    const avatarName = (email as any).avatarName;
+    if (typeof avatarName === 'string' && avatarName.trim()) {
+      const built = buildAvatarUrl(avatarName.trim(), 'neutral');
+      if (built) return built;
+    }
+    const names: string[] = [];
+    if ((email as any).senderName) names.push(String((email as any).senderName));
+    if (displayName) names.push(displayName);
+    const parsed = this.extractNameFromEmail(email.sender);
+    if (parsed) names.push(parsed);
+    for (const name of names) {
+      const found = this.avatarForName(name);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  private extractNameFromEmail(raw: string): string {
+    if (!raw) return '';
+    const angle = raw.match(/^(.*)<(.+)>$/);
+    if (angle) {
+      const label = angle[1].trim();
+      if (label) return label;
+      raw = angle[2];
+    }
+    const local = raw.split('@')[0] || '';
+    const cleaned = local.replace(/[\.\_\-]+/g, ' ').trim();
+    if (!cleaned) return '';
+    return cleaned
+      .split(/\s+/)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ')
+      .trim();
+  }
+
+  private avatarForName(name: string): string | null {
+    const key = this.normalizeName(name);
+    if (!key) return null;
+    return this.employeeAvatars.get(key) || null;
+  }
+
+  private normalizeName(name: string): string {
+    return (name || '').trim().toLowerCase();
+  }
+
+  private initialsFor(name: string): string {
+    const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    const first = parts[0].charAt(0);
+    const last = parts.length > 1 ? parts[parts.length - 1].charAt(0) : '';
+    const combo = `${first}${last}`.trim();
+    return (combo || first).toUpperCase();
+  }
+
   displayDate = '';
   displayTime = '';
 
@@ -198,6 +324,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   private suppressedIds = new Map<string, number>();
   private readonly suppressMs = 2000;
   private pendingSelectionId: string | null = null;
+  private employeeAvatars = new Map<string, string>();
 
   private snacks: { name: string; price: string }[] = [];
   private selectedSnack: { name: string; price: string } | null = null;
@@ -253,6 +380,7 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     if (!this.companyId) return;
+    this.loadEmployeeAvatars();
 
     this.inboxPreferredSub = this.ui.inboxPreferredEmailId$.subscribe((id) => {
       this.preferredInboxEmailId = id;
@@ -328,7 +456,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     }
   }
 
-  selectEmail(email: Email): void {
+  selectEmail(email: InboxEmail): void {
     this.selectedEmail = email;
     this.showReplyBox = false;
     this.showComposeBox = false;
@@ -384,7 +512,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       });
   }
 
-  private sortEmails(emails: Email[]): Email[] {
+  private sortEmails(emails: InboxEmail[]): InboxEmail[] {
     return emails
       .slice()
       .sort(
@@ -1219,9 +1347,9 @@ export class InboxComponent implements OnInit, OnDestroy {
     } catch {}
   }
 
-  private filteredEmails(emails: Email[]): Email[] {
+  private filteredEmails(emails: InboxEmail[]): InboxEmail[] {
     const endgameEngaged = this.endgameStatus !== 'idle';
-    const allowEndgameEmail = (e: Email): boolean => {
+    const allowEndgameEmail = (e: InboxEmail): boolean => {
       const category = ((e as any).category || '').toLowerCase();
       const id = String(e.id || '');
       if (id.startsWith('vlad-reset-')) return true;
@@ -1230,7 +1358,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       return false;
     };
     const cutoff = this.endgameTriggeredAtMs;
-    const shouldHideForEndgame = (e: Email): boolean => {
+    const shouldHideForEndgame = (e: InboxEmail): boolean => {
       if (allowEndgameEmail(e)) return false;
       if (this.isEndgameFlagged(e)) return true;
       if (cutoff !== null) {
@@ -1259,7 +1387,7 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   private nextSelectableId(
     currentId: string | null,
-    list: Email[]
+    list: InboxEmail[]
   ): string | null {
     if (!currentId || !list.length) return null;
     const idx = list.findIndex((e) => e.id === currentId);
@@ -1269,13 +1397,13 @@ export class InboxComponent implements OnInit, OnDestroy {
     return null;
   }
 
-  private emailTimestampMs(email: Email): number {
+  private emailTimestampMs(email: InboxEmail): number {
     const raw: any = (email as any)?.timestamp;
     const ts = raw ? new Date(raw).getTime() : NaN;
     return Number.isFinite(ts) ? ts : 0;
   }
 
-  private isEndgameFlagged(email: Email): boolean {
+  private isEndgameFlagged(email: InboxEmail): boolean {
     const flag = (email as any)?.endgame;
     if (flag === true) return true;
     if (flag === 1) return true;
@@ -1285,7 +1413,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   private updateInboxView(
-    emails: Email[],
+    emails: InboxEmail[],
     opts?: { preferredId?: string | null; avoidIds?: Array<string | null> }
   ): void {
     this.pruneSuppressed();
@@ -1336,7 +1464,9 @@ export class InboxComponent implements OnInit, OnDestroy {
     }
     this.inboxSub = this.inboxService
       .getInbox(this.companyId, this.showDeleted)
-      .subscribe((emails) => this.updateInboxView(emails));
+      .subscribe((emails) =>
+        this.updateInboxView(emails.map((e) => this.decorateEmail(e)))
+      );
   }
 
   private parseMarkdownEmail(text: string): {

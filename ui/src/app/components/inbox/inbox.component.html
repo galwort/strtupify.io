@@ -39,10 +39,22 @@
         [class.selected]="email === selectedEmail"
         (click)="selectEmail(email)"
       >
-        <div class="sender">{{ email.sender }}</div>
-        <div class="subject">{{ email.subject }}</div>
-        <div class="preview-text">{{ email.preview }}</div>
-        <div class="timestamp">{{ email.timestamp | date : "short" }}</div>
+        <div class="avatar" [class.fallback]="!email.senderAvatarUrl">
+          <img
+            *ngIf="email.senderAvatarUrl"
+            [src]="email.senderAvatarUrl"
+            [alt]="(email.displaySender || email.sender) + ' avatar'"
+          />
+          <span *ngIf="!email.senderAvatarUrl">{{ email.senderInitials }}</span>
+        </div>
+        <div class="email-meta">
+          <div class="top-row">
+            <div class="sender">{{ email.displaySender || email.sender }}</div>
+            <div class="timestamp">{{ email.timestamp | date : "short" }}</div>
+          </div>
+          <div class="subject">{{ email.subject }}</div>
+          <div class="preview-text">{{ email.preview }}</div>
+        </div>
       </div>
     </div>
     <div class="email-preview" *ngIf="selectedEmail || showComposeBox">
@@ -147,9 +159,32 @@
 
         <div class="email-content">
           <h2>{{ selectedEmail?.subject }}</h2>
-          <h4>From: {{ selectedEmail?.sender }}</h4>
-          <div class="timestamp">
-            {{ selectedEmail?.timestamp | date : "short" }}
+          <div class="sender-row" *ngIf="selectedEmail">
+            <div
+              class="avatar"
+              [class.fallback]="!selectedEmail?.senderAvatarUrl"
+            >
+              <img
+                *ngIf="selectedEmail?.senderAvatarUrl"
+                [src]="selectedEmail?.senderAvatarUrl"
+                [alt]="(selectedEmail?.displaySender || selectedEmail?.sender) + ' avatar'"
+              />
+              <span *ngIf="!selectedEmail?.senderAvatarUrl">{{
+                selectedEmail?.senderInitials
+              }}</span>
+            </div>
+            <div class="sender-details">
+              <div class="sender-name">
+                {{ selectedEmail?.displaySender || selectedEmail?.sender }}
+              </div>
+              <div class="sender-meta">
+                <span class="label">From</span>
+                <span class="value">{{ selectedEmail?.sender }}</span>
+                <span class="timestamp">{{
+                  selectedEmail?.timestamp | date : "short"
+                }}</span>
+              </div>
+            </div>
           </div>
           <div
             *ngIf="selectedEmail?.banner"

@@ -6,7 +6,14 @@
   <div class="transcript-container" #scrollBox>
     <div class="transcript">
       <div class="line" *ngFor="let t of transcript">
-        <b>{{ t.speaker }}:</b> {{ t.line }}
+        <div class="avatar" [class.fallback]="!t.avatarUrl">
+          <img *ngIf="t.avatarUrl" [src]="t.avatarUrl" [alt]="t.speaker + ' avatar'" />
+          <span *ngIf="!t.avatarUrl">{{ t.initials }}</span>
+        </div>
+        <div class="line-body">
+          <div class="speaker">{{ t.speaker }}</div>
+          <div class="copy">{{ t.line }}</div>
+        </div>
       </div>
     </div>
     <div class="typing-indicator" *ngIf="typing">

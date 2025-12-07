@@ -30,6 +30,10 @@ export interface Email {
   parentId?: string;
   to?: string;
   category?: string;
+  senderName?: string;
+  senderTitle?: string;
+  avatarName?: string;
+  avatarUrl?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -101,14 +105,24 @@ export class InboxService {
           const emails: Email[] = snap.docs
             .map((d) => {
               const data = d.data() as any;
-              return {
-                id: d.id,
-                sender: data.from,
-                subject: data.subject,
-                body: data.message,
-                preview: (data.message || '').substring(0, 60) + '...',
-                deleted: data.deleted,
-                banner: data.banner,
+            return {
+              id: d.id,
+              sender: data.from,
+              senderName: data.senderName || data.sender_name || '',
+              senderTitle: data.senderTitle || data.sender_title || '',
+              avatarName:
+                data.avatar ||
+                data.avatarName ||
+                data.photo ||
+                data.photoUrl ||
+                data.image ||
+                '',
+              avatarUrl: data.avatarUrl || data.avatar_url || '',
+              subject: data.subject,
+              body: data.message,
+              preview: (data.message || '').substring(0, 60) + '...',
+              deleted: data.deleted,
+              banner: data.banner,
                 timestamp: data.timestamp || '',
                 threadId: data.threadId,
                 parentId: data.parentId,

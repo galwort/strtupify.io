@@ -251,6 +251,40 @@
   font-weight: 600;
 }
 
+.brand-colors {
+  padding: 12px;
+  border-top: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.brand-colors__title {
+  font-weight: 700;
+  color: #111;
+}
+
+.brand-colors__inputs {
+  display: flex;
+  gap: 12px;
+}
+
+.brand-colors__inputs input[type='color'] {
+  width: 64px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.color-error {
+  padding: 0 0 4px;
+  font-weight: 600;
+  color: #c0392b;
+}
+
 @keyframes spin {
   from {
     transform: rotate(0deg);

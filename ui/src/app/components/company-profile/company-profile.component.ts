@@ -7,6 +7,7 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { environment } from 'src/environments/environment';
 import { MATERIAL_ICONS, RESERVED_ICONS } from './icons';
+import { ThemeColors, ThemeColorKey, ThemeService } from '../../services/theme.service';
 
 const app = initializeApp(environment.firebase);
 const db = getFirestore(app);
@@ -37,8 +38,17 @@ export class CompanyProfileComponent implements OnInit {
   funding: { approved: boolean; amount: number; grace_period_days: number; first_payment: number } | null = null;
   foundedAt: string = '';
   hires: { id: string; name: string; title: string }[] = [];
+  themeColors: ThemeColors;
+  private loadedTheme: ThemeColors;
+  private originalLogo = '';
+  hasChanges = false;
+  saving = false;
+  colorError = '';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private theme: ThemeService) {
+    this.themeColors = this.theme.getDefaultTheme();
+    this.loadedTheme = this.themeColors;
+  }
 
   async ngOnInit() {
     if (!this.companyId) return;
@@ -48,6 +58,7 @@ export class CompanyProfileComponent implements OnInit {
     this.description = data?.description || '';
     this.logo = data?.logo || '';
     this.selectedIcon = this.logo;
+    this.originalLogo = (data as any)?.original_logo || this.logo || '';
     const f = data?.funding || null;
     if (f) {
       this.funding = {
@@ -60,6 +71,9 @@ export class CompanyProfileComponent implements OnInit {
       this.funding = null;
     }
     this.foundedAt = data?.founded_at || '';
+    const themeFromCompany = this.theme.extractFromCompany(data);
+    this.themeColors = this.theme.normalizeTheme(themeFromCompany);
+    this.loadedTheme = this.themeColors;
 
     const hiredSnap = await getDocs(
       query(collection(db, `companies/${this.companyId}/employees`), where('hired', '==', true))
@@ -78,11 +92,16 @@ export class CompanyProfileComponent implements OnInit {
     this.picking = true;
     this.filtered = this.filterIcons();
     this.queueSemanticSearch();
+    this.colorError = '';
   }
 
   cancelPicker() {
     this.picking = false;
     this.selectedIcon = this.logo;
+    this.themeColors = this.loadedTheme;
+    this.hasChanges = false;
+    this.colorError = '';
+    this.theme.applyTheme(this.loadedTheme);
   }
 
   onSearchChange(q: string) {
@@ -98,17 +117,83 @@ export class CompanyProfileComponent implements OnInit {
 
   choose(icon: string) {
     this.selectedIcon = icon;
+    this.hasChanges = true;
   }
 
-  async saveIcon() {
-    if (!this.companyId || !this.selectedIcon) return;
-    if (RESERVED_ICONS.includes(this.selectedIcon)) return;
-    await updateDoc(doc(db, 'companies', this.companyId), { logo: this.selectedIcon });
-    this.logo = this.selectedIcon;
-    this.picking = false;
+  async saveAll() {
+    if (!this.companyId || !this.selectedIcon || RESERVED_ICONS.includes(this.selectedIcon)) return;
+    if (this.saving) return;
+    this.saving = true;
+    this.colorError = '';
+    const nextTheme = this.theme.normalizeTheme(this.themeColors);
+    const payload: any = { logo: this.selectedIcon, theme: nextTheme };
+    if (this.originalLogo) {
+      payload.original_logo = this.originalLogo;
+    } else if (this.logo) {
+      payload.original_logo = this.logo;
+      this.originalLogo = this.logo;
+    }
     try {
-      window.dispatchEvent(new CustomEvent('company-logo-changed', { detail: this.logo }));
-    } catch {}
+      await updateDoc(doc(db, 'companies', this.companyId), payload);
+      this.logo = this.selectedIcon;
+      this.loadedTheme = nextTheme;
+      this.themeColors = nextTheme;
+      this.hasChanges = false;
+      this.picking = false;
+      this.theme.applyTheme(nextTheme);
+      try {
+        window.dispatchEvent(new CustomEvent('company-logo-changed', { detail: this.logo }));
+      } catch {}
+      try {
+        window.dispatchEvent(new CustomEvent('company-theme-changed', { detail: nextTheme }));
+      } catch {}
+    } catch (e) {
+      this.colorError = 'Could not save changes. Please try again.';
+    } finally {
+      this.saving = false;
+    }
+  }
+
+  onColorInput(key: ThemeColorKey, value: string) {
+    this.colorError = '';
+    this.themeColors = this.theme.normalizeTheme({ ...this.themeColors, [key]: value });
+    this.hasChanges = true;
+    this.theme.applyTheme(this.themeColors);
+  }
+
+  async resetToDefaults() {
+    if (!this.companyId || this.saving) return;
+    this.saving = true;
+    this.colorError = '';
+    const defaultTheme = this.theme.getDefaultTheme();
+    const logoToRestore = this.originalLogo || this.logo || this.selectedIcon;
+    const payload: any = {
+      logo: logoToRestore,
+      theme: defaultTheme,
+    };
+    if (this.originalLogo) {
+      payload.original_logo = this.originalLogo;
+    }
+    try {
+      await updateDoc(doc(db, 'companies', this.companyId), payload);
+      this.logo = logoToRestore;
+      this.selectedIcon = logoToRestore;
+      this.themeColors = defaultTheme;
+      this.loadedTheme = defaultTheme;
+      this.hasChanges = false;
+      this.picking = false;
+      this.theme.applyTheme(defaultTheme);
+      try {
+        window.dispatchEvent(new CustomEvent('company-logo-changed', { detail: this.logo }));
+      } catch {}
+      try {
+        window.dispatchEvent(new CustomEvent('company-theme-changed', { detail: defaultTheme }));
+      } catch {}
+    } catch (e) {
+      this.colorError = 'Could not reset. Please try again.';
+    } finally {
+      this.saving = false;
+    }
   }
 
   private queueSemanticSearch() {
@@ -162,6 +247,7 @@ export class CompanyProfileComponent implements OnInit {
         }
 
         this.selectedIcon = iconName;
+        this.hasChanges = true;
         this.recommended = iconsFromMatches;
         this.lastSearchText = text;
         this.filtered = this.filterIcons();

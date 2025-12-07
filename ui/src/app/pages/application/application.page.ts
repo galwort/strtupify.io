@@ -201,7 +201,6 @@ export class ApplicationPage implements OnInit {
         company_name: this.companyName,
         description: this.companyDescription,
         logo: this.logoValue,
-        colors: '',
         funding: this.fundingDecision,
         speed: 1,
         simTime: Date.now(),

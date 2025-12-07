@@ -91,8 +91,32 @@
         </div>
       </ng-template>
 
+      <div class="brand-colors">
+        <div class="brand-colors__title">Brand colors</div>
+        <div class="brand-colors__inputs">
+          <input
+            type="color"
+            [ngModel]="themeColors.primary"
+            (ngModelChange)="onColorInput('primary', $event)"
+            aria-label="Brand color"
+          />
+          <input
+            type="color"
+            [ngModel]="themeColors.accent"
+            (ngModelChange)="onColorInput('accent', $event)"
+            aria-label="Accent color"
+          />
+        </div>
+        <div class="color-error" *ngIf="colorError">{{ colorError }}</div>
+      </div>
+
       <div class="actions">
-        <button type="button" class="primary" (click)="saveIcon()">Save</button>
+        <button type="button" class="primary" [disabled]="saving || !hasChanges" (click)="saveAll()">
+          {{ saving ? 'Saving...' : 'Save' }}
+        </button>
+        <button type="button" class="secondary" [disabled]="saving" (click)="resetToDefaults()">
+          Reset to default
+        </button>
         <button type="button" class="secondary" (click)="cancelPicker()">Cancel</button>
       </div>
     </div>

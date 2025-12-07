@@ -9,6 +9,7 @@ import { environment } from '../environments/environment';
 import { EndgameService, EndgameStatus } from './services/endgame.service';
 import { InboxService, Email } from './services/inbox.service';
 import { Subscription } from 'rxjs';
+import { ThemeService } from './services/theme.service';
 
 @Component({
   selector: 'app-root',
@@ -69,7 +70,8 @@ export class AppComponent implements OnDestroy {
     private ui: UiStateService,
     private cdr: ChangeDetectorRef,
     private endgame: EndgameService,
-    private inbox: InboxService
+    private inbox: InboxService,
+    private theme: ThemeService
   ) {
     this.router.events.subscribe(() => {
       this.hideMenu = this.router.url === '/login' || this.router.url === '/register';
@@ -351,6 +353,7 @@ export class AppComponent implements OnDestroy {
   }
 
   private async updateCompanyContext() {
+    const previousCompanyId = this.currentCompanyId;
     const m = this.router.url.match(/\/company\/([^\/]+)/);
     const companyId = m ? m[1] : null;
     this.currentCompanyId = companyId;
@@ -376,7 +379,13 @@ export class AppComponent implements OnDestroy {
       if (prevUnsub) prevUnsub();
       (window as any).__companyDocUnsub = undefined;
     } catch {}
-    if (!companyId) return;
+    if (!companyId) {
+      this.theme.resetTheme();
+      return;
+    }
+    if (previousCompanyId && previousCompanyId !== companyId) {
+      this.theme.resetTheme();
+    }
 
     try {
       const user = getAuth(this.fbApp).currentUser;
@@ -427,6 +436,7 @@ export class AppComponent implements OnDestroy {
       this.endgameEngagedDoc =
         !!data?.endgameTriggered || !!data?.endgameResolved || !!data?.endgameEmailsSent;
       this.recomputeInboxCount();
+      this.theme.applyCompanyTheme(data);
       try {
         const acceptedSnap = await getDocs(
           query(collection(this.db, `companies/${companyId}/products`), where('accepted', '==', true))
@@ -452,6 +462,7 @@ export class AppComponent implements OnDestroy {
           this.hrEnabled = hrEnabled;
           this.ui.setHrEnabled(hrEnabled);
           this.ui.setWorkEnabled(this.workEnabled);
+          this.theme.applyCompanyTheme(d);
         });
         (window as any).__companyDocUnsub = unsub;
       } catch {}

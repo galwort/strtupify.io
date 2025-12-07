@@ -273,8 +273,10 @@ export class AppComponent implements OnDestroy {
     this.knownEmailIds.clear();
     this.inboxWatchInitialized = false;
     this.hideNewEmailToast();
-    this.meAddress = '';
-    if (!companyId) return;
+    if (!companyId) {
+      this.meAddress = '';
+      return;
+    }
     this.inboxWatchSub = this.inbox
       .getInbox(companyId)
       .subscribe((emails) => this.handleInboxSnapshot(emails || []));

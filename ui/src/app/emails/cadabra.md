@@ -1,4 +1,4 @@
-From: updates@cadabra.com
+From: order-update@cadabra.com
 Subject: Ordered: "{ITEM}"
 Banner: true
 Deleted: false
@@ -11,8 +11,6 @@ Placed on {ORDER_DATE}
 Items:
 - {QUANTITY} x {ITEM} - ${UNIT_PRICE} each
 
-Item subtotal: ${ITEM_SUBTOTAL}
-Estimated delivery: {DELIVERY_ESTIMATE}
 Order total: ${TOTAL_PRICE}
 
-You can view or cancel this order anytime from Your Orders.
+You can view or cancel this order anytime from **<u>Your Orders</u>**.

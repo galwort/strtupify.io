@@ -98,6 +98,7 @@ export class InboxComponent implements OnInit, OnDestroy {
 
     const formatInline = (s: string) => {
       let out = escape(s);
+      out = out.replace(/&lt;(\/?u)&gt;/g, '<$1>');
 
       out = out.replace(
         /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
@@ -225,7 +226,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     banner?: boolean;
     body: string;
   } | null = null;
-  private cadabraProcessing = false;
+  cadabraProcessing = false;
 
   private kickoffSendTime: number | null = null;
   private momSendTime: number | null = null;
@@ -234,6 +235,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   showDeleted = false;
   meAddress = '';
   showSent = false;
+  showCadabraTest = true; // Temporary for manual Cadabra testing; remove when no longer needed.
   private inboxSub: Subscription | null = null;
   private endgameStatus: EndgameStatus = 'idle';
   private endgameSub: Subscription | null = null;
@@ -356,6 +358,22 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.showComposeBox = false;
     this.composeError = '';
     this.subscribeToInbox();
+  }
+
+  async sendCadabraNow(): Promise<void> {
+    if (this.cadabraProcessing || !this.companyId) return;
+    try {
+      const now = this.simDate.getTime();
+      const ref = doc(db, `companies/${this.companyId}`);
+      await updateDoc(ref, {
+        cadabraNextAt: now,
+        cadabraEmailInProgress: false,
+      });
+      this.cadabraSendTime = now;
+      await this.checkCadabraEmail();
+    } catch (err) {
+      console.error('Failed to trigger Cadabra test send', err);
+    }
   }
 
   toggleDelete(): void {
@@ -1491,16 +1509,6 @@ export class InboxComponent implements OnInit, OnDestroy {
     return `${this.randomInt(100, 999)}-${mid}-${tail}`;
   }
 
-  private computeCadabraEta(from: Date): string {
-    const days = this.randomInt(2, 6);
-    const eta = new Date(from.getTime() + days * 24 * 60 * 60 * 1000);
-    return eta.toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'short',
-      day: 'numeric',
-    });
-  }
-
   private parseCadabraOrder(resp: any): {
     item: string;
     quantity: number;
@@ -1612,7 +1620,6 @@ export class InboxComponent implements OnInit, OnDestroy {
     } catch {}
 
     const orderNumber = this.generateCadabraOrderNumber();
-    const eta = this.computeCadabraEta(this.simDate);
     const orderDate = this.simDate.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -1624,10 +1631,8 @@ export class InboxComponent implements OnInit, OnDestroy {
       .replace(/\{ITEM\}/g, orderDetails.item)
       .replace(/\{QUANTITY\}/g, String(orderDetails.quantity))
       .replace(/\{UNIT_PRICE\}/g, this.formatCurrency(orderDetails.unitPrice))
-      .replace(/\{ITEM_SUBTOTAL\}/g, this.formatCurrency(orderDetails.itemSubtotal))
       .replace(/\{TOTAL_PRICE\}/g, this.formatCurrency(orderDetails.total))
       .replace(/\{ORDER_NUMBER\}/g, orderNumber)
-      .replace(/\{DELIVERY_ESTIMATE\}/g, eta)
       .replace(/\{ORDER_DATE\}/g, orderDate);
 
     const emailId = `cadabra-${Date.now()}`;
@@ -1649,7 +1654,6 @@ export class InboxComponent implements OnInit, OnDestroy {
           unitPrice: orderDetails.unitPrice,
           total: orderDetails.total,
           orderNumber,
-          eta,
         },
         ledgerAmount: orderDetails.total,
         ledgerMemo,

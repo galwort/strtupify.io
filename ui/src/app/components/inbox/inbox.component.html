@@ -30,6 +30,15 @@
         showDeleted ? "inbox" : "archive"
       }}</span>
     </button>
+    <button
+      *ngIf="showCadabraTest"
+      class="filter-btn"
+      (click)="sendCadabraNow()"
+      [disabled]="cadabraProcessing"
+    >
+      <span class="material-symbols-outlined">bolt</span>
+      <span class="label">SEND CADABRA NOW</span>
+    </button>
   </div>
   <div class="inbox-body">
     <div class="email-list">

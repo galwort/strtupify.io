@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <defs>
+    <path
+      id="openToWorkPath"
+      d="
+        M 30 200
+        C 30 293.888 106.112 370 200 370
+        C 293.888 370 370 293.888 370 200
+      "
+    />
+  </defs>
+
+  <circle
+    cx="200"
+    cy="200"
+    r="170"
+    fill="none"
+    stroke="#16a34a"
+    stroke-width="60"
+  />
+
+  <text
+    font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="32"
+    font-weight="700"
+    fill="white"
+    letter-spacing="4"
+  >
+    <textPath href="#openToWorkPath" startOffset="0%">
+      #OPEN TO WORK
+    </textPath>
+  </text>
+</svg>

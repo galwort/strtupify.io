@@ -11,7 +11,12 @@
         </div>
         <div class="day-column" *ngFor="let d of weekDays; let di = index">
           <div class="day-header">{{ dayLabel(d) }}</div>
-          <div class="day-body" (dragover)="onDayDragOver($event)" (drop)="onDayDrop($event, di)">
+          <div
+            class="day-body"
+            (dragover)="onDayDragOver($event, di)"
+            (dragleave)="onDayDragLeave($event, di)"
+            (drop)="onDayDrop($event, di)"
+          >
             <div
               class="meeting"
               *ngFor="let ev of visualByDay[di]"
@@ -34,6 +39,13 @@
                 <span *ngFor="let c of ev.participantDots" [style.background]="c"></span>
               </div>
             </div>
+            <div
+              class="drop-preview"
+              *ngIf="dragPreview && dragPreview.dayIndex === di"
+              [class.conflict]="dragPreview.conflict"
+              [style.top.%]="dragPreview.top"
+              [style.height.%]="dragPreview.height"
+            ></div>
           </div>
         </div>
       </div>

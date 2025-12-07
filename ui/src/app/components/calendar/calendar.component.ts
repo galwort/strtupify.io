@@ -41,6 +41,13 @@ type VisualMeeting = CalendarMeeting & {
   participantDots: string[];
 };
 
+type DragPreview = {
+  dayIndex: number;
+  top: number;
+  height: number;
+  conflict: boolean;
+};
+
 const fbApp = getApps().length
   ? getApps()[0]
   : initializeApp(environment.firebase);
@@ -94,6 +101,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
     (this.workdayEndHour - this.workdayStartHour) * 60;
   private readonly calendarByPerson = new Map<string, CalendarMeeting[]>();
   draggingMeetingId: string | null = null;
+  dragPreview: DragPreview | null = null;
 
   ngOnInit(): void {
     this.buildTimeSlots();
@@ -426,6 +434,26 @@ export class CalendarComponent implements OnInit, OnDestroy {
     }
   }
 
+  private computeBlockPosition(
+    dayIndex: number,
+    startMs: number,
+    endMs: number
+  ): { top: number; height: number } {
+    const startMinutes = (startMs - this.dayStartMs(dayIndex)) / 60000;
+    const duration = (endMs - startMs) / 60000;
+    const dayHeightPx = 720;
+    const pxPerMinute = dayHeightPx / this.workMinutes;
+    const gapPx = 3;
+    let startPx = startMinutes * pxPerMinute + gapPx;
+    let heightPx = Math.max(10, duration * pxPerMinute - gapPx * 2);
+    if (startPx + heightPx > dayHeightPx) {
+      heightPx = Math.max(10, dayHeightPx - startPx);
+    }
+    const top = (startPx / dayHeightPx) * 100;
+    const height = Math.max(4, (heightPx / dayHeightPx) * 100);
+    return { top, height };
+  }
+
   private recomputeVisuals(): void {
     const visible = new Set<string>(['me', ...this.selectedEmployees]);
     const byDay: VisualMeeting[][] = [[], [], [], [], []];
@@ -435,19 +463,11 @@ export class CalendarComponent implements OnInit, OnDestroy {
         visible.has(p)
       );
       if (!ownerVisible && !participantVisible) continue;
-      const startMinutes =
-        (meeting.start - this.dayStartMs(meeting.dayIndex)) / 60000;
-      const duration = (meeting.end - meeting.start) / 60000;
-      const dayHeightPx = 720;
-      const pxPerMinute = dayHeightPx / this.workMinutes;
-      const gapPx = 3;
-      let startPx = startMinutes * pxPerMinute + gapPx;
-      let heightPx = Math.max(10, duration * pxPerMinute - gapPx * 2);
-      if (startPx + heightPx > dayHeightPx) {
-        heightPx = Math.max(10, dayHeightPx - startPx);
-      }
-      const top = (startPx / dayHeightPx) * 100;
-      const height = Math.max(4, (heightPx / dayHeightPx) * 100);
+      const { top, height } = this.computeBlockPosition(
+        meeting.dayIndex,
+        meeting.start,
+        meeting.end
+      );
       const bg = meeting.owner === 'me' ? '#fff' : this.colorFor(meeting.owner);
       const border =
         meeting.owner === 'me' ? '#d8e2ec' : this.colorFor(meeting.owner);
@@ -478,6 +498,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
   onMeetingDragStart(event: DragEvent, meeting: VisualMeeting): void {
     if (meeting.owner !== 'me') return;
     this.draggingMeetingId = meeting.id;
+    this.dragPreview = null;
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = 'move';
       event.dataTransfer.setData('text/plain', meeting.id);
@@ -486,47 +507,57 @@ export class CalendarComponent implements OnInit, OnDestroy {
 
   onMeetingDragEnd(): void {
     this.draggingMeetingId = null;
+    this.dragPreview = null;
   }
 
-  onDayDragOver(event: DragEvent): void {
+  onDayDragOver(event: DragEvent, dayIndex: number): void {
     if (!this.draggingMeetingId) return;
+    const meeting = this.meetings.find(
+      (m) => m.id === this.draggingMeetingId && m.owner === 'me'
+    );
+    if (!meeting) {
+      this.dragPreview = null;
+      return;
+    }
     event.preventDefault();
     event.dataTransfer && (event.dataTransfer.dropEffect = 'move');
+    const placement = this.computeDropPlacement(event, meeting, dayIndex);
+    if (!placement || placement.outOfBounds) {
+      this.dragPreview = null;
+      return;
+    }
+    this.dragPreview = {
+      dayIndex,
+      top: placement.top,
+      height: placement.height,
+      conflict: placement.conflict,
+    };
+  }
+
+  onDayDragLeave(_: DragEvent, dayIndex: number): void {
+    if (this.dragPreview && this.dragPreview.dayIndex === dayIndex) {
+      this.dragPreview = null;
+    }
   }
 
   onDayDrop(event: DragEvent, dayIndex: number): void {
     if (!this.draggingMeetingId) return;
     event.preventDefault();
-    const meeting = this.meetings.find((m) => m.id === this.draggingMeetingId && m.owner === 'me');
+    const meeting = this.meetings.find(
+      (m) => m.id === this.draggingMeetingId && m.owner === 'me'
+    );
     if (!meeting) {
       this.draggingMeetingId = null;
+      this.dragPreview = null;
       return;
     }
-    const targetEl = event.currentTarget as HTMLElement;
-    const rect = targetEl.getBoundingClientRect();
-    const y = event.clientY - rect.top;
-    const clampedY = Math.max(0, Math.min(rect.height, y));
-    const minutes = (clampedY / rect.height) * this.workMinutes;
-    const durationMs = Math.max(30 * 60000, meeting.end - meeting.start);
-    const durationMinutes = Math.round(durationMs / 60000);
-    const maxStartMinutes = Math.max(0, this.workMinutes - durationMinutes);
-    const snapMinutesRaw = Math.floor(minutes / 30) * 30;
-    const snappedMinutes = Math.max(0, Math.min(maxStartMinutes, snapMinutesRaw));
-    const dayStart = this.dayStartMs(dayIndex);
-    const dayEnd = dayStart + this.workMinutes * 60000;
-    const desiredStart = dayStart + snappedMinutes * 60000;
-    const maxStartMs = dayEnd - durationMs;
-    const startMs = Math.min(Math.max(dayStart, desiredStart), maxStartMs);
-    const endMs = startMs + durationMs;
-    if (endMs > dayEnd || startMs >= dayEnd) {
+    const placement = this.computeDropPlacement(event, meeting, dayIndex);
+    this.dragPreview = null;
+    if (!placement || placement.outOfBounds || placement.conflict) {
       this.draggingMeetingId = null;
       return;
     }
-    if (this.hasParticipantOverlap(meeting.participants, dayIndex, startMs, endMs, meeting.id)) {
-      this.draggingMeetingId = null;
-      return;
-    }
-    this.updateMeetingTime(meeting, dayIndex, startMs, endMs);
+    this.updateMeetingTime(meeting, dayIndex, placement.startMs, placement.endMs);
     this.statusError = '';
     this.statusMessage = '';
     this.draggingMeetingId = null;
@@ -565,6 +596,54 @@ export class CalendarComponent implements OnInit, OnDestroy {
       const left = column * colWidth + gutter / 2;
       return { ...ev, width, left };
     });
+  }
+
+  private computeDropPlacement(
+    event: DragEvent,
+    meeting: CalendarMeeting,
+    dayIndex: number
+  ):
+    | {
+        startMs: number;
+        endMs: number;
+        top: number;
+        height: number;
+        conflict: boolean;
+        outOfBounds: boolean;
+      }
+    | null {
+    if (!this.weekStart) return null;
+    const targetEl = event.currentTarget as HTMLElement | null;
+    if (!targetEl) return null;
+    const rect = targetEl.getBoundingClientRect();
+    const y = event.clientY - rect.top;
+    const clampedY = Math.max(0, Math.min(rect.height, y));
+    const minutes = (clampedY / rect.height) * this.workMinutes;
+    const durationMs = Math.max(30 * 60000, meeting.end - meeting.start);
+    const durationMinutes = Math.round(durationMs / 60000);
+    const maxStartMinutes = Math.max(0, this.workMinutes - durationMinutes);
+    const snapMinutesRaw = Math.floor(minutes / 30) * 30;
+    const snappedMinutes = Math.max(0, Math.min(maxStartMinutes, snapMinutesRaw));
+    const dayStart = this.dayStartMs(dayIndex);
+    const dayEnd = dayStart + this.workMinutes * 60000;
+    const desiredStart = dayStart + snappedMinutes * 60000;
+    const maxStartMs = dayEnd - durationMs;
+    const startMs = Math.min(Math.max(dayStart, desiredStart), maxStartMs);
+    const endMs = startMs + durationMs;
+    const outOfBounds = endMs > dayEnd || startMs >= dayEnd;
+    const conflict = this.hasParticipantOverlap(
+      meeting.participants,
+      dayIndex,
+      startMs,
+      endMs,
+      meeting.id
+    );
+    const { top, height } = this.computeBlockPosition(
+      dayIndex,
+      startMs,
+      endMs
+    );
+    return { startMs, endMs, conflict, outOfBounds, top, height };
   }
 
   private hasParticipantOverlap(participants: string[], dayIndex: number, start: number, end: number, ignoreId?: string): boolean {

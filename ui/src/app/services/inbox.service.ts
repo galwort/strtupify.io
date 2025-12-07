@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 import { Observable } from 'rxjs';
+import { AvatarMood } from '../utils/avatar';
 
 const fbApp = initializeApp(environment.firebase);
 const db = getFirestore(fbApp);
@@ -34,6 +35,7 @@ export interface Email {
   senderTitle?: string;
   avatarName?: string;
   avatarUrl?: string;
+  avatarMood?: AvatarMood;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -118,6 +120,10 @@ export class InboxService {
                 data.image ||
                 '',
               avatarUrl: data.avatarUrl || data.avatar_url || '',
+              avatarMood:
+                typeof (data.avatarMood || data.avatar_mood) === 'string'
+                  ? ((data.avatarMood || data.avatar_mood) as AvatarMood)
+                  : undefined,
               subject: data.subject,
               body: data.message,
               preview: (data.message || '').substring(0, 60) + '...',

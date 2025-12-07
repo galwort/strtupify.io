@@ -14,6 +14,7 @@ import {
   setDoc,
   updateDoc,
   getDocs,
+  onSnapshot,
   collection,
   query,
   where,
@@ -23,7 +24,7 @@ import {
 import { environment } from 'src/environments/environment';
 import { EndgameService, EndgameStatus } from '../../services/endgame.service';
 import { UiStateService } from '../../services/ui-state.service';
-import { buildAvatarUrl } from 'src/app/utils/avatar';
+import { AvatarMood, buildAvatarUrl, burnoutMood, normalizeOutcomeStatus, outcomeMood } from 'src/app/utils/avatar';
 
 const fbApp = getApps().length
   ? getApps()[0]
@@ -37,6 +38,17 @@ type InboxEmail = Email & {
   displaySender?: string;
   senderInitials?: string;
   senderAvatarUrl?: string | null;
+};
+
+type EmployeeAvatarSource = {
+  avatarName: string;
+  directUrl: string | null;
+  burnout: boolean;
+};
+
+type EmployeeAvatarRecord = EmployeeAvatarSource & {
+  mood: AvatarMood;
+  url: string | null;
 };
 
 @Component({
@@ -180,15 +192,20 @@ export class InboxComponent implements OnInit, OnDestroy {
     return { ...meta, body };
   }
 
-  private async loadEmployeeAvatars(): Promise<void> {
+  private startEmployeeAvatarWatch(): void {
     if (!this.companyId) return;
-    try {
-      const ref = query(
-        collection(db, `companies/${this.companyId}/employees`),
-        where('hired', '==', true)
-      );
-      const snap = await getDocs(ref);
-      const map = new Map<string, string>();
+    if (this.employeeAvatarUnsub) {
+      try {
+        this.employeeAvatarUnsub();
+      } catch {}
+      this.employeeAvatarUnsub = null;
+    }
+    const ref = query(
+      collection(db, `companies/${this.companyId}/employees`),
+      where('hired', '==', true)
+    );
+    this.employeeAvatarUnsub = onSnapshot(ref, (snap) => {
+      const sources = new Map<string, EmployeeAvatarSource>();
       snap.docs.forEach((d) => {
         const data = (d.data() as any) || {};
         const name = String(data.name || '').trim();
@@ -197,16 +214,53 @@ export class InboxComponent implements OnInit, OnDestroy {
         const avatarName = String(
           data.avatar || data.photo || data.photoUrl || data.image || ''
         ).trim();
-        const avatarUrl = directUrl || buildAvatarUrl(avatarName, 'neutral');
-        if (avatarUrl) {
-          map.set(this.normalizeName(name), avatarUrl);
-        }
+        const stress = Math.max(0, Math.min(100, Number(data.stress || 0)));
+        const status = String(data.status || '');
+        const burnout = burnoutMood(stress, status) === 'sad';
+        sources.set(this.normalizeName(name), {
+          avatarName,
+          directUrl: directUrl || null,
+          burnout,
+        });
       });
-      this.employeeAvatars = map;
-      this.refreshEmailAvatars();
-    } catch (err) {
-      console.error('Failed to load employee avatars', err);
-    }
+      this.employeeAvatarSources = sources;
+      this.rebuildEmployeeAvatars();
+    });
+  }
+
+  private rebuildEmployeeAvatars(): void {
+    const map = new Map<string, EmployeeAvatarRecord>();
+    this.employeeAvatarSources.forEach((src, key) => {
+      const mood: AvatarMood = src.burnout ? 'sad' : this.endgameOutcomeMood || 'neutral';
+      const built = src.avatarName ? buildAvatarUrl(src.avatarName, mood) : '';
+      const preferMood = src.burnout || mood !== 'neutral';
+      const url = preferMood ? built || src.directUrl || null : src.directUrl || built || null;
+      map.set(key, {
+        ...src,
+        mood,
+        url,
+      });
+    });
+    this.employeeAvatars = map;
+    this.refreshEmailAvatars();
+  }
+
+  private extractOutcomeMood(data: any): AvatarMood | null {
+    const rawMood = this.normalizeMoodValue(data?.endgameOutcomeMood || data?.avatarMood);
+    if (rawMood) return rawMood;
+    const normalizedOutcome = normalizeOutcomeStatus(
+      data?.endgameOutcome || data?.outcomeStatus || '',
+      typeof data?.estimatedRevenue === 'number' ? data.estimatedRevenue : undefined
+    );
+    const mood = outcomeMood(normalizedOutcome);
+    return mood === 'neutral' ? null : mood;
+  }
+
+  private normalizeMoodValue(value: any): AvatarMood | null {
+    if (typeof value !== 'string') return null;
+    const raw = value.trim().toLowerCase();
+    if (raw === 'happy' || raw === 'sad' || raw === 'angry' || raw === 'neutral') return raw as AvatarMood;
+    return null;
   }
 
   private refreshEmailAvatars(): void {
@@ -243,20 +297,37 @@ export class InboxComponent implements OnInit, OnDestroy {
   private resolveSenderAvatar(email: Email, displayName: string): string | null {
     const existing = (email as any).senderAvatarUrl;
     if (typeof existing === 'string' && existing.trim()) return existing;
-    const direct = (email as any).avatarUrl || (email as any).avatar_url;
-    if (typeof direct === 'string' && direct.trim()) return direct;
-    const avatarName = (email as any).avatarName;
-    if (typeof avatarName === 'string' && avatarName.trim()) {
-      const built = buildAvatarUrl(avatarName.trim(), 'neutral');
-      if (built) return built;
-    }
+    const moodOverride = this.normalizeMoodValue((email as any).avatarMood);
     const names: string[] = [];
     if ((email as any).senderName) names.push(String((email as any).senderName));
     if (displayName) names.push(displayName);
     const parsed = this.extractNameFromEmail(email.sender);
     if (parsed) names.push(parsed);
     for (const name of names) {
-      const found = this.avatarForName(name);
+      const burnoutMatch = this.avatarForName(name);
+      if (burnoutMatch) {
+        const isBurnout = this.employeeAvatars.get(this.normalizeName(name))?.burnout;
+        if (isBurnout) return burnoutMatch;
+      }
+    }
+    const direct = (email as any).avatarUrl || (email as any).avatar_url;
+    if (typeof direct === 'string' && direct.trim()) {
+      if (names.length) {
+        const match = this.avatarForName(names[0], moodOverride);
+        const record = this.employeeAvatars.get(this.normalizeName(names[0]));
+        const isBurnout = match && record?.burnout;
+        const wantsMood = moodOverride && moodOverride !== 'neutral';
+        if (match && (isBurnout || wantsMood)) return match;
+      }
+      return direct;
+    }
+    const avatarName = (email as any).avatarName;
+    if (typeof avatarName === 'string' && avatarName.trim()) {
+      const built = buildAvatarUrl(avatarName.trim(), moodOverride || this.endgameOutcomeMood || 'neutral');
+      if (built) return built;
+    }
+    for (const name of names) {
+      const found = this.avatarForName(name, moodOverride);
       if (found) return found;
     }
     return null;
@@ -280,10 +351,18 @@ export class InboxComponent implements OnInit, OnDestroy {
       .trim();
   }
 
-  private avatarForName(name: string): string | null {
+  private avatarForName(name: string, moodOverride?: AvatarMood | null): string | null {
     const key = this.normalizeName(name);
     if (!key) return null;
-    return this.employeeAvatars.get(key) || null;
+    const record = this.employeeAvatars.get(key);
+    if (!record) return null;
+    const baseMood =
+      this.normalizeMoodValue(moodOverride || record.mood) || this.endgameOutcomeMood || 'neutral';
+    const mood: AvatarMood = record.burnout ? 'sad' : baseMood;
+    const built = record.avatarName ? buildAvatarUrl(record.avatarName, mood) : '';
+    const preferMood = record.burnout || mood !== 'neutral';
+    if (preferMood && built) return built;
+    return record.directUrl || built || record.url || null;
   }
 
   private normalizeName(name: string): string {
@@ -324,7 +403,10 @@ export class InboxComponent implements OnInit, OnDestroy {
   private suppressedIds = new Map<string, number>();
   private readonly suppressMs = 2000;
   private pendingSelectionId: string | null = null;
-  private employeeAvatars = new Map<string, string>();
+  private employeeAvatarSources = new Map<string, EmployeeAvatarSource>();
+  private employeeAvatars = new Map<string, EmployeeAvatarRecord>();
+  private employeeAvatarUnsub: (() => void) | null = null;
+  private endgameOutcomeMood: AvatarMood | null = null;
 
   private snacks: { name: string; price: string }[] = [];
   private selectedSnack: { name: string; price: string } | null = null;
@@ -380,7 +462,7 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     if (!this.companyId) return;
-    this.loadEmployeeAvatars();
+    this.startEmployeeAvatarWatch();
 
     this.inboxPreferredSub = this.ui.inboxPreferredEmailId$.subscribe((id) => {
       this.preferredInboxEmailId = id;
@@ -404,20 +486,22 @@ export class InboxComponent implements OnInit, OnDestroy {
     await this.loadClockState();
     {
       const ref = doc(db, `companies/${this.companyId}`);
-      const unsub = (await import('firebase/firestore')).onSnapshot(
-        ref,
-        (snap) => {
-          const d = (snap && (snap.data() as any)) || {};
-          if (typeof d.simTime === 'number') {
-            this.simDate = new Date(d.simTime);
-            this.updateDisplay();
-            this.enqueueTick();
-          }
-          if (d.calendarEmailSent) this.calendarEmailAt = null;
-          else if (typeof d.calendarEmailAt === 'number')
-            this.calendarEmailAt = d.calendarEmailAt;
+      const unsub = onSnapshot(ref, (snap) => {
+        const d = (snap && (snap.data() as any)) || {};
+        const nextMood = this.extractOutcomeMood(d);
+        if (nextMood !== this.endgameOutcomeMood) {
+          this.endgameOutcomeMood = nextMood;
+          this.rebuildEmployeeAvatars();
         }
-      );
+        if (typeof d.simTime === 'number') {
+          this.simDate = new Date(d.simTime);
+          this.updateDisplay();
+          this.enqueueTick();
+        }
+        if (d.calendarEmailSent) this.calendarEmailAt = null;
+        else if (typeof d.calendarEmailAt === 'number')
+          this.calendarEmailAt = d.calendarEmailAt;
+      });
       (this as any).__unsubInboxSim = unsub;
     }
     this.loadSnacks();
@@ -447,6 +531,12 @@ export class InboxComponent implements OnInit, OnDestroy {
       try {
         this.inboxPreferredSub.unsubscribe();
       } catch {}
+    }
+    if (this.employeeAvatarUnsub) {
+      try {
+        this.employeeAvatarUnsub();
+      } catch {}
+      this.employeeAvatarUnsub = null;
     }
     this.suppressedIds.clear();
     for (const t of this.pendingReplyTimers) {

@@ -15,7 +15,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
-import { buildAvatarUrl } from 'src/app/utils/avatar';
+import { AvatarMood, buildAvatarUrl, burnoutMood, normalizeOutcomeStatus, outcomeMood } from 'src/app/utils/avatar';
 
 interface EmployeeSkill {
   id: string;
@@ -34,6 +34,8 @@ interface EmployeeProfile {
   salary: number;
   avatarName: string;
   avatarUrl: string;
+  avatarMood: AvatarMood;
+  burnout: boolean;
   gender?: string;
   skills: EmployeeSkill[];
 }
@@ -60,6 +62,8 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
   spendMessage = '';
   spending = false;
   refreshingRates = false;
+  endgameOutcomeMood: AvatarMood | null = null;
+  private tempAvatarMoods = new Map<string, { mood: AvatarMood; timeout?: any }>();
   readonly skillPointCost = 1000;
 
   ngOnInit(): void {
@@ -69,6 +73,11 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
       const data = (snap && (snap.data() as any)) || {};
       const pts = Number(data.focusPoints || 0);
       this.focusPoints = Number.isFinite(pts) ? Math.max(0, Math.round(pts)) : 0;
+      const mood = this.extractOutcomeMood(data);
+      if (mood !== this.endgameOutcomeMood) {
+        this.endgameOutcomeMood = mood;
+        this.refreshAllEmployeeAvatars();
+      }
     });
     const ref = query(
       collection(db, `companies/${this.companyId}/employees`),
@@ -80,14 +89,14 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
           const data = (d.data() as any) || {};
           const stress = Math.max(0, Math.min(100, Number(data.stress || 0)));
           const status: 'Active' | 'Burnout' = String(data.status || 'Active') === 'Burnout' ? 'Burnout' : 'Active';
+          const burnout = burnoutMood(stress, status) === 'sad';
           const load = Math.max(0, Number(data.load || 0));
           const salaryRaw = Number(data.salary || 0);
           const salary = Number.isFinite(salaryRaw) ? Math.max(0, salaryRaw) : 0;
           const description = String(data.description || data.personality || '');
           const avatarName = String(data.avatar || data.photo || data.photoUrl || data.image || '');
-          const avatarUrl = buildAvatarUrl(avatarName, 'neutral');
           const gender = String(data.gender || '').toLowerCase() || undefined;
-          return {
+          const base: EmployeeProfile = {
             id: d.id,
             name: String(data.name || ''),
             title: String(data.title || ''),
@@ -97,10 +106,13 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
             salary,
             description,
             avatarName,
-            avatarUrl,
+            avatarUrl: '',
+            avatarMood: 'neutral',
+            burnout,
             gender,
             skills: [],
-          } as EmployeeProfile;
+          };
+          return this.applyAvatarMood(base);
         })
         .sort((a, b) => b.stress - a.stress);
 
@@ -112,6 +124,10 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.unsub) this.unsub();
     if (this.unsubCompany) this.unsubCompany();
+    this.tempAvatarMoods.forEach((entry) => {
+      if (entry?.timeout) clearTimeout(entry.timeout);
+    });
+    this.tempAvatarMoods.clear();
   }
 
   statusLabel(emp: EmployeeProfile): string {
@@ -124,6 +140,65 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
     if (emp.stress <= 10) return 'bandwidth';
     if (emp.stress >= 90) return 'burnout';
     return 'active';
+  }
+
+  isFlashing(emp: EmployeeProfile): boolean {
+    return this.tempAvatarMoods.has(emp.id);
+  }
+
+  private computeAvatarMood(emp: EmployeeProfile): AvatarMood {
+    const temp = this.tempAvatarMoods.get(emp.id);
+    if (temp) return temp.mood;
+    const burnout = burnoutMood(emp.stress, emp.status);
+    if (burnout) return burnout;
+    if (this.endgameOutcomeMood) return this.endgameOutcomeMood;
+    return 'neutral';
+  }
+
+  private applyAvatarMood(emp: EmployeeProfile): EmployeeProfile {
+    const burnout = burnoutMood(emp.stress, emp.status) === 'sad';
+    const avatarMood = this.computeAvatarMood(emp);
+    const avatarUrl = buildAvatarUrl(emp.avatarName, avatarMood);
+    return { ...emp, avatarMood, avatarUrl, burnout };
+  }
+
+  private refreshAllEmployeeAvatars(): void {
+    this.employees = this.employees.map((emp) => this.applyAvatarMood(emp));
+  }
+
+  private refreshEmployeeAvatar(empId: string): void {
+    this.employees = this.employees.map((emp) =>
+      emp.id === empId ? this.applyAvatarMood(emp) : emp
+    );
+  }
+
+  private setTemporaryAvatarMood(empId: string, mood: AvatarMood, durationMs = 1400): void {
+    const existing = this.tempAvatarMoods.get(empId);
+    if (existing?.timeout) clearTimeout(existing.timeout);
+    const timeout = setTimeout(() => {
+      this.tempAvatarMoods.delete(empId);
+      this.refreshEmployeeAvatar(empId);
+    }, durationMs);
+    this.tempAvatarMoods.set(empId, { mood, timeout });
+    this.refreshEmployeeAvatar(empId);
+  }
+
+  private extractOutcomeMood(data: any): AvatarMood | null {
+    const rawMood = this.normalizeMoodValue(data?.endgameOutcomeMood || data?.avatarMood);
+    if (rawMood) return rawMood;
+    const normalizedOutcome = normalizeOutcomeStatus(
+      data?.endgameOutcome || data?.outcomeStatus || '',
+      typeof data?.estimatedRevenue === 'number' ? data.estimatedRevenue : undefined
+    );
+    const mood = outcomeMood(normalizedOutcome);
+    return mood === 'neutral' ? null : mood;
+  }
+
+  private normalizeMoodValue(value: any): AvatarMood | null {
+    if (typeof value !== 'string') return null;
+    const raw = value.trim().toLowerCase();
+    if (raw === 'happy' || raw === 'sad' || raw === 'angry' || raw === 'neutral') return raw as AvatarMood;
+    return null;
   }
 
   async upgradeSkill(emp: EmployeeProfile, skill: EmployeeSkill): Promise<void> {
@@ -139,6 +214,7 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
       this.spendError = `You need ${this.skillPointCost.toLocaleString()} focus points to add a skill level.`;
       return;
     }
+    this.setTemporaryAvatarMood(emp.id, 'happy', 1800);
     this.spending = true;
     try {
       const nextLevel = await this.applySkillUpgrade(emp, skill);

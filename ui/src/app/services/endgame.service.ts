@@ -18,6 +18,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
+import { buildAvatarUrl, normalizeOutcomeStatus, outcomeMood } from '../utils/avatar';
 
 export type EndgameStatus = 'idle' | 'triggered' | 'resolved';
 
@@ -238,6 +239,7 @@ export class EndgameService implements OnDestroy {
     triggeredAt?: number,
     resetAt?: number
   ): Promise<boolean> {
+    const companyRef = doc(this.db, 'companies', this.companyId);
     const sender = await this.resolveKickoffSender();
     const product = await this.loadAcceptedProduct();
     const payload: any = {
@@ -259,6 +261,8 @@ export class EndgameService implements OnDestroy {
     const estRevenueRaw = Number(response?.estimated_revenue);
     const estimatedRevenue = Number.isFinite(estRevenueRaw) ? estRevenueRaw : null;
     const summary = typeof response?.summary === 'string' ? response.summary : '';
+    const outcomeStatus = normalizeOutcomeStatus(status, estimatedRevenue);
+    const outcomeAvatarMood = outcomeMood(outcomeStatus);
 
     const subject =
       typeof response?.subject === 'string' && response.subject
@@ -278,6 +282,8 @@ export class EndgameService implements OnDestroy {
             `– ${sender.name || sender.from}`,
           ].join('\n\n');
     const from = typeof response?.from === 'string' && response.from ? response.from : sender.from;
+    const avatarName = sender.name || this.extractNameFromAddress(from) || '';
+    const avatarUrl = buildAvatarUrl(avatarName, outcomeAvatarMood);
 
     const emailId = `outcome-${Date.now()}`;
     try {
@@ -292,10 +298,19 @@ export class EndgameService implements OnDestroy {
         threadId: emailId,
         category: 'kickoff-outcome',
         outcomeStatus: status || null,
+        avatarName: avatarName || null,
+        avatarMood: outcomeAvatarMood,
+        avatarUrl: avatarUrl || null,
         estimatedRevenue,
         timeframeMonths: months,
         productName: product.name,
       });
+      try {
+        await updateDoc(companyRef, {
+          endgameOutcome: outcomeStatus,
+          endgameOutcomeMood: outcomeAvatarMood,
+        });
+      } catch {}
       return true;
     } catch {
       return false;

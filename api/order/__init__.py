@@ -1,7 +1,8 @@
 import azure.functions as func
 import firebase_admin
 import json
-from typing import Any, Dict
+import random
+from typing import Any, Dict, List
 
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
@@ -34,7 +35,7 @@ class CadabraOrder(BaseModel):
     total: float | None = Field(default=None, gt=0, le=20000)
 
 
-def _prompt_for_order(description: str) -> CadabraOrder:
+def _prompt_for_order(description: str, prev_items: List[str]) -> CadabraOrder:
     system_message = (
         "You imagine a humorous but plausible Amazon purchase a naive VC might make for a startup. "
         "Stick to real, recognizable products without adjectives or add-ons. "
@@ -47,6 +48,12 @@ def _prompt_for_order(description: str) -> CadabraOrder:
         "The total cost should be more than $3 but less than $1,000\n\n"
         f"{description}"
     )
+    if prev_items:
+        prior = ", ".join(prev_items[:15])
+        user_prompt += (
+            "\n\nAvoid repeating any of these previously purchased items. "
+            f"All suggestions must be different from: {prior}"
+        )
     completion = client.beta.chat.completions.parse(
         model=deployment,
         messages=[
@@ -84,8 +91,47 @@ def _normalize(order: CadabraOrder) -> Dict[str, Any]:
     }
 
 
-def _fallback_order() -> CadabraOrder:
-    return CadabraOrder(item="Conference room speaker", quantity=1, unit_price=89.99, total=89.99)
+def _fallback_order(prev_items: List[str]) -> CadabraOrder:
+    candidates = [
+        ("Conference room speaker", 1, 89.99),
+        ("Standing desk mat", 1, 39.99),
+        ("Whiteboard markers", 3, 11.49),
+        ("Cable management box", 2, 24.99),
+        ("Surge protector", 1, 18.99),
+        ("Office chair wheels", 1, 32.99),
+    ]
+    random.shuffle(candidates)
+    lowered = {p.lower() for p in prev_items}
+    for name, qty, price in candidates:
+        if name.lower() not in lowered:
+            return CadabraOrder(item=name, quantity=qty, unit_price=price, total=qty * price)
+    name, qty, price = candidates[0]
+    return CadabraOrder(item=name, quantity=qty, unit_price=price, total=qty * price)
+
+
+def _extract_prev_items(data: Dict[str, Any]) -> List[str]:
+    items = []
+    raw = data.get("cadabra_orders") or data.get("cadabraOrders") or []
+    if isinstance(raw, list):
+        for entry in raw:
+            if isinstance(entry, str):
+                val = entry.strip()
+                if val:
+                    items.append(val)
+            elif isinstance(entry, dict):
+                val = str(entry.get("item") or "").strip()
+                if val:
+                    items.append(val)
+    # Deduplicate preserving order
+    seen = set()
+    uniq = []
+    for val in items:
+        key = val.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        uniq.append(val)
+    return uniq
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
@@ -106,19 +152,36 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             status_code=400,
         )
 
-    company_doc = db.collection("companies").document(company_id).get()
+    company_ref = db.collection("companies").document(company_id)
+    company_doc = company_ref.get()
     data = company_doc.to_dict() if company_doc.exists else {}
     company_desc = str(data.get("description") or "").strip()
     company_name = str(data.get("company_name") or company_id).strip()
     description = f"{company_name}: {company_desc}" if company_desc else company_name
+    prev_items = _extract_prev_items(data)
+
+    normalized: Dict[str, Any] | None = None
+    try:
+        parsed = _prompt_for_order(description, prev_items)
+        normalized = _normalize(parsed)
+        if normalized["item"].lower() in {p.lower() for p in prev_items}:
+            # Try one more time to avoid duplication
+            parsed = _prompt_for_order(description, prev_items + [normalized["item"]])
+            normalized = _normalize(parsed)
+    except (ValidationError, Exception):
+        normalized = None
+    if not normalized or normalized["item"].lower() in {p.lower() for p in prev_items}:
+        normalized = _normalize(_fallback_order(prev_items))
+
+    normalized["company"] = company_id
 
     try:
-        parsed = _prompt_for_order(description)
-    except (ValidationError, Exception):
-        parsed = _fallback_order()
-
-    normalized = _normalize(parsed)
-    normalized["company"] = company_id
+        updated = prev_items + [normalized["item"]]
+        if len(updated) > 25:
+            updated = updated[-25:]
+        company_ref.set({"cadabra_orders": updated}, merge=True)
+    except Exception:
+        pass
 
     return func.HttpResponse(
         json.dumps(normalized),

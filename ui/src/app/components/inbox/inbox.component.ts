@@ -1173,28 +1173,54 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   async sendCompose(): Promise<void> {
     if (this.sendingCompose) return;
-    const to = (this.composeTo || '').trim();
+    const toRaw = (this.composeTo || '').trim();
     const subject = (this.composeSubject || '').trim();
     const message = (this.composeBody || '').trim();
     this.composeError = '';
-    if (!to) {
+    if (!toRaw) {
       this.composeError = 'Recipient is required.';
       return;
     }
-    if (!this.isValidEmailAddress(to)) {
-      this.composeError = 'Please enter a valid email address.';
-      return;
-    }
+    const recipients = this.parseRecipients(toRaw);
+    const isMultiRecipient = recipients.length > 1;
+    const to = recipients[0] || toRaw;
     if (!message) {
       this.composeError = 'Message body cannot be empty.';
+      return;
+    }
+    if (!isMultiRecipient && !this.isValidEmailAddress(to)) {
+      this.composeError = 'Please enter a valid email address.';
       return;
     }
     this.sendingCompose = true;
     this.composeClicked = true;
     setTimeout(() => (this.composeClicked = false), 300);
     const resolvedSubject = subject || '(no subject)';
-    const threadId = this.createThreadId('outbound');
     const timestamp = this.simDate.toISOString();
+    if (isMultiRecipient) {
+      const threadId = this.createThreadId('vlad-multi');
+      try {
+        await this.sendMultiRecipientNotice(
+          recipients,
+          resolvedSubject,
+          threadId,
+          timestamp
+        );
+        this.showComposeBox = false;
+        this.composeTo = '';
+        this.composeSubject = '';
+        this.composeBody = '';
+        this.composeError = '';
+        this.selectedEmail = null;
+      } catch (err) {
+        console.error('Failed to send multi-recipient notice', err);
+        this.composeError = 'We could not send your message. Please try again.';
+      } finally {
+        this.sendingCompose = false;
+      }
+      return;
+    }
+    const threadId = this.createThreadId('outbound');
     try {
       const category = this.resolveRecipientCategory(to);
       const emailId = await this.inboxService.sendEmail(this.companyId, {
@@ -1312,6 +1338,65 @@ export class InboxComponent implements OnInit, OnDestroy {
       return 'mom';
     }
     return 'outbound';
+  }
+
+  private parseRecipients(address: string): string[] {
+    return (address || '')
+      .split(/[;\s]+/)
+      .map((r) => r.trim())
+      .filter((r) => r.length > 0);
+  }
+
+  private async sendMultiRecipientNotice(
+    recipients: string[],
+    subject: string,
+    threadId: string,
+    timestamp: string
+  ): Promise<void> {
+    const recipientList = recipients.join(', ');
+    let parsed: {
+      from?: string;
+      subject?: string;
+      banner?: boolean;
+      deleted?: boolean;
+      body: string;
+    } = { body: '' };
+    try {
+      const text = await this.http
+        .get('emails/vlad-multi.md', { responseType: 'text' })
+        .toPromise();
+      parsed = this.parseEmailTemplate(text || '');
+    } catch {
+      parsed = this.parseEmailTemplate('');
+    }
+    const fallbackBody =
+      `Hello End User,\n\n` +
+      `This is Vlad from IT Support at startupify.io. You tried to email multiple people (${recipientList || 'multiple people'}). ` +
+      `That feature has not been added yet because leadership asked me to focus on adding more AI features instead of basic email functionality, even if your subject is "${subject || '(no subject)'}"...\n\n` +
+      `Please send one email at a time until the AI learns how to count to two. I am very busy and may not immediately respond to all of your emails...\n\n` +
+      `Thank you!\nVlad\nIT Support\nstrtupify.io`;
+    const subjectLine =
+      parsed.subject || 'Multi-recipient emails are not supported';
+    const renderedSubject = subjectLine.replace(
+      /\{SUBJECT\}/g,
+      subject || '(no subject)'
+    );
+    const renderedBody = (parsed.body || fallbackBody)
+      .replace(/\{RECIPIENTS\}/g, recipientList || 'multiple people')
+      .replace(/\{SUBJECT\}/g, subject || '(no subject)');
+    const emailId = `vlad-multi-${Date.now()}`;
+    await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+      from: parsed.from || 'vlad@strtupify.io',
+      subject: renderedSubject,
+      message: renderedBody,
+      deleted: parsed.deleted ?? false,
+      banner: parsed.banner ?? false,
+      timestamp,
+      threadId,
+      to: this.meAddress,
+      category: 'vlad',
+      attemptedRecipients: recipientList,
+    });
   }
 
   private isValidEmailAddress(address: string): boolean {

@@ -10,9 +10,9 @@
   <div *ngFor="let emp of employees" class="employee-card">
     <div class="card-head">
       <div class="identity">
-        <div class="avatar" [class.fallback]="!emp.avatar">
-          <img *ngIf="emp.avatar" [src]="emp.avatar" [alt]="emp.name + ' profile photo'" />
-          <span *ngIf="!emp.avatar" class="material-symbols-outlined">person</span>
+        <div class="avatar" [class.fallback]="!emp.avatarUrl">
+          <img *ngIf="emp.avatarUrl" [src]="emp.avatarUrl" [alt]="emp.name + ' profile photo'" />
+          <span *ngIf="!emp.avatarUrl" class="material-symbols-outlined">person</span>
         </div>
         <div class="name-block">
           <div class="name">{{ emp.name }}</div>

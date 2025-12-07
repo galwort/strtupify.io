@@ -44,11 +44,11 @@
     gap: 10px;
 
     .avatar {
-      width: 44px;
-      height: 44px;
+      width: 52px;
+      height: 52px;
       border-radius: 50%;
-      background: rgba(0, 0, 0, 0.05);
-      border: 1px solid rgba(0, 0, 0, 0.08);
+      background: rgba(63, 140, 255, 0.06);
+      border: 2px solid var(--theme-primary);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -61,12 +61,12 @@
       }
 
       &.fallback {
-        background: rgba(0, 0, 0, 0.03);
+        background: rgba(63, 140, 255, 0.04);
         border-style: dashed;
       }
 
       .material-symbols-outlined {
-        color: rgba(0, 0, 0, 0.6);
+        color: var(--theme-primary);
         font-size: 24px;
       }
     }

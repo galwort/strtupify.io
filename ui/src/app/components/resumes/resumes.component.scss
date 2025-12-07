@@ -13,13 +13,62 @@
     font-size: min(3rem, 12vw);
     font-weight: 700;
     color: var(--theme-text);
+    margin: 0;
   }
 
   h2 {
     font-size: min(1.5rem, 8vw);
     font-weight: 600;
     margin-top: 0;
+    margin-bottom: 0;
     color: var(--theme-text);
+  }
+
+  .resume-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+
+    .avatar {
+      width: 78px;
+      height: 78px;
+      border-radius: 50%;
+      border: 2px solid var(--theme-primary);
+      background: rgba(63, 140, 255, 0.06);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+
+      &.fallback {
+        border-style: dashed;
+        background: rgba(63, 140, 255, 0.04);
+      }
+
+      .material-symbols-outlined {
+        color: var(--theme-primary);
+        font-size: 34px;
+      }
+    }
+
+    .identity {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .subline {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
   }
 
   h3 {

@@ -6,7 +6,7 @@ from azure.keyvault.secrets import SecretClient
 from firebase_admin import credentials, initialize_app, firestore
 from json import dumps, loads
 from openai import AzureOpenAI
-from random import choice, gauss
+from random import choice, gauss, randint, random
 from requests import get
 
 vault_url = "https://kv-strtupifyio.vault.azure.net/"
@@ -32,33 +32,42 @@ def pull_name():
     try:
         r = get(url, timeout=5)
         r.raise_for_status()
-        d = r.json()["results"][0]["name"]
-        return f"{d['first']} {d['last']}"
+        result = r.json()["results"][0]
+        name_data = result.get("name", {}) if isinstance(result, dict) else {}
+        first = name_data.get("first")
+        last = name_data.get("last")
+        gender = str(result.get("gender") or "").lower()
+        if not gender or gender not in ("male", "female"):
+            gender = choice(["male", "female"])
+        if first and last:
+            return f"{first} {last}", gender
     except Exception:
-        first = [
-            "Alex",
-            "Jordan",
-            "Taylor",
-            "Casey",
-            "Morgan",
-            "Quinn",
-            "Jamie",
-            "Riley",
-            "Cameron",
-        ]
-        last = [
-            "Smith",
-            "Johnson",
-            "Brown",
-            "Jones",
-            "Miller",
-            "Davis",
-            "Garcia",
-            "Rodriguez",
-            "Martinez",
-            "Hernandez",
-        ]
-        return f"{choice(first)} {choice(last)}"
+        pass
+
+    first = [
+        "Alex",
+        "Jordan",
+        "Taylor",
+        "Casey",
+        "Morgan",
+        "Quinn",
+        "Jamie",
+        "Riley",
+        "Cameron",
+    ]
+    last = [
+        "Smith",
+        "Johnson",
+        "Brown",
+        "Jones",
+        "Miller",
+        "Davis",
+        "Garcia",
+        "Rodriguez",
+        "Martinez",
+        "Hernandez",
+    ]
+    return f"{choice(first)} {choice(last)}", choice(["male", "female"])
 
 
 def pull_skills(company, job_title):
@@ -131,6 +140,23 @@ def gen_salary(job_title, skills):
     return salary
 
 
+def generate_avatar_filename(gender: str) -> str:
+    normalized = (gender or "").lower()
+    is_female = normalized == "female"
+    prefix = "f" if is_female else "m"
+
+    number = randint(0, 296) if is_female else randint(297, 514)
+    padded_number = f"{number:06d}"
+
+    glasses = "glasses0" if random() < 0.75 else f"glasses{randint(1, 3)}"
+    if is_female:
+        facialhair = "facialhair0"
+    else:
+        facialhair = "facialhair1" if random() < 0.25 else "facialhair0"
+
+    return f"{prefix}_{padded_number}_{glasses}_{facialhair}"
+
+
 def main(req: func.HttpRequest) -> func.HttpResponse:
     req_body = req.get_json()
     company = req_body["company"]
@@ -151,7 +177,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         )
 
     skills = docs[0].to_dict().get("skills", [])
-    name = pull_name()
+    name, gender = pull_name()
     personality = gen_personality(name)
     skill_data = []
     for s in skills:
@@ -168,6 +194,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         {
             "name": name,
             "title": job_title,
+            "gender": gender,
+            "avatar": generate_avatar_filename(gender),
             "salary": salary,
             "personality": personality,
             "hired": False,

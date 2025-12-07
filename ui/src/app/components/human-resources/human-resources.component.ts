@@ -12,6 +12,7 @@ import {
   query,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
+import { buildAvatarUrl } from 'src/app/utils/avatar';
 
 interface EmployeeSkill {
   id: string;
@@ -28,7 +29,9 @@ interface EmployeeProfile {
   load: number;
   description: string;
   salary: number;
-  avatar: string;
+  avatarName: string;
+  avatarUrl: string;
+  gender?: string;
   skills: EmployeeSkill[];
 }
 
@@ -65,7 +68,9 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
           const salaryRaw = Number(data.salary || 0);
           const salary = Number.isFinite(salaryRaw) ? Math.max(0, salaryRaw) : 0;
           const description = String(data.description || data.personality || '');
-          const avatar = String(data.avatar || data.photo || data.photoUrl || data.image || '');
+          const avatarName = String(data.avatar || data.photo || data.photoUrl || data.image || '');
+          const avatarUrl = buildAvatarUrl(avatarName, 'neutral');
+          const gender = String(data.gender || '').toLowerCase() || undefined;
           return {
             id: d.id,
             name: String(data.name || ''),
@@ -75,7 +80,9 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
             load,
             salary,
             description,
-            avatar,
+            avatarName,
+            avatarUrl,
+            gender,
             skills: [],
           } as EmployeeProfile;
         })

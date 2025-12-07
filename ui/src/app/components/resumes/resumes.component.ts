@@ -10,6 +10,7 @@ import {
 import { environment } from 'src/environments/environment';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { buildAvatarUrl } from 'src/app/utils/avatar';
 
 export const app = initializeApp(environment.firebase);
 export const db = getFirestore(app);
@@ -28,6 +29,9 @@ interface Employee {
   personality: string;
   hired: boolean;
   skills: Skill[];
+   gender?: string;
+   avatar?: string;
+   avatarUrl?: string;
 }
 
 interface Role {
@@ -75,8 +79,17 @@ export class ResumesComponent implements OnInit {
     );
 
     const temp: Employee[] = empSnap.docs.map((d) => {
-      const data = d.data() as Omit<Employee, 'id' | 'skills'>;
-      return { ...data, id: d.id, skills: [] as Skill[] };
+      const data = d.data() as any;
+      const avatarName = String(data?.avatar || '').trim();
+      const gender = String(data?.gender || '').toLowerCase();
+      return {
+        ...(data || {}),
+        id: d.id,
+        skills: [] as Skill[],
+        avatar: avatarName,
+        gender,
+        avatarUrl: buildAvatarUrl(avatarName, 'neutral'),
+      } as Employee;
     });
 
     this.hiredCount = temp.filter((e) => e.hired).length;

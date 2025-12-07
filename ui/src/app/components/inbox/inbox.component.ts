@@ -30,6 +30,7 @@ const fbApp = getApps().length
 const db = getFirestore(fbApp);
 const kickoffUrl = 'https://fa-strtupifyio.azurewebsites.net/api/kickoff_email';
 const momUrl = 'https://fa-strtupifyio.azurewebsites.net/api/mom_email';
+const cadabraUrl = 'https://fa-strtupifyio.azurewebsites.net/api/order';
 
 @Component({
   selector: 'app-inbox',
@@ -217,6 +218,15 @@ export class InboxComponent implements OnInit, OnDestroy {
   } | null = null;
   private bankProcessing = false;
 
+  private cadabraSendTime: number | null = null;
+  private cadabraTemplate: {
+    from?: string;
+    subject?: string;
+    banner?: boolean;
+    body: string;
+  } | null = null;
+  private cadabraProcessing = false;
+
   private kickoffSendTime: number | null = null;
   private momSendTime: number | null = null;
   private calendarEmailAt: number | null = null;
@@ -284,6 +294,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.loadSnacks();
     this.loadSuperEatsTemplate();
     this.loadBankTemplate();
+    this.loadCadabraTemplate();
 
     this.inboxService.ensureWelcomeEmail(this.companyId).finally(() => {
       this.subscribeToInbox();
@@ -422,6 +433,14 @@ export class InboxComponent implements OnInit, OnDestroy {
         await updateDoc(ref, { bankNextAt: this.bankSendTime });
       }
 
+      if (data.cadabraNextAt !== undefined) {
+        this.cadabraSendTime = data.cadabraNextAt;
+      } else {
+        const firstCadabraAt = this.computeNextCadabra(this.simDate);
+        this.cadabraSendTime = firstCadabraAt.getTime();
+        await updateDoc(ref, { cadabraNextAt: this.cadabraSendTime });
+      }
+
       if (data.kickoffEmailSent) {
         this.kickoffSendTime = null;
       } else if (typeof data.kickoffEmailAt === 'number') {
@@ -475,6 +494,11 @@ export class InboxComponent implements OnInit, OnDestroy {
           await updateDoc(ref, { bankEmailInProgress: false });
         } catch {}
       }
+      if (data.cadabraEmailInProgress) {
+        try {
+          await updateDoc(ref, { cadabraEmailInProgress: false });
+        } catch {}
+      }
       let domain = `${this.companyId}.com`;
       if (anyData && anyData.company_name) {
         domain =
@@ -487,6 +511,8 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.superEatsSendTime = firstAt.getTime();
       const firstBankAt = this.computeNextFriday5(this.simDate);
       this.bankSendTime = firstBankAt.getTime();
+      const firstCadabraAt = this.computeNextCadabra(this.simDate);
+      this.cadabraSendTime = firstCadabraAt.getTime();
       const { start } = this.computeDay2Window(this.simDate);
       const totalMinutes =
         (this.businessEndHour - this.businessStartHour) * 60 - 1;
@@ -507,6 +533,8 @@ export class InboxComponent implements OnInit, OnDestroy {
         superEatsEmailInProgress: false,
         bankNextAt: this.bankSendTime,
         bankEmailInProgress: false,
+        cadabraNextAt: this.cadabraSendTime,
+        cadabraEmailInProgress: false,
         kickoffEmailAt: this.simDate.getTime() + 5 * 60_000,
         kickoffEmailSent: false,
         momEmailAt: this.momSendTime,
@@ -589,6 +617,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.checkCalendarEmail();
       this.checkMomEmail();
       this.checkBankEmail();
+      void this.checkCadabraEmail();
 
       this.elapsedSinceSave += this.tickMs;
       if (this.elapsedSinceSave >= this.saveEveryMs) {
@@ -650,6 +679,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       await this.checkKickoffEmail();
       await this.checkMomEmail();
       await this.checkBankEmail();
+      await this.checkCadabraEmail();
     } catch {}
   }
 
@@ -850,6 +880,21 @@ export class InboxComponent implements OnInit, OnDestroy {
       next: (text) => {
         const parsed = this.parseMarkdownEmail(text);
         this.bankTemplate = {
+          from: parsed.from,
+          subject: parsed.subject,
+          banner: parsed.banner,
+          body: parsed.body,
+        };
+      },
+      error: () => {},
+    });
+  }
+
+  private loadCadabraTemplate(): void {
+    this.http.get('emails/cadabra.md', { responseType: 'text' }).subscribe({
+      next: (text) => {
+        const parsed = this.parseMarkdownEmail(text);
+        this.cadabraTemplate = {
           from: parsed.from,
           subject: parsed.subject,
           banner: parsed.banner,
@@ -1330,6 +1375,8 @@ export class InboxComponent implements OnInit, OnDestroy {
   private readonly businessEndHour = 20;
   private readonly nextMinDays = 1.5;
   private readonly nextMaxDays = 3.5;
+  private readonly cadabraMinDays = 7;
+  private readonly cadabraMaxDays = 21;
 
   private startOfDay(d: Date): Date {
     const x = new Date(d.getTime());
@@ -1402,6 +1449,21 @@ export class InboxComponent implements OnInit, OnDestroy {
     return d;
   }
 
+  private computeNextCadabra(after: Date): Date {
+    const deltaDays =
+      this.cadabraMinDays +
+      Math.random() * (this.cadabraMaxDays - this.cadabraMinDays);
+    const base = new Date(after.getTime() + deltaDays * 24 * 60 * 60 * 1000);
+    const totalMinutes =
+      (this.businessEndHour - this.businessStartHour) * 60 - 1;
+    const offset = this.randomInt(0, totalMinutes);
+    const h = this.businessStartHour + Math.floor(offset / 60);
+    const m = offset % 60;
+    const d = this.startOfDay(base);
+    d.setHours(h, m, 0, 0);
+    return d;
+  }
+
   private computeNextFriday5(after: Date): Date {
     const d = new Date(after.getTime());
     d.setSeconds(0, 0);
@@ -1416,6 +1478,196 @@ export class InboxComponent implements OnInit, OnDestroy {
       target = new Date(target.getTime() + 7 * 24 * 60 * 60 * 1000);
     }
     return target;
+  }
+
+  private formatCurrency(amount: number): string {
+    const safe = Number.isFinite(amount) ? amount : 0;
+    return safe.toFixed(2);
+  }
+
+  private generateCadabraOrderNumber(): string {
+    const mid = this.randomInt(1000000, 9999999);
+    const tail = this.randomInt(1000000, 9999999);
+    return `${this.randomInt(100, 999)}-${mid}-${tail}`;
+  }
+
+  private computeCadabraEta(from: Date): string {
+    const days = this.randomInt(2, 6);
+    const eta = new Date(from.getTime() + days * 24 * 60 * 60 * 1000);
+    return eta.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+    });
+  }
+
+  private parseCadabraOrder(resp: any): {
+    item: string;
+    quantity: number;
+    unitPrice: number;
+    itemSubtotal: number;
+    total: number;
+  } {
+    const fallback = { item: 'Bulk AA Batteries', quantity: 1, unitPrice: 14.99 };
+    const item =
+      String(
+        resp?.item ||
+          resp?.product ||
+          resp?.order?.product ||
+          resp?.order?.item ||
+          ''
+      ).trim() || fallback.item;
+    const rawQty = Number(resp?.quantity ?? resp?.order?.quantity);
+    let quantity =
+      Number.isInteger(rawQty) && rawQty > 0 ? rawQty : fallback.quantity;
+    quantity = Math.min(25, Math.max(1, quantity));
+
+    const pickNumber = (...candidates: any[]): number => {
+      for (const c of candidates) {
+        const n = Number(c);
+        if (Number.isFinite(n) && n > 0) return n;
+      }
+      return Number.NaN;
+    };
+
+    let unitPrice = pickNumber(
+      resp?.unit_price,
+      resp?.price,
+      resp?.cost,
+      resp?.order?.unit_price,
+      resp?.order?.cost,
+      resp?.order?.price
+    );
+    const totalCandidate = pickNumber(resp?.total, resp?.order?.total);
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+      if (Number.isFinite(totalCandidate) && totalCandidate > 0 && quantity > 0) {
+        unitPrice = totalCandidate / quantity;
+      }
+    }
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) unitPrice = fallback.unitPrice;
+
+    let total = Number.isFinite(totalCandidate)
+      ? totalCandidate
+      : unitPrice * quantity;
+    if (!Number.isFinite(total) || total <= 0) total = unitPrice * quantity;
+
+    if (total < 3) {
+      total = 3.25;
+      unitPrice = total / quantity;
+    } else if (total > 999.99) {
+      total = 999.99;
+      unitPrice = total / quantity;
+    }
+
+    const unit = Number(unitPrice.toFixed(2));
+    const itemSubtotal = Number((unit * quantity).toFixed(2));
+    const grandTotal = Number(
+      (Number.isFinite(total) ? total : itemSubtotal).toFixed(2)
+    );
+
+    return {
+      item,
+      quantity,
+      unitPrice: unit,
+      itemSubtotal,
+      total: grandTotal > 0 ? grandTotal : itemSubtotal,
+    };
+  }
+
+  private async checkCadabraEmail(): Promise<void> {
+    if (!this.cadabraSendTime || !this.cadabraTemplate) return;
+    if (this.simDate.getTime() < this.cadabraSendTime) return;
+    if (this.cadabraProcessing) return;
+    this.cadabraProcessing = true;
+
+    const companyRef = doc(db, `companies/${this.companyId}`);
+    let proceed = false;
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(companyRef);
+        const d = (snap && (snap.data() as any)) || {};
+        const nextAt =
+          typeof d.cadabraNextAt === 'number'
+            ? d.cadabraNextAt
+            : this.cadabraSendTime;
+        const busy = !!d.cadabraEmailInProgress;
+        if (!nextAt || this.simDate.getTime() < nextAt || busy) return;
+        tx.update(companyRef, { cadabraEmailInProgress: true });
+        proceed = true;
+        this.cadabraSendTime = nextAt;
+      });
+    } catch {}
+    if (!proceed) {
+      this.cadabraProcessing = false;
+      return;
+    }
+
+    const tpl = this.cadabraTemplate;
+    let orderDetails = this.parseCadabraOrder(null);
+    try {
+      const resp = await this.http
+        .post<any>(cadabraUrl, { name: this.companyId })
+        .toPromise();
+      orderDetails = this.parseCadabraOrder(resp);
+    } catch {}
+
+    const orderNumber = this.generateCadabraOrderNumber();
+    const eta = this.computeCadabraEta(this.simDate);
+    const orderDate = this.simDate.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+    const subjectTpl = tpl.subject || 'Ordered: "{ITEM}"';
+    const subject = subjectTpl.replace(/\{ITEM\}/g, orderDetails.item);
+    const message = tpl.body
+      .replace(/\{ITEM\}/g, orderDetails.item)
+      .replace(/\{QUANTITY\}/g, String(orderDetails.quantity))
+      .replace(/\{UNIT_PRICE\}/g, this.formatCurrency(orderDetails.unitPrice))
+      .replace(/\{ITEM_SUBTOTAL\}/g, this.formatCurrency(orderDetails.itemSubtotal))
+      .replace(/\{TOTAL_PRICE\}/g, this.formatCurrency(orderDetails.total))
+      .replace(/\{ORDER_NUMBER\}/g, orderNumber)
+      .replace(/\{DELIVERY_ESTIMATE\}/g, eta)
+      .replace(/\{ORDER_DATE\}/g, orderDate);
+
+    const emailId = `cadabra-${Date.now()}`;
+    const ledgerMemo = `${orderDetails.quantity}x ${orderDetails.item}`;
+    try {
+      await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+        from: tpl.from || 'updates@cadabra.com',
+        subject,
+        message,
+        deleted: false,
+        banner: tpl.banner ?? true,
+        timestamp: this.simDate.toISOString(),
+        threadId: emailId,
+        to: this.meAddress,
+        category: 'cadabra',
+        cadabra: {
+          item: orderDetails.item,
+          quantity: orderDetails.quantity,
+          unitPrice: orderDetails.unitPrice,
+          total: orderDetails.total,
+          orderNumber,
+          eta,
+        },
+        ledgerAmount: orderDetails.total,
+        ledgerMemo,
+        ledger: { type: 'cadabra', amount: orderDetails.total, memo: ledgerMemo },
+      });
+      const nextAt = this.computeNextCadabra(this.simDate);
+      this.cadabraSendTime = nextAt.getTime();
+      await updateDoc(companyRef, {
+        cadabraNextAt: this.cadabraSendTime,
+        cadabraEmailInProgress: false,
+      });
+    } catch {
+      try {
+        await updateDoc(companyRef, { cadabraEmailInProgress: false });
+      } catch {}
+    } finally {
+      this.cadabraProcessing = false;
+    }
   }
 
   private async checkBankEmail(): Promise<void> {

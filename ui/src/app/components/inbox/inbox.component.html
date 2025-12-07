@@ -157,10 +157,12 @@
             [ngClass]="{
               'banner-supereats': selectedEmail?.category === 'supereats',
               'banner-bank': selectedEmail?.category === 'bank',
+              'banner-cadabra': selectedEmail?.category === 'cadabra',
               'banner-default':
                 !selectedEmail?.category ||
                 (selectedEmail?.category !== 'supereats' &&
-                  selectedEmail?.category !== 'bank')
+                  selectedEmail?.category !== 'bank' &&
+                  selectedEmail?.category !== 'cadabra')
             }"
           >
             <img
@@ -174,11 +176,17 @@
               class="banner-img"
             />
             <img
+              *ngIf="selectedEmail?.category === 'cadabra'"
+              src="assets/notamazon.png"
+              class="banner-img"
+            />
+            <img
               *ngIf="
                 selectedEmail?.banner &&
                 (!selectedEmail?.category ||
                   (selectedEmail?.category !== 'supereats' &&
-                    selectedEmail?.category !== 'bank'))
+                    selectedEmail?.category !== 'bank' &&
+                    selectedEmail?.category !== 'cadabra'))
               "
               src="assets/notubereats.png"
               class="banner-img"

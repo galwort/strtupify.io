@@ -49,7 +49,7 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
     const inboxRef = collection(db, `companies/${this.companyId}/inbox`);
     const q = query(
       inboxRef,
-      where('category', 'in', ['bank', 'supereats', 'mom-gift']),
+      where('category', 'in', ['bank', 'supereats', 'mom-gift', 'cadabra']),
       orderBy('timestamp', 'asc')
     );
     this.unsub = onSnapshot(q, (snap: QuerySnapshot<DocumentData>) => {
@@ -97,12 +97,24 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
               memo,
             };
           }
+          if (category === 'cadabra') {
+            const total = this.parseCadabraTotal(x);
+            if (!isFinite(total) || total <= 0) return null;
+            const memo = this.parseCadabraMemo(x);
+            return {
+              ts,
+              kind: 'cadabra' as const,
+              total,
+              memo,
+            };
+          }
           return null;
         })
         .filter((entry): entry is
           | { ts: string; kind: 'bank'; total: number; lines: { name: string; amount: number }[] }
           | { ts: string; kind: 'supereats'; total: number; memo: string }
-          | { ts: string; kind: 'mom-gift'; total: number; memo: string } => !!entry)
+          | { ts: string; kind: 'mom-gift'; total: number; memo: string }
+          | { ts: string; kind: 'cadabra'; total: number; memo: string } => !!entry)
         .sort((a, b) => this.compareTimestamp(a.ts, b.ts));
 
       const rows: LedgerRow[] = [];
@@ -146,6 +158,26 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
             date: this.formatDate(entry.ts),
             description: 'Super Eats order',
             payee: 'Super Eats',
+            amount: -total,
+            balance: running,
+          });
+          if (entry.memo) {
+            rows.push({
+              date: '',
+              description: entry.memo,
+              payee: '',
+              amount: 0,
+              balance: null,
+              sub: true,
+            });
+          }
+        } else if (entry.kind === 'cadabra') {
+          const total = entry.total;
+          running -= total;
+          rows.push({
+            date: this.formatDate(entry.ts),
+            description: 'Cadabra order',
+            payee: 'Cadabra',
             amount: -total,
             balance: running,
           });
@@ -261,6 +293,37 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
     const snack = String(x?.supereats?.snack || '').trim();
     if (qty > 0 && snack) return `${qty}x ${snack}`;
     return '';
+  }
+
+  private parseCadabraTotal(x: any): number {
+    const candidates = [
+      x?.ledgerAmount,
+      x?.cadabraTotal,
+      x?.cadabra?.total,
+      x?.ledger?.amount,
+    ];
+    for (const raw of candidates) {
+      const n = Number(raw);
+      if (isFinite(n) && n > 0) return n;
+    }
+    const msg = String(x?.message || '');
+    const match =
+      msg.match(/Order total:\s*\$([0-9,.]+)/i) ||
+      msg.match(/\$([0-9,.]+)\s+(order\s+total|total)/i);
+    if (match && match[1]) {
+      const n = Number(match[1].replace(/,/g, ''));
+      if (isFinite(n) && n > 0) return n;
+    }
+    return 0;
+  }
+
+  private parseCadabraMemo(x: any): string {
+    const direct = String(x?.ledgerMemo || x?.ledger?.memo || '').trim();
+    if (direct) return direct;
+    const qty = Number(x?.cadabra?.quantity || 0);
+    const item = String(x?.cadabra?.item || '').trim();
+    if (qty > 0 && item) return `${qty}x ${item}`;
+    return 'Company card purchase';
   }
 
   private parseMomGiftAmount(x: any): number {

@@ -14,4 +14,5 @@ Templates:
 - vlad-welcome.md: initial onboarding email from Vlad
 - supereats.md: Super Eats order notification template
 - bank.md: Fifth Fourth Bank payroll disbursement notification template
+- cadabra.md: Cadabra (not-Amazon) order confirmation template
 - vlad-autoreply.md: automatic reply sent by Vlad when the user replies in the Vlad thread

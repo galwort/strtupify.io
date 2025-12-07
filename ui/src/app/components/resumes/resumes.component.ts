@@ -11,6 +11,12 @@ import { environment } from 'src/environments/environment';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { buildAvatarUrl } from 'src/app/utils/avatar';
+import {
+  EMPLOYEE_COLOR_PALETTE,
+  assignEmployeeColors,
+  fallbackEmployeeColor,
+  normalizeEmployeeColor,
+} from 'src/app/utils/employee-colors';
 
 export const app = initializeApp(environment.firebase);
 export const db = getFirestore(app);
@@ -32,6 +38,7 @@ interface Employee {
    gender?: string;
    avatar?: string;
    avatarUrl?: string;
+  color?: string;
 }
 
 interface Role {
@@ -61,6 +68,8 @@ export class ResumesComponent implements OnInit {
   private roleDisplaySnapshot: Role[] = [];
   private frozenEmployee: Employee | null = null;
   private freezeDisplay = false;
+  private avatarColorCache = new Map<string, string>();
+  private pendingAvatarFetches = new Map<string, Promise<void>>();
 
   constructor(private router: Router) {}
 
@@ -78,17 +87,30 @@ export class ResumesComponent implements OnInit {
       collection(db, `companies/${this.companyId}/employees`)
     );
 
+    const colorMap = assignEmployeeColors(
+      empSnap.docs,
+      this.companyId || 'color-seed',
+      EMPLOYEE_COLOR_PALETTE
+    );
+    void this.persistEmployeeColors(empSnap.docs, colorMap);
+
     const temp: Employee[] = empSnap.docs.map((d) => {
       const data = d.data() as any;
       const avatarName = String(data?.avatar || '').trim();
       const gender = String(data?.gender || '').toLowerCase();
+      const color =
+        colorMap.get(d.id) ||
+        normalizeEmployeeColor(data?.calendarColor || data?.color) ||
+        fallbackEmployeeColor(d.id);
+      const baseUrl = buildAvatarUrl(avatarName, 'neutral');
       return {
         ...(data || {}),
         id: d.id,
         skills: [] as Skill[],
         avatar: avatarName,
         gender,
-        avatarUrl: buildAvatarUrl(avatarName, 'neutral'),
+        color,
+        avatarUrl: baseUrl,
       } as Employee;
     });
 
@@ -104,6 +126,7 @@ export class ResumesComponent implements OnInit {
     }
 
     this.employees = temp.filter((x) => !x.hired);
+    this.employees.forEach((e) => this.colorizeAvatar(e));
     this.applyRoleFilters();
     this.checkComplete();
     await this.ensureCurrentEmployeeSkillsLoaded();
@@ -321,6 +344,83 @@ export class ResumesComponent implements OnInit {
       this.currentIndex--;
       await this.ensureCurrentEmployeeSkillsLoaded();
     }
+  }
+
+  private async persistEmployeeColors(
+    docs: Array<{ id: string; data(): any }>,
+    colors: Map<string, string>
+  ): Promise<void> {
+    if (!this.companyId) return;
+    const updates = docs
+      .map((d) => {
+        const data = (d.data() as any) || {};
+        const stored = normalizeEmployeeColor(data.calendarColor || data.color);
+        const assigned = colors.get(d.id);
+        if (!assigned || (stored && stored === assigned)) return null;
+        return updateDoc(
+          doc(db, `companies/${this.companyId}/employees/${d.id}`),
+          { calendarColor: assigned }
+        ).catch((err) => console.error('Failed to store employee color', err));
+      })
+      .filter((p): p is Promise<void> => !!p);
+    if (!updates.length) return;
+    await Promise.all(updates);
+  }
+
+  private avatarCacheKey(emp: Employee, color: string): string {
+    return `${emp.avatar || ''}|${color || ''}`;
+  }
+
+  private async colorizeAvatar(emp: Employee): Promise<void> {
+    const color = normalizeEmployeeColor(emp.color);
+    if (!color || !emp.avatar) return;
+    const cacheKey = this.avatarCacheKey(emp, color);
+    const cached = this.avatarColorCache.get(cacheKey);
+    if (cached) {
+      this.updateEmployeeAvatar(emp.id, cached);
+      return;
+    }
+    if (this.pendingAvatarFetches.has(cacheKey)) {
+      await this.pendingAvatarFetches.get(cacheKey);
+      return;
+    }
+    const task = (async () => {
+      try {
+        const baseUrl = buildAvatarUrl(emp.avatar || '', 'neutral');
+        if (!baseUrl) return;
+        const resp = await fetch(baseUrl);
+        if (!resp.ok) throw new Error(`avatar_status_${resp.status}`);
+        const svg = await resp.text();
+        const updated = svg.replace(/#262E33/gi, color);
+        const uri = this.svgToDataUri(updated);
+        this.avatarColorCache.set(cacheKey, uri);
+        this.updateEmployeeAvatar(emp.id, uri);
+      } catch (err) {
+        console.error('Failed to recolor avatar', err);
+      } finally {
+        this.pendingAvatarFetches.delete(cacheKey);
+      }
+    })();
+    this.pendingAvatarFetches.set(cacheKey, task);
+    await task;
+  }
+
+  private updateEmployeeAvatar(empId: string, url: string): void {
+    this.employees = this.employees.map((e) =>
+      e.id === empId ? { ...e, avatarUrl: url } : e
+    );
+    if (this.frozenEmployee && this.frozenEmployee.id === empId) {
+      this.frozenEmployee = { ...this.frozenEmployee, avatarUrl: url };
+    }
+  }
+
+  private svgToDataUri(svg: string): string {
+    const encoded = btoa(
+      encodeURIComponent(svg).replace(/%([0-9A-F]{2})/g, (_m, p1) =>
+        String.fromCharCode(parseInt(p1, 16))
+      )
+    );
+    return `data:image/svg+xml;base64,${encoded}`;
   }
 }
 

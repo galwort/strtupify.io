@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 import { AvatarMood, buildAvatarUrl, burnoutMood, normalizeOutcomeStatus, outcomeMood } from 'src/app/utils/avatar';
+import { fallbackEmployeeColor, normalizeEmployeeColor } from 'src/app/utils/employee-colors';
 
 interface EmployeeSkill {
   id: string;
@@ -37,6 +38,7 @@ interface EmployeeProfile {
   avatarMood: AvatarMood;
   burnout: boolean;
   gender?: string;
+  color?: string;
   skills: EmployeeSkill[];
 }
 
@@ -64,6 +66,8 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
   refreshingRates = false;
   endgameOutcomeMood: AvatarMood | null = null;
   private tempAvatarMoods = new Map<string, { mood: AvatarMood; timeout?: any }>();
+  private avatarColorCache = new Map<string, string>();
+  private pendingAvatarFetches = new Map<string, Promise<void>>();
   readonly skillPointCost = 1000;
 
   ngOnInit(): void {
@@ -96,6 +100,7 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
           const description = String(data.description || data.personality || '');
           const avatarName = String(data.avatar || data.photo || data.photoUrl || data.image || '');
           const gender = String(data.gender || '').toLowerCase() || undefined;
+          const color = normalizeEmployeeColor(data.calendarColor || data.color) || fallbackEmployeeColor(d.id);
           const base: EmployeeProfile = {
             id: d.id,
             name: String(data.name || ''),
@@ -110,6 +115,7 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
             avatarMood: 'neutral',
             burnout,
             gender,
+            color,
             skills: [],
           };
           return this.applyAvatarMood(base);
@@ -158,8 +164,70 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
   private applyAvatarMood(emp: EmployeeProfile): EmployeeProfile {
     const burnout = burnoutMood(emp.stress, emp.status) === 'sad';
     const avatarMood = this.computeAvatarMood(emp);
-    const avatarUrl = buildAvatarUrl(emp.avatarName, avatarMood);
-    return { ...emp, avatarMood, avatarUrl, burnout };
+    const color = normalizeEmployeeColor(emp.color);
+    const baseUrl = buildAvatarUrl(emp.avatarName, avatarMood);
+    const cacheKey = this.avatarCacheKey(emp, avatarMood, color || undefined);
+    const cached = color ? this.avatarColorCache.get(cacheKey) : undefined;
+    if (color && baseUrl && !cached) {
+      void this.fetchAndColorAvatar(cacheKey, baseUrl, color, emp.id, avatarMood);
+    }
+    const avatarUrl = cached || baseUrl;
+    return { ...emp, avatarMood, avatarUrl, burnout, color: color || emp.color };
+  }
+
+  private avatarCacheKey(emp: EmployeeProfile, mood: AvatarMood, color?: string): string {
+    return `${emp.avatarName || ''}|${mood}|${color || ''}`;
+  }
+
+  private async fetchAndColorAvatar(
+    cacheKey: string,
+    url: string,
+    color: string,
+    empId: string,
+    mood: AvatarMood
+  ): Promise<void> {
+    if (this.pendingAvatarFetches.has(cacheKey)) return this.pendingAvatarFetches.get(cacheKey)!;
+    const task = (async () => {
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`avatar_status_${resp.status}`);
+        const svg = await resp.text();
+        const updated = svg.replace(/#262E33/gi, color);
+        const dataUri = this.svgToDataUri(updated);
+        this.avatarColorCache.set(cacheKey, dataUri);
+        this.refreshEmployeeAvatarWithCache(empId, cacheKey, dataUri, mood);
+      } catch (err) {
+        console.error('Failed to recolor avatar', err);
+      } finally {
+        this.pendingAvatarFetches.delete(cacheKey);
+      }
+    })();
+    this.pendingAvatarFetches.set(cacheKey, task);
+    return task;
+  }
+
+  private refreshEmployeeAvatarWithCache(
+    empId: string,
+    cacheKey: string,
+    url: string,
+    mood: AvatarMood
+  ): void {
+    this.employees = this.employees.map((emp) => {
+      if (emp.id !== empId) return emp;
+      const color = normalizeEmployeeColor(emp.color);
+      const expectedKey = this.avatarCacheKey(emp, mood, color || undefined);
+      if (expectedKey !== cacheKey) return emp;
+      return { ...emp, avatarUrl: url, avatarMood: mood };
+    });
+  }
+
+  private svgToDataUri(svg: string): string {
+    const encoded = btoa(
+      encodeURIComponent(svg).replace(/%([0-9A-F]{2})/g, (_match, p1) =>
+        String.fromCharCode(parseInt(p1, 16))
+      )
+    );
+    return `data:image/svg+xml;base64,${encoded}`;
   }
 
   private refreshAllEmployeeAvatars(): void {

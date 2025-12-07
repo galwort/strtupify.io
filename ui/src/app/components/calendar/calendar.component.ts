@@ -13,8 +13,15 @@ import {
   QuerySnapshot,
   runTransaction,
   serverTimestamp,
+  updateDoc,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
+import {
+  EMPLOYEE_COLOR_PALETTE,
+  assignEmployeeColors,
+  fallbackEmployeeColor,
+  normalizeEmployeeColor,
+} from 'src/app/utils/employee-colors';
 
 type CalendarEmployee = {
   id: string;
@@ -85,16 +92,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
   private unsubCompany: (() => void) | null = null;
   private unsubEmployees: (() => void) | null = null;
   private scheduleSeed = '';
-  private readonly palette = [
-    '#f9c74f', // warm yellow
-    '#ef476f', // vivid pink-red
-    '#118ab2', // deep teal-blue
-    '#9b5de5', // purple
-    '#06d6a0', // mint green
-    '#ff8fab', // soft rose
-    '#ffd166', // golden orange
-    '#5c7aff', // clear blue
-  ];
+  private readonly palette = EMPLOYEE_COLOR_PALETTE;
   private readonly workdayStartHour = 8;
   private readonly workdayEndHour = 17;
   private readonly workMinutes =
@@ -213,11 +211,18 @@ export class CalendarComponent implements OnInit, OnDestroy {
       ref,
       (snap: QuerySnapshot<DocumentData>) => {
         const existingSelection = new Set(this.selectedEmployees);
+        const colorMap = assignEmployeeColors(
+          snap.docs,
+          this.companyId || 'color-seed'
+        );
+        void this.persistEmployeeColors(snap.docs, colorMap);
         this.employees = snap.docs
           .map((d) => {
             const data = (d.data() as any) || {};
             const name = String(data.name || '').trim() || 'Teammate';
-            const color = this.palette[this.colorIndex(d.id)];
+            const color =
+              colorMap.get(d.id) ||
+              fallbackEmployeeColor(d.id, this.palette);
             return { id: d.id, name, color } as CalendarEmployee;
           })
           .sort((a, b) => a.name.localeCompare(b.name));
@@ -238,6 +243,27 @@ export class CalendarComponent implements OnInit, OnDestroy {
         this.updateWeekIfNeeded(true);
       }
     );
+  }
+
+  private async persistEmployeeColors(
+    docs: Array<{ id: string; data(): any }>,
+    colors: Map<string, string>
+  ): Promise<void> {
+    if (!this.companyId) return;
+    const updates = docs
+      .map((d) => {
+        const data = (d.data() as any) || {};
+        const stored = normalizeEmployeeColor(data.calendarColor || data.color);
+        const assigned = colors.get(d.id);
+        if (!assigned || (stored && stored === assigned)) return null;
+        return updateDoc(
+          doc(db, `companies/${this.companyId}/employees/${d.id}`),
+          { calendarColor: assigned }
+        ).catch((err) => console.error('Failed to store employee color', err));
+      })
+      .filter((p): p is Promise<void> => !!p);
+    if (!updates.length) return;
+    await Promise.all(updates);
   }
 
   private updateWeekIfNeeded(force: boolean = false): void {
@@ -765,16 +791,8 @@ export class CalendarComponent implements OnInit, OnDestroy {
   private colorFor(id: string): string {
     if (id === 'me') return '#ffffff';
     const idx = this.employees.findIndex((e) => e.id === id);
-    if (idx === -1) return '#c8d6df';
+    if (idx === -1) return fallbackEmployeeColor(id, this.palette);
     return this.employees[idx].color;
-  }
-
-  private colorIndex(id: string): number {
-    let h = 0;
-    for (let i = 0; i < id.length; i++) {
-      h = (h * 31 + id.charCodeAt(i)) >>> 0;
-    }
-    return h % this.palette.length;
   }
 
   private makeRng(seed: string): () => number {

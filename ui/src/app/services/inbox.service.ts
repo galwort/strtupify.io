@@ -76,18 +76,19 @@ export class InboxService {
                 await setDoc(welcomeRef, {
                   from: parsed.from,
                   subject: parsed.subject,
-                  message: parsed.body,
-                  deleted: parsed.deleted ?? false,
-                  banner: parsed.banner ?? false,
-                  timestamp,
-                  threadId: 'vlad-welcome',
-                  to: toAddr,
-                  category: 'vlad',
-                });
-                resolve();
-              } catch (e) {
-                reject(e);
-              }
+                message: parsed.body,
+                deleted: parsed.deleted ?? false,
+                banner: parsed.banner ?? false,
+                timestamp,
+                threadId: 'vlad-welcome',
+                to: toAddr,
+                category: 'vlad',
+                avatarUrl: 'assets/vlad.svg',
+              });
+              resolve();
+            } catch (e) {
+              reject(e);
+            }
             },
             error: (err) => reject(err),
           });

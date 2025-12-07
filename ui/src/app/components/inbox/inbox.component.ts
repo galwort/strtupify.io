@@ -228,6 +228,29 @@ export class InboxComponent implements OnInit, OnDestroy {
     });
   }
 
+  private startWorkitemWatch(): void {
+    if (!this.companyId) return;
+    if (this.workitemsUnsub) {
+      try {
+        this.workitemsUnsub();
+      } catch {}
+      this.workitemsUnsub = null;
+    }
+    const ref = collection(db, `companies/${this.companyId}/workitems`);
+    this.workitemsUnsub = onSnapshot(ref, (snap) => {
+      let total = 0;
+      let done = 0;
+      snap.docs.forEach((d) => {
+        const data = (d.data() as any) || {};
+        const status = String(data.status || '').toLowerCase();
+        total++;
+        if (status === 'done') done++;
+      });
+      this.workitemProgress = { done, total };
+      void this.maybeScheduleVladNightEmail();
+    });
+  }
+
   private rebuildEmployeeAvatars(): void {
     const map = new Map<string, EmployeeAvatarRecord>();
     this.employeeAvatarSources.forEach((src, key) => {
@@ -295,6 +318,8 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   private resolveSenderAvatar(email: Email, displayName: string): string | null {
+    const special = this.resolveSpecialAvatar(email);
+    if (special) return special;
     const existing = (email as any).senderAvatarUrl;
     if (typeof existing === 'string' && existing.trim()) return existing;
     const moodOverride = this.normalizeMoodValue((email as any).avatarMood);
@@ -331,6 +356,45 @@ export class InboxComponent implements OnInit, OnDestroy {
       if (found) return found;
     }
     return null;
+  }
+
+  private resolveSpecialAvatar(email: Email): string | null {
+    const senderField =
+      (email as any).sender || (email as any).from || email.sender || '';
+    const normalized = this.normalizeAddress(senderField);
+    if (!normalized) return null;
+    if (normalized === 'mom@altavista.net') return 'assets/mom.jpg';
+    if (normalized === 'vlad@strtupify.io') {
+      const ts = this.emailTimestampMs(email as any as InboxEmail);
+      return this.vladAvatarForTimestamp(ts);
+    }
+    return null;
+  }
+
+  private normalizeAddress(raw: string): string {
+    const text = String(raw || '').trim().toLowerCase();
+    if (!text) return '';
+    const match = text.match(/<([^>]+)>/);
+    const addr = match ? match[1] : text;
+    return addr.trim();
+  }
+
+  private vladAvatarForTimestamp(ts: number | null): string {
+    if (
+      this.vladOpenToWorkAt !== null &&
+      ts !== null &&
+      ts >= this.vladOpenToWorkAt
+    ) {
+      return this.vladOpenToWorkAvatar;
+    }
+    if (this.vladBlitzedAt !== null) {
+      const blitzStart = this.startOfDay(new Date(this.vladBlitzedAt)).getTime();
+      const blitzEnd = blitzStart + 24 * 60 * 60 * 1000;
+      if (ts !== null && ts >= blitzStart && ts < blitzEnd) {
+        return this.vladBlitzedAvatar;
+      }
+    }
+    return this.vladDefaultAvatar;
   }
 
   private extractNameFromEmail(raw: string): string {
@@ -402,6 +466,10 @@ export class InboxComponent implements OnInit, OnDestroy {
   private deleteInFlight = false;
   private suppressedIds = new Map<string, number>();
   private readonly suppressMs = 2000;
+  private readonly vladCompletionThreshold = 0.6;
+  private readonly vladDefaultAvatar = 'assets/vlad.svg';
+  private readonly vladBlitzedAvatar = 'assets/vladblitzed.svg';
+  private readonly vladOpenToWorkAvatar = 'assets/vladopentowork.svg';
   private pendingSelectionId: string | null = null;
   private employeeAvatarSources = new Map<string, EmployeeAvatarSource>();
   private employeeAvatars = new Map<string, EmployeeAvatarRecord>();
@@ -436,6 +504,21 @@ export class InboxComponent implements OnInit, OnDestroy {
     body: string;
   } | null = null;
   cadabraProcessing = false;
+
+  private vladNightSendTime: number | null = null;
+  private vladNightTemplate: {
+    from?: string;
+    subject?: string;
+    banner?: boolean;
+    deleted?: boolean;
+    body: string;
+  } | null = null;
+  private vladNightEmailSent = false;
+  private vladNightProcessing = false;
+  private vladBlitzedAt: number | null = null;
+  private vladOpenToWorkAt: number | null = null;
+  private workitemsUnsub: (() => void) | null = null;
+  private workitemProgress = { done: 0, total: 0 };
 
   private kickoffSendTime: number | null = null;
   private momSendTime: number | null = null;
@@ -484,6 +567,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     });
 
     await this.loadClockState();
+    this.startWorkitemWatch();
     {
       const ref = doc(db, `companies/${this.companyId}`);
       const unsub = onSnapshot(ref, (snap) => {
@@ -501,11 +585,26 @@ export class InboxComponent implements OnInit, OnDestroy {
         if (d.calendarEmailSent) this.calendarEmailAt = null;
         else if (typeof d.calendarEmailAt === 'number')
           this.calendarEmailAt = d.calendarEmailAt;
+        this.vladNightEmailSent = !!d.vladNightEmailSent;
+        if (this.vladNightEmailSent) this.vladNightSendTime = null;
+        else if (typeof d.vladNightEmailAt === 'number')
+          this.vladNightSendTime = d.vladNightEmailAt;
+        else this.vladNightSendTime = null;
+        this.vladBlitzedAt =
+          typeof d.vladBlitzedAt === 'number' ? d.vladBlitzedAt : null;
+        this.vladOpenToWorkAt =
+          typeof d.vladOpenToWorkAt === 'number' ? d.vladOpenToWorkAt : null;
+        if (this.vladOpenToWorkAt === null && this.vladBlitzedAt !== null) {
+          this.vladOpenToWorkAt =
+            this.startOfDay(new Date(this.vladBlitzedAt)).getTime() +
+            24 * 60 * 60 * 1000;
+        }
       });
       (this as any).__unsubInboxSim = unsub;
     }
     this.loadSnacks();
     this.loadSuperEatsTemplate();
+    this.loadVladNightTemplate();
     this.loadBankTemplate();
     this.loadCadabraTemplate();
 
@@ -531,6 +630,12 @@ export class InboxComponent implements OnInit, OnDestroy {
       try {
         this.inboxPreferredSub.unsubscribe();
       } catch {}
+    }
+    if (this.workitemsUnsub) {
+      try {
+        this.workitemsUnsub();
+      } catch {}
+      this.workitemsUnsub = null;
     }
     if (this.employeeAvatarUnsub) {
       try {
@@ -660,6 +765,28 @@ export class InboxComponent implements OnInit, OnDestroy {
         await updateDoc(ref, { cadabraNextAt: this.cadabraSendTime });
       }
 
+      if (data.vladNightEmailSent) {
+        this.vladNightEmailSent = true;
+        this.vladNightSendTime = null;
+      } else {
+        this.vladNightEmailSent = false;
+        this.vladNightSendTime =
+          typeof data.vladNightEmailAt === 'number'
+            ? data.vladNightEmailAt
+            : null;
+      }
+      this.vladBlitzedAt =
+        typeof data.vladBlitzedAt === 'number' ? data.vladBlitzedAt : null;
+      this.vladOpenToWorkAt =
+        typeof data.vladOpenToWorkAt === 'number'
+          ? data.vladOpenToWorkAt
+          : null;
+      if (this.vladOpenToWorkAt === null && this.vladBlitzedAt !== null) {
+        this.vladOpenToWorkAt =
+          this.startOfDay(new Date(this.vladBlitzedAt)).getTime() +
+          24 * 60 * 60 * 1000;
+      }
+
       if (data.kickoffEmailSent) {
         this.kickoffSendTime = null;
       } else if (typeof data.kickoffEmailAt === 'number') {
@@ -718,6 +845,11 @@ export class InboxComponent implements OnInit, OnDestroy {
           await updateDoc(ref, { cadabraEmailInProgress: false });
         } catch {}
       }
+      if (data.vladNightEmailInProgress) {
+        try {
+          await updateDoc(ref, { vladNightEmailInProgress: false });
+        } catch {}
+      }
       let domain = `${this.companyId}.com`;
       if (anyData && anyData.company_name) {
         domain =
@@ -762,6 +894,11 @@ export class InboxComponent implements OnInit, OnDestroy {
         calendarEmailSent: false,
         calendarEmailInProgress: false,
         calendarEnabled: false,
+        vladNightEmailAt: null,
+        vladNightEmailSent: false,
+        vladNightEmailInProgress: false,
+        vladBlitzedAt: null,
+        vladOpenToWorkAt: null,
       });
       this.meAddress = `me@${this.companyId}.com`;
     }
@@ -795,6 +932,44 @@ export class InboxComponent implements OnInit, OnDestroy {
         calendarEnabled: false,
       });
       this.calendarEmailAt = target;
+    } catch {}
+  }
+
+  private async maybeScheduleVladNightEmail(): Promise<void> {
+    if (!this.companyId) return;
+    if (this.vladNightEmailSent) return;
+    if (this.vladNightSendTime) return;
+    const { done, total } = this.workitemProgress;
+    if (total <= 0) return;
+    const pct = done / total;
+    if (pct < this.vladCompletionThreshold) return;
+
+    const target = this.computeNextEarlyMorning(this.simDate).getTime();
+    const ref = doc(db, `companies/${this.companyId}`);
+    try {
+      const scheduled = await runTransaction<number | null>(db, async (tx) => {
+        const snap = await tx.get(ref);
+        const d = (snap && (snap.data() as any)) || {};
+        if (d.vladNightEmailSent || d.vladNightEmailInProgress) {
+          const existing =
+            typeof d.vladNightEmailAt === 'number' ? d.vladNightEmailAt : null;
+          return existing;
+        }
+        const existing =
+          typeof d.vladNightEmailAt === 'number' ? d.vladNightEmailAt : null;
+        if (existing) return existing;
+        tx.set(
+          ref,
+          {
+            vladNightEmailAt: target,
+            vladNightEmailSent: false,
+            vladNightEmailInProgress: false,
+          },
+          { merge: true }
+        );
+        return target;
+      });
+      if (scheduled) this.vladNightSendTime = scheduled;
     } catch {}
   }
 
@@ -836,6 +1011,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.checkCalendarEmail();
       this.checkMomEmail();
       this.checkBankEmail();
+      void this.checkVladNightEmail();
       void this.checkCadabraEmail();
 
       this.elapsedSinceSave += this.tickMs;
@@ -897,6 +1073,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       await this.checkSuperEatsEmail();
       await this.checkKickoffEmail();
       await this.checkMomEmail();
+      await this.checkVladNightEmail();
       await this.checkBankEmail();
       await this.checkCadabraEmail();
     } catch {}
@@ -1070,6 +1247,39 @@ export class InboxComponent implements OnInit, OnDestroy {
     }
   }
 
+  private computeNextEarlyMorning(now: Date): Date {
+    const base = new Date(now.getTime());
+    base.setSeconds(0, 0);
+    const todayStart = this.startOfDay(base);
+    const windowCutoff = new Date(todayStart.getTime());
+    windowCutoff.setHours(3, 0, 0, 0);
+    let windowStart = new Date(todayStart.getTime());
+    if (base >= windowCutoff) {
+      windowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+    } else if (base > windowStart) {
+      const nextMinute = new Date(base.getTime() + 60_000);
+      windowStart =
+        nextMinute >= windowCutoff
+          ? new Date(todayStart.getTime() + 24 * 60 * 60 * 1000)
+          : nextMinute;
+    }
+    let windowEnd = new Date(windowStart.getTime());
+    windowEnd.setHours(3, 0, 0, 0);
+    if (windowEnd <= windowStart) {
+      windowEnd = new Date(windowStart.getTime() + 3 * 60 * 60 * 1000);
+    }
+    const startMs = windowStart.getTime();
+    const endMs = Math.max(startMs, windowEnd.getTime() - 60_000);
+    const spanMinutes = Math.max(
+      0,
+      Math.floor((endMs - startMs) / 60_000)
+    );
+    const offsetMinutes = spanMinutes > 0 ? this.randomInt(0, spanMinutes) : 0;
+    const target = new Date(startMs);
+    target.setMinutes(target.getMinutes() + offsetMinutes, 0, 0);
+    return target;
+  }
+
   private computeDay2Window(now: Date): { start: Date; end: Date } {
     const d0 = new Date(now.getTime());
     d0.setHours(0, 0, 0, 0);
@@ -1091,6 +1301,17 @@ export class InboxComponent implements OnInit, OnDestroy {
         };
       },
       error: () => {},
+    });
+  }
+
+  private loadVladNightTemplate(): void {
+    this.http.get('emails/vlad-night.md', { responseType: 'text' }).subscribe({
+      next: (text) => {
+        this.vladNightTemplate = this.parseEmailTemplate(text || '');
+      },
+      error: () => {
+        this.vladNightTemplate = this.parseEmailTemplate('');
+      },
     });
   }
 
@@ -2065,6 +2286,81 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.bankProcessing = false;
   }
 
+  private async checkVladNightEmail(): Promise<void> {
+    if (!this.vladNightSendTime) return;
+    if (this.simDate.getTime() < this.vladNightSendTime) return;
+    if (this.vladNightProcessing) return;
+    this.vladNightProcessing = true;
+    const ref = doc(db, `companies/${this.companyId}`);
+    let sendAt = this.vladNightSendTime;
+    let proceed = false;
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        const d = (snap && (snap.data() as any)) || {};
+        if (d.vladNightEmailSent || d.vladNightEmailInProgress) return;
+        const at =
+          typeof d.vladNightEmailAt === 'number'
+            ? d.vladNightEmailAt
+            : this.vladNightSendTime;
+        if (!at || this.simDate.getTime() < at) return;
+        sendAt = at;
+        tx.update(ref, { vladNightEmailInProgress: true });
+        proceed = true;
+      });
+    } catch {}
+    if (!proceed) {
+      this.vladNightProcessing = false;
+      return;
+    }
+    const tpl = this.vladNightTemplate || this.parseEmailTemplate('');
+    const from = tpl?.from || 'vlad@strtupify.io';
+    const subject = tpl?.subject || 'Late night update';
+    const fallbackBody =
+      'It is way too late and I am still working. You are basically my best friend for even listening to this.' +
+      " Between you and me, I've been building a game on the side during the day. It's going to be huge and people will finally respect me.";
+    const body = (tpl?.body || fallbackBody).trim();
+    const emailId = `vlad-night-${Date.now()}`;
+    const timestampIso = new Date(
+      Math.max(this.simDate.getTime(), sendAt || this.simDate.getTime())
+    ).toISOString();
+    const blitzedStamp = new Date(timestampIso).getTime();
+    const openAt =
+      this.startOfDay(new Date(blitzedStamp)).getTime() + 24 * 60 * 60 * 1000;
+    try {
+      await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+        from,
+        subject,
+        message: body,
+        deleted: tpl?.deleted ?? false,
+        banner: tpl?.banner ?? false,
+        timestamp: timestampIso,
+        threadId: emailId,
+        to: this.meAddress,
+        category: 'vlad',
+        avatarUrl: this.vladBlitzedAvatar,
+        avatarMood: 'neutral',
+      });
+      this.vladNightEmailSent = true;
+      this.vladNightSendTime = null;
+      this.vladBlitzedAt = blitzedStamp;
+      this.vladOpenToWorkAt = openAt;
+      await updateDoc(ref, {
+        vladNightEmailSent: true,
+        vladNightEmailInProgress: false,
+        vladNightEmailAt: blitzedStamp,
+        vladBlitzedAt: blitzedStamp,
+        vladOpenToWorkAt: openAt,
+      });
+    } catch {
+      try {
+        await updateDoc(ref, { vladNightEmailInProgress: false });
+      } catch {}
+    } finally {
+      this.vladNightProcessing = false;
+    }
+  }
+
   private async checkCalendarEmail(): Promise<void> {
     if (!this.calendarEmailAt) return;
     if (this.simDate.getTime() < this.calendarEmailAt) return;
@@ -2219,13 +2515,14 @@ export class InboxComponent implements OnInit, OnDestroy {
                 subject: email.subject,
                 message: email.body,
                 deleted: false,
-                banner: false,
-                timestamp: this.simDate.toISOString(),
-                threadId: emailId,
-                to: this.meAddress,
-                category: 'mom',
-              }
-            );
+              banner: false,
+              timestamp: this.simDate.toISOString(),
+              threadId: emailId,
+              to: this.meAddress,
+              category: 'mom',
+              avatarUrl: 'assets/mom.jpg',
+            }
+          );
             await updateDoc(ref, {
               momEmailSent: true,
               momEmailInProgress: false,

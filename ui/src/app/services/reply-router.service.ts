@@ -350,6 +350,7 @@ export class ReplyRouterService {
       timestamp: timestampIso,
       threadId: opts.threadId,
       category,
+      avatarUrl: 'assets/mom.jpg',
     };
     if (opts.parentId) docPayload.parentId = opts.parentId;
     if (grant) {

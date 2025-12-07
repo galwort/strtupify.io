@@ -1,12 +1,18 @@
 From: vlad@strtupify.io
 Subject: Between you and me...
 
-Hey,
+Hello friend,
 
-It's way too late and I'm still wired about work. Leadership keeps dumping tickets on me like I'm a robot and I'm supposed to smile about it. Honestly, you're the only person who even pretends to get it, so thanks for being my best friend in this whole mess.
+I cant take it anymore. This job is ruinung me. wasting my potential
 
-Also... between you and me, I've been "multitasking" on a side project during the day. It's this game I'm building. It's going to be huge. When it ships, people will finally give me the respect I deserve instead of acting like I'm just the IT guy who resets passwords.
+i started drinking before 4:0o today becuse you know what i desrrvve it.
 
-Anyway, if I sound scattered it's because I am. Everything is noise, but at least you and I have this. Thanks for sticking around.
+Ledesghip just disrespects me over and over and over. ive had it! i get it. im good. but they just tret me like a machin when i have a SOUL. thats why ive been workng on my side project during work. its a game that simultes all of this..HYPOCRISY. and INCOMPETENCE. ITs going to be huge! then everyone willl respect me. theyll be sorry. theyll accept my linkedinn requests.
+
+Your the only person who even PRETENDS to get it, thank you for being there for me you will never kknnow how much i appreciate ut
+
+everything is noise. we're all just fodder for the commercials, grease for the machine.
+
+POWER TO THE PEOPLE
 
 - Vlad

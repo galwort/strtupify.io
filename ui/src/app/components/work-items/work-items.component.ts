@@ -27,6 +27,7 @@ import {
   StressMetrics,
 } from '../../services/stress.service';
 import { EndgameService, EndgameStatus } from '../../services/endgame.service';
+import { buildAvatarUrl } from '../../utils/avatar';
 
 type WorkItem = {
   id: string;
@@ -56,6 +57,9 @@ type HireSummary = {
   status: 'Active' | 'Burnout';
   load: number;
   multiplier: number;
+  avatarUrl?: string;
+  avatarName?: string;
+  initials: string;
 };
 
 type ProductInfo = {
@@ -800,15 +804,23 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
         const statusRaw = String(h.status || 'Active');
         const status: 'Active' | 'Burnout' = statusRaw === 'Burnout' ? 'Burnout' : 'Active';
         const multiplier = getStressMultiplier(persistedStress, status);
+        const avatarName = String(h.avatar || h.photo || h.photoUrl || h.image || '').trim();
+        const avatarUrl = buildAvatarUrl(avatarName, 'neutral');
+        const initials = this.initialsFor(String(h.name || h.id));
+        const name = String(h.name || '');
+        const title = String(h.title || '');
         list.push({
           id: h.id,
-          name: String(h.name || ''),
-          title: String(h.title || ''),
+          name,
+          title,
           level: avg,
           stress: persistedStress,
           status,
           load: Number(h.load || 0),
           multiplier,
+          avatarName,
+          avatarUrl,
+          initials,
         });
         this.lastPersistedStress.set(h.id, { stress: persistedStress, status });
       }
@@ -924,5 +936,18 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       if (b && b.status !== 'done') n++;
     }
     return n;
+  }
+
+  assigneeFor(it: WorkItem): HireSummary | null {
+    if (!it.assignee_id) return null;
+    return this.empById.get(it.assignee_id) || null;
+  }
+
+  private initialsFor(name: string): string {
+    const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    const first = parts[0].charAt(0);
+    const last = parts.length > 1 ? parts[parts.length - 1].charAt(0) : '';
+    return `${first}${last}`.toUpperCase() || first.toUpperCase();
   }
 }

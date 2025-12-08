@@ -4,39 +4,34 @@
   </div>
 
   <div class="content-body">
-    <ng-template #assigneeBlock let-item>
+    <ng-template #avatarBubble let-item>
+      <ng-container *ngIf="assigneeFor(item) as assignee; else avatarUnassigned">
+        <div
+          class="avatar-bubble"
+          [class.fallback]="!assignee.avatarUrl"
+          [attr.title]="assignee.name + (assignee.title ? ' - ' + assignee.title : '')"
+        >
+          <img
+            *ngIf="assignee.avatarUrl"
+            [src]="assignee.avatarUrl"
+            [alt]="assignee.name + ' avatar'"
+          />
+          <span *ngIf="!assignee.avatarUrl">{{ assignee.initials }}</span>
+        </div>
+      </ng-container>
+      <ng-template #avatarUnassigned>
+        <div class="avatar-bubble fallback" title="Unassigned">
+          <span class="material-symbols-outlined">person</span>
+        </div>
+      </ng-template>
+    </ng-template>
+
+    <ng-template #assignSelect let-item>
       <div class="assign">
-        <ng-container *ngIf="assigneeFor(item) as assignee; else unassignedAssignee">
-          <div class="assignee-chip">
-            <div class="avatar" [class.fallback]="!assignee.avatarUrl">
-              <img
-                *ngIf="assignee.avatarUrl"
-                [src]="assignee.avatarUrl"
-                [alt]="assignee.name + ' avatar'"
-              />
-              <span *ngIf="!assignee.avatarUrl">{{ assignee.initials }}</span>
-            </div>
-            <div class="assignee-meta">
-              <div class="name">{{ assignee.name }}</div>
-              <div class="title">{{ assignee.title }}</div>
-            </div>
-          </div>
-        </ng-container>
-        <ng-template #unassignedAssignee>
-          <div class="assignee-chip unassigned">
-            <div class="avatar fallback">
-              <span class="material-symbols-outlined">person</span>
-            </div>
-            <div class="assignee-meta">
-              <div class="name">Unassigned</div>
-              <div class="title">Pick an assignee</div>
-            </div>
-          </div>
-        </ng-template>
         <select (change)="reassign(item, $any($event.target).value)" [disabled]="item.status === 'done'">
           <option value="" [selected]="!item.assignee_id">Unassigned</option>
           <option *ngFor="let e of hires" [value]="e.id" [selected]="e.id === item.assignee_id">
-            {{ e.name }} ({{ e.title }})
+            {{ e.name }}{{ e.title ? ' - ' + e.title : '' }}
           </option>
         </select>
       </div>
@@ -55,8 +50,11 @@
             draggable="true"
             (dragstart)="onDragStart($event, it)"
           >
-            <div class="card-title">{{ it.title }}</div>
-            <ng-container *ngTemplateOutlet="assigneeBlock; context: { $implicit: it }"></ng-container>
+            <div class="card-header">
+              <div class="card-title">{{ it.title }}</div>
+              <ng-container *ngTemplateOutlet="avatarBubble; context: { $implicit: it }"></ng-container>
+            </div>
+            <ng-container *ngTemplateOutlet="assignSelect; context: { $implicit: it }"></ng-container>
             <div class="blockers" [attr.title]="blockerTitle(it)">Blockers: {{ remainingBlockers(it) }}</div>
             <div class="card-desc">{{ it.description }}</div>
           </div>
@@ -75,8 +73,11 @@
             draggable="true"
             (dragstart)="onDragStart($event, it)"
           >
-            <div class="card-title">{{ it.title }}</div>
-            <ng-container *ngTemplateOutlet="assigneeBlock; context: { $implicit: it }"></ng-container>
+            <div class="card-header">
+              <div class="card-title">{{ it.title }}</div>
+              <ng-container *ngTemplateOutlet="avatarBubble; context: { $implicit: it }"></ng-container>
+            </div>
+            <ng-container *ngTemplateOutlet="assignSelect; context: { $implicit: it }"></ng-container>
             <div class="progress">
               <div class="bar"><div class="fill" [style.width.%]="progress(it)"></div></div>
               <div class="pct">{{ progress(it) }}%</div>
@@ -98,8 +99,11 @@
             *ngFor="let it of done"
             [attr.draggable]="false"
           >
-            <div class="card-title">{{ it.title }}</div>
-            <ng-container *ngTemplateOutlet="assigneeBlock; context: { $implicit: it }"></ng-container>
+            <div class="card-header">
+              <div class="card-title">{{ it.title }}</div>
+              <ng-container *ngTemplateOutlet="avatarBubble; context: { $implicit: it }"></ng-container>
+            </div>
+            <ng-container *ngTemplateOutlet="assignSelect; context: { $implicit: it }"></ng-container>
             <div class="blockers" [attr.title]="blockerTitle(it)">Blockers: {{ remainingBlockers(it) }}</div>
             <div class="card-desc">{{ it.description }}</div>
           </div>

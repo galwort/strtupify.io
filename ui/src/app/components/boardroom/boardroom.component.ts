@@ -48,6 +48,8 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
   busy = false;
   finished = false;
   typing = false;
+  showAiSummary = false;
+  aiSummary = '';
   private employeeAvatars = new Map<string, string>();
 
   constructor(private api: BoardroomService, private cdr: ChangeDetectorRef) {}
@@ -95,6 +97,9 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
           this.stage = r.stage;
           this.finished = r.done;
           this.busy = false;
+          if (this.showAiSummary) {
+            this.aiSummary = this.buildAiSummary();
+          }
 
           this.cdr.detectChanges();
           setTimeout(() => {
@@ -115,6 +120,8 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
     this.busy = false;
     this.finished = false;
     this.typing = false;
+    this.showAiSummary = false;
+    this.aiSummary = '';
 
     this.api.start(this.companyId).subscribe((r) => {
       this.productId = r.productId;
@@ -133,6 +140,16 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
       { accepted: true }
     );
     this.acceptedProduct.emit();
+  }
+
+  summarizeWithAi(): void {
+    this.aiSummary = this.buildAiSummary();
+    this.showAiSummary = true;
+    this.cdr.detectChanges();
+    setTimeout(() => {
+      this.updateLayout();
+      this.scrollToBottom();
+    });
   }
 
   private scrollToBottom(): void {
@@ -226,5 +243,22 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
     const first = parts[0].charAt(0);
     const last = parts.length > 1 ? parts[parts.length - 1].charAt(0) : '';
     return `${first}${last}`.toUpperCase() || first.toUpperCase();
+  }
+
+  private buildAiSummary(): string {
+    const participants = Array.from(
+      new Set(this.transcript.map((t) => t.speaker).filter(Boolean))
+    );
+    const productName = this.outcome.name || 'a new product concept';
+    const productDescription =
+      (this.outcome.description || '').trim() || 'still being defined';
+
+    const voices =
+      participants.length === 0
+        ? 'TBD'
+        : participants.slice(0, 4).join(', ') +
+          (participants.length > 4 ? ', and others' : '');
+
+    return `This meeting's main focus was ${productName}, which is ${productDescription}. Key voices: ${voices}. Key insights: {AI_INSIGHTS}`;
   }
 }

@@ -22,6 +22,11 @@
   </div>
 
   <div class="bottom-container" *ngIf="outcome.name || outcome.description" #bottomBox>
+    <div class="bottom-bar summary-bar" *ngIf="showAiSummary">
+      <h2>AI Summary</h2>
+      <p>{{ aiSummary }}</p>
+    </div>
+
     <div class="bottom-bar">
       <h2>Proposed product</h2>
       <p>
@@ -33,6 +38,7 @@
     <div class="button-container">
       <button class="accept-button" (click)="accept()">Accept</button>
       <button (click)="restart()">Reject</button>
+      <button (click)="summarizeWithAi()">Summarize with AI</button>
     </div>
   </div>
 </div>

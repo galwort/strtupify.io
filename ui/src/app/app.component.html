@@ -31,7 +31,9 @@
           [class.active]="currentModule === 'inbox' && !showCompanyProfile"
         >
           <span class="material-symbols-outlined"> mail </span>
-          <span *ngIf="inboxCount > 0" class="mail-badge">{{ inboxCount }}</span>
+          <span *ngIf="inboxCount > 0" class="mail-badge">{{
+            inboxCount
+          }}</span>
         </button>
         <button
           *ngIf="currentCompanyId && calendarEnabled"
@@ -61,7 +63,7 @@
           aria-label="Human Resources"
           [class.active]="currentModule === 'hr' && !showCompanyProfile"
         >
-          <span class="material-symbols-outlined"> diversity_3 </span>
+          <span class="material-symbols-outlined"> group </span>
         </button>
         <button
           *ngIf="currentCompanyId && ledgerEnabled"
@@ -104,13 +106,8 @@
     <div class="email-toast__label">New email</div>
     <div class="email-toast__subject">{{ newEmailToast.subject }}</div>
     <div class="email-toast__meta">
-      <span class="email-toast__from">{{
-        newEmailToast.from || 'Inbox'
-      }}</span>
-      <span
-        *ngIf="newEmailToast.preview"
-        class="email-toast__preview"
-      >
+      <span class="email-toast__from">{{ newEmailToast.from || "Inbox" }}</span>
+      <span *ngIf="newEmailToast.preview" class="email-toast__preview">
         {{ newEmailToast.preview }}
       </span>
     </div>

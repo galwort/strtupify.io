@@ -2,7 +2,19 @@ import { Component, HostListener, OnDestroy } from '@angular/core';
 import { ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, getDoc, collection, getDocs, query, where, onSnapshot, updateDoc, setDoc, arrayUnion } from 'firebase/firestore';
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  collection,
+  getDocs,
+  query,
+  where,
+  onSnapshot,
+  updateDoc,
+  setDoc,
+  arrayUnion,
+} from 'firebase/firestore';
 import { getAuth, onAuthStateChanged, Unsubscribe } from 'firebase/auth';
 import { UiStateService } from './services/ui-state.service';
 import { environment } from '../environments/environment';
@@ -23,7 +35,15 @@ export class AppComponent implements OnDestroy {
   companyLogo = '';
   companyProfileEnabled = false;
   showCompanyProfile = false;
-  currentModule: 'inbox' | 'roles' | 'resumes' | 'boardroom' | 'work' | 'ledger' | 'hr' | 'calendar' = 'roles';
+  currentModule:
+    | 'inbox'
+    | 'roles'
+    | 'resumes'
+    | 'boardroom'
+    | 'work'
+    | 'ledger'
+    | 'hr'
+    | 'calendar' = 'roles';
   backIcon: string = 'group_add';
   workEnabled = false;
   inboxEnabled = false;
@@ -39,7 +59,12 @@ export class AppComponent implements OnDestroy {
   endgameStatus: EndgameStatus = 'idle';
   private endgameEngagedDoc = false;
   sidebarColor = 'var(--theme-primary)';
-  newEmailToast: { id: string; from?: string; subject?: string; preview?: string } | null = null;
+  newEmailToast: {
+    id: string;
+    from?: string;
+    subject?: string;
+    preview?: string;
+  } | null = null;
   inboxCount = 0;
   private meAddress = '';
   private isAuthenticated = false;
@@ -74,11 +99,14 @@ export class AppComponent implements OnDestroy {
     private theme: ThemeService
   ) {
     this.router.events.subscribe(() => {
-      this.hideMenu = this.router.url === '/login' || this.router.url === '/register';
+      this.hideMenu =
+        this.router.url === '/login' || this.router.url === '/register';
       this.updateCompanyContext();
     });
     this.ui.showCompanyProfile$.subscribe((v) => (this.showCompanyProfile = v));
-    this.ui.companyProfileEnabled$.subscribe((v) => (this.companyProfileEnabled = v));
+    this.ui.companyProfileEnabled$.subscribe(
+      (v) => (this.companyProfileEnabled = v)
+    );
     this.ui.workEnabled$.subscribe((v) => (this.workEnabled = v));
     this.ui.currentModule$.subscribe((m) => {
       this.currentModule = m;
@@ -96,7 +124,7 @@ export class AppComponent implements OnDestroy {
           : m === 'ledger'
           ? 'account_balance'
           : m === 'hr'
-          ? 'diversity_3'
+          ? 'group'
           : 'badge';
       if (m === 'inbox') {
         this.inboxEnabled = true;
@@ -104,7 +132,10 @@ export class AppComponent implements OnDestroy {
       }
     });
 
-    window.addEventListener('company-logo-changed', this.logoChangedHandler as EventListener);
+    window.addEventListener(
+      'company-logo-changed',
+      this.logoChangedHandler as EventListener
+    );
 
     const auth = getAuth(this.fbApp);
     this.isAuthenticated = !!auth.currentUser;
@@ -136,20 +167,30 @@ export class AppComponent implements OnDestroy {
     if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey)) return;
 
     const target = event.target as HTMLElement | null;
-    const replyBtn = document.querySelector('.reply-composer #send-reply-btn') as HTMLButtonElement | null;
+    const replyBtn = document.querySelector(
+      '.reply-composer #send-reply-btn'
+    ) as HTMLButtonElement | null;
     if (replyBtn) {
       event.preventDefault();
       event.stopPropagation();
       replyBtn.click();
       return;
     }
-    const inReply = target && (target.closest ? (target.closest('.reply-composer') as HTMLElement | null) : null);
+    const inReply =
+      target &&
+      (target.closest
+        ? (target.closest('.reply-composer') as HTMLElement | null)
+        : null);
     if (inReply) {
       event.preventDefault();
       event.stopPropagation();
       return;
     }
-    const form = target && (target.closest ? (target.closest('form') as HTMLFormElement | null) : null);
+    const form =
+      target &&
+      (target.closest
+        ? (target.closest('form') as HTMLFormElement | null)
+        : null);
 
     const clickButton = (root: ParentNode | null): boolean => {
       if (!root) return false;
@@ -187,12 +228,16 @@ export class AppComponent implements OnDestroy {
       if (typeof f.requestSubmit === 'function') {
         f.requestSubmit();
       } else {
-        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        form.dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true })
+        );
       }
       return;
     }
 
-    const scope = (document.querySelector('.ion-page.ion-page-invisible ~ .ion-page, .ion-page:not(.ion-page-hidden)') ||
+    const scope = (document.querySelector(
+      '.ion-page.ion-page-invisible ~ .ion-page, .ion-page:not(.ion-page-hidden)'
+    ) ||
       document.querySelector('ion-content') ||
       document.body) as ParentNode | null;
     clickButton(scope);
@@ -208,25 +253,55 @@ export class AppComponent implements OnDestroy {
     this.ui.setShowCompanyProfile(false);
     this.ui.setCurrentModule('inbox');
   }
-  openBoardroom() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('boardroom'); }
-  openRoles() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('roles'); }
-  openResumes() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('resumes'); }
-  openWork() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('work'); }
-  openCalendar() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('calendar'); }
-  openLedger() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('ledger'); }
-  openHR() { this.ui.setShowCompanyProfile(false); this.ui.setCurrentModule('hr'); }
+  openBoardroom() {
+    this.ui.setShowCompanyProfile(false);
+    this.ui.setCurrentModule('boardroom');
+  }
+  openRoles() {
+    this.ui.setShowCompanyProfile(false);
+    this.ui.setCurrentModule('roles');
+  }
+  openResumes() {
+    this.ui.setShowCompanyProfile(false);
+    this.ui.setCurrentModule('resumes');
+  }
+  openWork() {
+    this.ui.setShowCompanyProfile(false);
+    this.ui.setCurrentModule('work');
+  }
+  openCalendar() {
+    this.ui.setShowCompanyProfile(false);
+    this.ui.setCurrentModule('calendar');
+  }
+  openLedger() {
+    this.ui.setShowCompanyProfile(false);
+    this.ui.setCurrentModule('ledger');
+  }
+  openHR() {
+    this.ui.setShowCompanyProfile(false);
+    this.ui.setCurrentModule('hr');
+  }
 
   openBackToModule() {
     switch (this.currentModule) {
-      case 'hr': return this.openHR();
-      case 'roles': return this.openRoles();
-      case 'resumes': return this.openResumes();
-      case 'boardroom': return this.openBoardroom();
-      case 'inbox': return this.openInbox();
-      case 'work': return this.openWork();
-      case 'calendar': return this.openCalendar();
-      case 'ledger': return this.openLedger();
-      default: return this.openRoles();
+      case 'hr':
+        return this.openHR();
+      case 'roles':
+        return this.openRoles();
+      case 'resumes':
+        return this.openResumes();
+      case 'boardroom':
+        return this.openBoardroom();
+      case 'inbox':
+        return this.openInbox();
+      case 'work':
+        return this.openWork();
+      case 'calendar':
+        return this.openCalendar();
+      case 'ledger':
+        return this.openLedger();
+      default:
+        return this.openRoles();
     }
   }
 
@@ -286,7 +361,9 @@ export class AppComponent implements OnDestroy {
 
   private handleInboxSnapshot(emails: Email[]): void {
     this.lastInboxEmails = emails || [];
-    const visible = this.lastInboxEmails.filter((e) => this.isCountableEmail(e));
+    const visible = this.lastInboxEmails.filter((e) =>
+      this.isCountableEmail(e)
+    );
     this.inboxCount = visible.length;
     if (!this.inboxWatchInitialized) {
       visible.forEach((e) => this.knownEmailIds.add(e.id));
@@ -300,15 +377,15 @@ export class AppComponent implements OnDestroy {
       const t = new Date(e.timestamp || '').getTime();
       return Number.isFinite(t) ? t : 0;
     };
-    const newest = fresh
-      .slice()
-      .sort((a, b) => ts(b) - ts(a))[0];
+    const newest = fresh.slice().sort((a, b) => ts(b) - ts(a))[0];
     if (newest) this.showNewEmailToast(newest);
   }
 
   private recomputeInboxCount(): void {
     if (!this.lastInboxEmails) return;
-    const visible = this.lastInboxEmails.filter((e) => this.isCountableEmail(e));
+    const visible = this.lastInboxEmails.filter((e) =>
+      this.isCountableEmail(e)
+    );
     this.inboxCount = visible.length;
     this.cdr.detectChanges();
   }
@@ -335,7 +412,8 @@ export class AppComponent implements OnDestroy {
       return false;
     const from = (email as any).sender || (email as any).from || '';
     if (this.meAddress && from === this.meAddress) return false;
-    const endgameEngaged = this.endgameStatus !== 'idle' || this.endgameEngagedDoc;
+    const endgameEngaged =
+      this.endgameStatus !== 'idle' || this.endgameEngagedDoc;
     if (this.isEndgameEmail(email)) {
       // ignore flagged endgame mails from count
       return false;
@@ -370,12 +448,17 @@ export class AppComponent implements OnDestroy {
     this.ui.setCalendarEnabled(false);
     this.startInboxWatcher(null);
     const currentUrl = this.router.url || '';
-    this.isHomeRoute = currentUrl === '/home' || currentUrl.startsWith('/home?');
-    this.isAccountRoute = currentUrl === '/account' || currentUrl.startsWith('/account/');
+    this.isHomeRoute =
+      currentUrl === '/home' || currentUrl.startsWith('/home?');
+    this.isAccountRoute =
+      currentUrl === '/account' || currentUrl.startsWith('/account/');
     this.showBrandLogo = !this.isHomeRoute;
-    this.showAccountButton = this.isAuthenticated && !this.hideMenu && !this.isAccountRoute;
+    this.showAccountButton =
+      this.isAuthenticated && !this.hideMenu && !this.isAccountRoute;
     try {
-      const prevUnsub = (window as any).__companyDocUnsub as (() => void) | undefined;
+      const prevUnsub = (window as any).__companyDocUnsub as
+        | (() => void)
+        | undefined;
       if (prevUnsub) prevUnsub();
       (window as any).__companyDocUnsub = undefined;
     } catch {}
@@ -401,7 +484,9 @@ export class AppComponent implements OnDestroy {
         return;
       }
       const data = snap.data() as any;
-      let members: string[] = Array.isArray(data?.memberIds) ? [...data.memberIds] : [];
+      let members: string[] = Array.isArray(data?.memberIds)
+        ? [...data.memberIds]
+        : [];
       const ownerId: string | undefined = data?.ownerId;
       if (!members.includes(user.uid)) {
         if (ownerId && ownerId === user.uid) {
@@ -434,12 +519,17 @@ export class AppComponent implements OnDestroy {
           : `${companyId}.com`;
       this.meAddress = `me@${domain}`;
       this.endgameEngagedDoc =
-        !!data?.endgameTriggered || !!data?.endgameResolved || !!data?.endgameEmailsSent;
+        !!data?.endgameTriggered ||
+        !!data?.endgameResolved ||
+        !!data?.endgameEmailsSent;
       this.recomputeInboxCount();
       this.theme.applyCompanyTheme(data);
       try {
         const acceptedSnap = await getDocs(
-          query(collection(this.db, `companies/${companyId}/products`), where('accepted', '==', true))
+          query(
+            collection(this.db, `companies/${companyId}/products`),
+            where('accepted', '==', true)
+          )
         );
         this.inboxEnabled = !acceptedSnap.empty;
       } catch {}
@@ -448,7 +538,9 @@ export class AppComponent implements OnDestroy {
         const unsub = onSnapshot(ref, (s) => {
           const d = (s && (s.data() as any)) || {};
           const endgameDoc =
-            !!d.endgameTriggered || !!d.endgameResolved || !!d.endgameEmailsSent;
+            !!d.endgameTriggered ||
+            !!d.endgameResolved ||
+            !!d.endgameEmailsSent;
           if (endgameDoc !== this.endgameEngagedDoc) {
             this.endgameEngagedDoc = endgameDoc;
             this.recomputeInboxCount();
@@ -478,7 +570,10 @@ export class AppComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
-    window.removeEventListener('company-logo-changed', this.logoChangedHandler as EventListener);
+    window.removeEventListener(
+      'company-logo-changed',
+      this.logoChangedHandler as EventListener
+    );
     if (this.authUnsub) {
       this.authUnsub();
       this.authUnsub = null;

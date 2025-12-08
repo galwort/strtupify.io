@@ -21,6 +21,14 @@
       }}</span>
       <span class="label">{{ showDeleted ? "UNDELETE" : "DELETE" }}</span>
     </button>
+    <button
+      class="filter-btn"
+      (click)="toggleDelete()"
+      [disabled]="!selectedEmail || deleteInFlight"
+    >
+      <span class="material-symbols-outlined">auto_awesome</span>
+      <span class="label">AI DELETE ✨</span>
+    </button>
     <button class="filter-btn" (click)="toggleSent()">
       <span class="material-symbols-outlined">outbox</span>
       <span class="label">{{ showSent ? "INBOX" : "SENT" }}</span>

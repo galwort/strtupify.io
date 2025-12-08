@@ -164,7 +164,9 @@ export class EndgameService implements OnDestroy {
       const elapsedMs = triggeredAt ? Math.max(0, resetAt - triggeredAt) : undefined;
       const months = this.deriveMonths(elapsedMs, monthsHint);
       const meAddress = this.buildFounderAddress(data);
-      const timestampIso = new Date(resetAt).toISOString();
+      const emailDate = new Date(resetAt);
+      emailDate.setMonth(emailDate.getMonth() + 6);
+      const timestampIso = emailDate.toISOString();
 
       const vladSent = await this.sendVladResetEmail(meAddress, timestampIso, elapsedMs);
       const outcomeSent = await this.sendOutcomeEmail(meAddress, months, timestampIso, triggeredAt, resetAt);

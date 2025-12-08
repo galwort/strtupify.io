@@ -361,9 +361,30 @@ export class InboxComponent implements OnInit, OnDestroy {
   private resolveSpecialAvatar(email: Email): string | null {
     const senderField =
       (email as any).sender || (email as any).from || email.sender || '';
+    const category = (email as any).category || '';
     const normalized = this.normalizeAddress(senderField);
-    if (!normalized) return null;
+    if (!normalized && !category) return null;
     if (normalized === 'mom@altavista.net') return 'assets/mom.jpg';
+    if (normalized === 'mailer-daemon@strtupify.io' || category === 'mailer-daemon') {
+      return 'assets/rocket-launch.svg';
+    }
+    if (normalized === 'noreply@supereats.com' || category === 'supereats') {
+      return 'assets/supereats-avatar.png';
+    }
+    if (
+      normalized === 'noreply@54.com' ||
+      normalized === 'noreply@54bank.com' ||
+      category === 'bank'
+    ) {
+      return 'assets/fifthfourth-avatar.png';
+    }
+    if (
+      normalized === 'order-update@cadabra.com' ||
+      normalized === 'updates@cadabra.com' ||
+      category === 'cadabra'
+    ) {
+      return 'assets/cadabra-avatar.png';
+    }
     if (normalized === 'vlad@strtupify.io') {
       const ts = this.emailTimestampMs(email as any as InboxEmail);
       return this.vladAvatarForTimestamp(ts);

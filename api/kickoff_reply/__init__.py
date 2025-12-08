@@ -119,7 +119,27 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     kickoff_doc = kickoff_ref.get()
     if not kickoff_doc.exists:
         return func.HttpResponse(dumps({"error": "thread not found"}), status_code=404)
-    subject = kickoff_doc.get("subject") or "Kickoff"
+
+    thread_subject = ""
+    try:
+        for item in reversed(list(thread_history or [])):
+            if not item:
+                continue
+            subj_val = (
+                item.get("subject")
+                if isinstance(item, dict)
+                else getattr(item, "get", lambda _k, _d=None: None)("subject")
+            )
+            subj_str = str(subj_val or "").strip()
+            if subj_str:
+                thread_subject = subj_str
+                break
+    except Exception:
+        thread_subject = ""
+
+    doc_subject = str(kickoff_doc.get("subject") or "").strip()
+    base_subject = thread_subject or doc_subject or "Kickoff"
+    subject = base_subject if base_subject.lower().startswith("re:") else f"Re: {base_subject}"
     from_addr = kickoff_doc.get("from") or "noreply@strtupify.io"
 
     ctx = pull_company_info(company)

@@ -154,6 +154,14 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             status_code=400,
         )
 
+    thread_subject = ""
+    for item in reversed(reply.thread or []):
+        subj = (item.subject or "").strip()
+        if subj:
+            thread_subject = subj
+            break
+    base_subject = thread_subject or email.subject
+
     company_snap = db.collection("companies").document(company_id).get()
     company_data = company_snap.to_dict() if company_snap.exists else {}
     company_name = str(company_data.get("company_name") or company_id)
@@ -209,7 +217,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         "confidence": parsed.confidence,
         "improvements": parsed.improvements,
         "follow_up": {
-            "subject": parsed.follow_up.subject,
+            "subject": base_subject,
             "body": parsed.follow_up.body,
             "tone": parsed.follow_up.tone,
         },

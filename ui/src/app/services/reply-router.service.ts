@@ -39,7 +39,7 @@ export class ReplyRouterService {
       const meAddress = await this.getMeAddress(opts.companyId);
       const tpl = await this.loadTemplate('emails/vlad-autoreply.md');
       const from = tpl.from || 'vlad@strtupify.io';
-      const subject = tpl.subject || `Re: ${opts.subject || ''}`;
+      const subject = opts.subject || tpl.subject || '(no subject)';
       const emailId = `vlad-auto-${Date.now()}`;
       const payload: any = {
         from,
@@ -82,7 +82,7 @@ export class ReplyRouterService {
         })
         .toPromise();
      const from = res && res.from ? res.from : 'noreply@strtupify.io';
-     const subject = res && res.subject ? res.subject : `Re: ${opts.subject || ''}`;
+     const subject = opts.subject || (res && res.subject ? res.subject : '(no subject)');
      const body = res && res.body ? res.body : '';
       const status = res && res.status ? String(res.status).toLowerCase() : '';
       if (!body) return;
@@ -234,9 +234,13 @@ export class ReplyRouterService {
 
       const followBody = typeof followUp.body === 'string' ? followUp.body : '';
       if (followBody.trim().length) {
-        const followSubject = typeof followUp.subject === 'string' && followUp.subject
-          ? followUp.subject
-          : `Re: ${opts.subject || parent.subject || workitemCtx.title}`;
+        const threadSubject =
+          opts.subject ||
+          parent.subject ||
+          workitemCtx.subject ||
+          workitemCtx.title ||
+          '(no subject)';
+        const followSubject = threadSubject;
         const followId = `assist-follow-${Date.now()}`;
         await setDoc(doc(db, `companies/${opts.companyId}/inbox/${followId}`), {
           from: parent.from || this.buildWorkerAddress(workerName, opts.companyId),
@@ -328,7 +332,7 @@ export class ReplyRouterService {
     const amount = grant ? Number(res?.amount) : 0;
     const memo = grant ? String(res?.ledgerMemo || 'Gift from Mom') : '';
     const from = res?.from || 'mom@altavista.net';
-    const subject = res?.subject || opts.subject || '(no subject)';
+    const subject = opts.subject || res?.subject || '(no subject)';
     let body = res?.body || '';
     if (!body || !body.trim()) {
       body =

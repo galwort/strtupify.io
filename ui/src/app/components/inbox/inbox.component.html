@@ -28,7 +28,7 @@
       *ngIf="aiDeleteEnabled"
     >
       <span class="material-symbols-outlined">auto_awesome</span>
-      <span class="label">AI DELETE ✨</span>
+      <span class="label">AI DELETE</span>
     </button>
     <button class="filter-btn" (click)="toggleSent()">
       <span class="material-symbols-outlined">outbox</span>
@@ -126,7 +126,9 @@
               <span>Cancel</span>
             </button>
           </div>
-          <div class="compose-error" *ngIf="composeError">{{ composeError }}</div>
+          <div class="compose-error" *ngIf="composeError">
+            {{ composeError }}
+          </div>
         </div>
       </ng-container>
       <ng-template #emailReadView>
@@ -176,7 +178,10 @@
               <img
                 *ngIf="selectedEmail?.senderAvatarUrl"
                 [src]="selectedEmail?.senderAvatarUrl"
-                [alt]="(selectedEmail?.displaySender || selectedEmail?.sender) + ' avatar'"
+                [alt]="
+                  (selectedEmail?.displaySender || selectedEmail?.sender) +
+                  ' avatar'
+                "
               />
               <span *ngIf="!selectedEmail?.senderAvatarUrl">{{
                 selectedEmail?.senderInitials
@@ -263,4 +268,3 @@
     </div>
   </div>
 </div>
-

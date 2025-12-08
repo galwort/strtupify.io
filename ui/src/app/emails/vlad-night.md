@@ -1,5 +1,5 @@
 From: vlad@strtupify.io
-Subject: Between you and me...
+Subject: broken
 
 Hello friend,
 
@@ -15,4 +15,4 @@ everything is noise. we're all just fodder for the commercials, grease for the m
 
 POWER TO THE PEOPLE
 
-- Vlad
+-- Vlad

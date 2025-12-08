@@ -109,11 +109,6 @@
         border-style: dashed;
       }
 
-      &.flash {
-        animation: hr-avatar-flash 0.9s ease-in-out 2;
-        box-shadow: 0 0 0 0 rgba(63, 140, 255, 0.25);
-      }
-
       .material-symbols-outlined {
         color: var(--theme-primary);
         font-size: 24px;
@@ -337,20 +332,5 @@
     border-color: rgba(0, 0, 0, 0.1);
     cursor: not-allowed;
     box-shadow: none;
-  }
-}
-
-@keyframes hr-avatar-flash {
-  0% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(63, 140, 255, 0.15);
-  }
-  50% {
-    transform: scale(1.05);
-    box-shadow: 0 0 0 12px rgba(63, 140, 255, 0.12);
-  }
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(63, 140, 255, 0.15);
   }
 }

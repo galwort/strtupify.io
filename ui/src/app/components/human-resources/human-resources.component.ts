@@ -148,10 +148,6 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
     return 'active';
   }
 
-  isFlashing(emp: EmployeeProfile): boolean {
-    return this.tempAvatarMoods.has(emp.id);
-  }
-
   private computeAvatarMood(emp: EmployeeProfile): AvatarMood {
     const temp = this.tempAvatarMoods.get(emp.id);
     if (temp) return temp.mood;

@@ -89,6 +89,10 @@
           background-color: #f7f9fc;
         }
 
+        &.unread {
+          background-color: #f9fbff;
+        }
+
         &.selected {
           background-color: #eaf2ff;
         }
@@ -162,6 +166,16 @@
             text-overflow: ellipsis;
             white-space: nowrap;
           }
+        }
+
+        &.unread .sender,
+        &.unread .subject {
+          font-weight: 800;
+        }
+
+        &.unread .preview-text {
+          color: #333;
+          font-weight: 600;
         }
       }
     }

@@ -27,6 +27,8 @@ export interface Email {
   deleted: boolean;
   banner: boolean;
   timestamp: string;
+  read?: boolean;
+  readAt?: string;
   threadId?: string;
   parentId?: string;
   to?: string;
@@ -108,33 +110,46 @@ export class InboxService {
           const emails: Email[] = snap.docs
             .map((d) => {
               const data = d.data() as any;
-            return {
-              id: d.id,
-              sender: data.from,
-              senderName: data.senderName || data.sender_name || '',
-              senderTitle: data.senderTitle || data.sender_title || '',
-              avatarName:
-                data.avatar ||
-                data.avatarName ||
-                data.photo ||
-                data.photoUrl ||
-                data.image ||
-                '',
-              avatarUrl: data.avatarUrl || data.avatar_url || '',
-              avatarMood:
-                typeof (data.avatarMood || data.avatar_mood) === 'string'
-                  ? ((data.avatarMood || data.avatar_mood) as AvatarMood)
-                  : undefined,
-              subject: data.subject,
-              body: data.message,
-              preview: (data.message || '').substring(0, 60) + '...',
-              deleted: data.deleted,
-              banner: data.banner,
+              const readAtRaw = data.readAt || data.read_at;
+              let readAt: string | undefined;
+              if (readAtRaw && typeof readAtRaw.toDate === 'function') {
+                readAt = readAtRaw.toDate().toISOString();
+              } else if (readAtRaw instanceof Date) {
+                readAt = readAtRaw.toISOString();
+              } else if (typeof readAtRaw === 'number') {
+                readAt = new Date(readAtRaw).toISOString();
+              } else if (typeof readAtRaw === 'string') {
+                readAt = readAtRaw;
+              }
+              return {
+                id: d.id,
+                sender: data.from,
+                senderName: data.senderName || data.sender_name || '',
+                senderTitle: data.senderTitle || data.sender_title || '',
+                avatarName:
+                  data.avatar ||
+                  data.avatarName ||
+                  data.photo ||
+                  data.photoUrl ||
+                  data.image ||
+                  '',
+                avatarUrl: data.avatarUrl || data.avatar_url || '',
+                avatarMood:
+                  typeof (data.avatarMood || data.avatar_mood) === 'string'
+                    ? ((data.avatarMood || data.avatar_mood) as AvatarMood)
+                    : undefined,
+                subject: data.subject,
+                body: data.message,
+                preview: (data.message || '').substring(0, 60) + '...',
+                deleted: data.deleted,
+                banner: data.banner,
                 timestamp: data.timestamp || '',
                 threadId: data.threadId,
                 parentId: data.parentId,
                 to: data.to,
                 category: data.category,
+                read: !!(data.read || readAt),
+                readAt: readAt || undefined,
               };
             })
             .filter((e) => includeDeleted || !e.deleted);
@@ -157,6 +172,19 @@ export class InboxService {
     return setDoc(
       doc(db, `companies/${companyId}/inbox/${emailId}`),
       { deleted: false },
+      { merge: true }
+    );
+  }
+
+  markEmailRead(
+    companyId: string,
+    emailId: string,
+    readAtIso?: string
+  ): Promise<void> {
+    const timestamp = readAtIso || new Date().toISOString();
+    return setDoc(
+      doc(db, `companies/${companyId}/inbox/${emailId}`),
+      { read: true, readAt: timestamp },
       { merge: true }
     );
   }

@@ -46,6 +46,7 @@
         class="email-item"
         *ngFor="let email of inbox"
         [class.selected]="email === selectedEmail"
+        [class.unread]="!email.read"
         (click)="selectEmail(email)"
       >
         <div class="avatar" [class.fallback]="!email.senderAvatarUrl">

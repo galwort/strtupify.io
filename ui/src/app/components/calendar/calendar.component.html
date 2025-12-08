@@ -23,7 +23,7 @@
               [class.user]="ev.owner === 'me'"
               [class.selected]="ev.id === selectedMeetingId && ev.owner === 'me'"
               [class.dragging]="ev.id === draggingMeetingId"
-              [attr.draggable]="ev.owner === 'me' ? 'true' : null"
+              [attr.draggable]="!calendarLocked && ev.owner === 'me' ? 'true' : null"
               [style.top.%]="ev.top"
               [style.height.%]="ev.height"
               [style.left.%]="ev.left"
@@ -41,7 +41,7 @@
             </div>
             <div
               class="drop-preview"
-              *ngIf="dragPreview && dragPreview.dayIndex === di"
+              *ngIf="dragPreview && dragPreview.dayIndex === di && !calendarLocked"
               [class.conflict]="dragPreview.conflict"
               [style.top.%]="dragPreview.top"
               [style.height.%]="dragPreview.height"
@@ -53,11 +53,25 @@
       <div class="sidebar">
         <div class="panel focus-panel">
           <div class="week-label" *ngIf="weekLabel">{{ weekLabel }}</div>
+          <div class="lock-status" *ngIf="calendarLocked">
+            Submitted for this week — schedule is locked.
+          </div>
           <div class="score">Focus score: {{ focusScore | number: '1.0-1' }}</div>
           <div class="score sub">Potential focus points: {{ focusPointEstimate | number: '1.0-0' }}</div>
           <div class="score sub">Banked focus points: {{ focusPoints | number: '1.0-0' }}</div>
-          <button type="button" class="submit" [disabled]="isSubmitting" (click)="submitSchedule()">
-            {{ isSubmitting ? 'Submitting...' : 'Send reschedules' }}
+          <button
+            type="button"
+            class="submit"
+            [disabled]="isSubmitting || calendarLocked"
+            (click)="submitSchedule()"
+          >
+            {{
+              calendarLocked
+                ? 'Submitted'
+                : isSubmitting
+                ? 'Submitting...'
+                : 'Send reschedules'
+            }}
           </button>
           <div class="status" *ngIf="isSubmitting">Saving focus points...</div>
           <div class="status" *ngIf="!isSubmitting && lastEarnedPoints !== null">

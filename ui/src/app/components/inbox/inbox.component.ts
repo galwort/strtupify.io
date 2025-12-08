@@ -500,6 +500,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   private employeeAvatars = new Map<string, EmployeeAvatarRecord>();
   private employeeAvatarUnsub: (() => void) | null = null;
   private endgameOutcomeMood: AvatarMood | null = null;
+  private readonly markingRead = new Set<string>();
 
   private snacks: { name: string; price: string }[] = [];
   private selectedSnack: { name: string; price: string } | null = null;
@@ -703,6 +704,31 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.showComposeBox = false;
     this.composeError = '';
     this.replyText = '';
+    this.markEmailAsRead(email);
+  }
+
+  private markEmailAsRead(email: InboxEmail | null): void {
+    if (!email || !this.companyId) return;
+    if (email.read) return;
+    const alreadyMarking = this.markingRead.has(email.id);
+    const readAt = new Date().toISOString();
+    this.applyLocalReadState(email.id, readAt);
+    if (alreadyMarking) return;
+    this.markingRead.add(email.id);
+    this.inboxService
+      .markEmailRead(this.companyId, email.id, readAt)
+      .catch(() => {})
+      .finally(() => this.markingRead.delete(email.id));
+  }
+
+  private applyLocalReadState(emailId: string, readAt: string): void {
+    const apply = (item: InboxEmail): InboxEmail =>
+      item.id === emailId ? { ...item, read: true, readAt } : item;
+    this.inbox = this.inbox.map(apply);
+    this.allEmails = this.allEmails.map(apply);
+    if (this.selectedEmail && this.selectedEmail.id === emailId) {
+      this.selectedEmail = apply(this.selectedEmail);
+    }
   }
 
   deleteSelected(): void {
@@ -1933,6 +1959,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         this.selectedEmail = found;
         this.pendingSelectionId = null;
         this.preferredInboxEmailId = null;
+        this.markEmailAsRead(this.selectedEmail);
         return;
       }
     }
@@ -1940,6 +1967,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.selectedEmail = first || null;
     this.pendingSelectionId = null;
     this.preferredInboxEmailId = null;
+    this.markEmailAsRead(this.selectedEmail);
   }
 
   private pruneSuppressed(): void {

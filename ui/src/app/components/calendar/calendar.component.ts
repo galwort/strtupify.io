@@ -87,6 +87,8 @@ export class CalendarComponent implements OnInit, OnDestroy {
   lastEarnedPoints: number | null = null;
   isSubmitting = false;
   timeTicks: string[] = [];
+  calendarLocked = false;
+  private calendarSubmittedWeekStart: number | null = null;
 
   private simTime = Date.now();
   private unsubCompany: (() => void) | null = null;
@@ -136,6 +138,17 @@ export class CalendarComponent implements OnInit, OnDestroy {
   }
 
   async submitSchedule(): Promise<void> {
+    if (this.calendarLocked) {
+      this.statusMessage = 'Already submitted for this week.';
+      this.statusError = '';
+      return;
+    }
+    const currentWeekStart = this.weekStart?.getTime() || null;
+    if (currentWeekStart === null) {
+      this.statusError = 'Unable to determine the current week. Please try again.';
+      this.statusMessage = '';
+      return;
+    }
     this.submittedScore = this.focusScore;
     this.lastEarnedPoints = this.focusPointEstimate;
     this.statusError = '';
@@ -147,13 +160,18 @@ export class CalendarComponent implements OnInit, OnDestroy {
     }
     this.isSubmitting = true;
     try {
-      const added = await this.persistFocusPoints(this.focusPointEstimate);
+      const added = await this.persistFocusPoints(
+        this.focusPointEstimate,
+        currentWeekStart
+      );
       if (added > 0) {
         this.statusMessage = `Submitted and banked ${added.toLocaleString()} focus points.`;
         this.lastEarnedPoints = added;
       } else {
         this.statusMessage = 'Submitted your reschedule plan for scoring.';
       }
+      this.calendarSubmittedWeekStart = currentWeekStart;
+      this.applyCalendarLock();
     } catch (err) {
       console.error('Failed to store focus points', err);
       this.statusError = 'Failed to store focus points. Please try again.';
@@ -191,8 +209,13 @@ export class CalendarComponent implements OnInit, OnDestroy {
       const st = Number(data.simTime || Date.now());
       if (Number.isFinite(st)) {
         this.simTime = st;
-        this.updateWeekIfNeeded();
       }
+      const submittedWeek =
+        typeof data.calendarSubmittedWeekStart === 'number'
+          ? data.calendarSubmittedWeekStart
+          : null;
+      this.calendarSubmittedWeekStart = submittedWeek;
+      this.updateWeekIfNeeded();
       const fp = Number(data.focusPoints || 0);
       this.focusPoints = Number.isFinite(fp) ? Math.max(0, Math.round(fp)) : 0;
     });
@@ -288,6 +311,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
       this.recomputeVisuals();
       this.computeFocusScore();
     }
+    this.applyCalendarLock();
   }
 
   private computeNextWeekStart(): Date | null {
@@ -522,6 +546,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
   }
 
   onMeetingDragStart(event: DragEvent, meeting: VisualMeeting): void {
+    if (this.calendarLocked) return;
     if (meeting.owner !== 'me') return;
     this.draggingMeetingId = meeting.id;
     this.dragPreview = null;
@@ -537,6 +562,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
   }
 
   onDayDragOver(event: DragEvent, dayIndex: number): void {
+    if (this.calendarLocked) return;
     if (!this.draggingMeetingId) return;
     const meeting = this.meetings.find(
       (m) => m.id === this.draggingMeetingId && m.owner === 'me'
@@ -561,12 +587,14 @@ export class CalendarComponent implements OnInit, OnDestroy {
   }
 
   onDayDragLeave(_: DragEvent, dayIndex: number): void {
+    if (this.calendarLocked) return;
     if (this.dragPreview && this.dragPreview.dayIndex === dayIndex) {
       this.dragPreview = null;
     }
   }
 
   onDayDrop(event: DragEvent, dayIndex: number): void {
+    if (this.calendarLocked) return;
     if (!this.draggingMeetingId) return;
     event.preventDefault();
     const meeting = this.meetings.find(
@@ -724,8 +752,11 @@ export class CalendarComponent implements OnInit, OnDestroy {
     this.focusScore = Math.round(score * 10) / 10;
   }
 
-  private async persistFocusPoints(earned: number): Promise<number> {
-    if (!this.companyId || earned <= 0) return 0;
+  private async persistFocusPoints(
+    earned: number,
+    submittedWeekStart?: number
+  ): Promise<number> {
+    if (!this.companyId) return 0;
     const ref = doc(db, `companies/${this.companyId}`);
     const result = await runTransaction(db, async (tx) => {
       const snap = await tx.get(ref);
@@ -733,18 +764,21 @@ export class CalendarComponent implements OnInit, OnDestroy {
       const current = Number.isFinite(Number(data.focusPoints))
         ? Math.max(0, Math.round(Number(data.focusPoints)))
         : 0;
-      const next = current + earned;
-      tx.set(
-        ref,
-        {
-          focusPoints: next,
-          lastFocusScore: this.focusScore,
-          lastFocusHours: this.focusHours,
-          lastFocusPointsEarned: earned,
-          focusPointsUpdatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
+      const delta = Math.max(0, Math.round(earned));
+      const next = current + delta;
+      const update: any = {
+        focusPoints: next,
+        lastFocusScore: this.focusScore,
+        lastFocusHours: this.focusHours,
+        lastFocusPointsEarned: delta,
+        focusPointsUpdatedAt: serverTimestamp(),
+      };
+      if (submittedWeekStart !== undefined) {
+        update.calendarSubmittedWeekStart = submittedWeekStart;
+        update.calendarSubmittedAt = serverTimestamp();
+        update.lastFocusScheduleWeekStart = submittedWeekStart;
+      }
+      tx.set(ref, update, { merge: true });
       return { current, next };
     });
     this.focusPoints = result.next;
@@ -793,6 +827,14 @@ export class CalendarComponent implements OnInit, OnDestroy {
     const idx = this.employees.findIndex((e) => e.id === id);
     if (idx === -1) return fallbackEmployeeColor(id, this.palette);
     return this.employees[idx].color;
+  }
+
+  private applyCalendarLock(): void {
+    const currentWeekStart = this.weekStart?.getTime() ?? null;
+    this.calendarLocked =
+      currentWeekStart !== null &&
+      this.calendarSubmittedWeekStart !== null &&
+      currentWeekStart === this.calendarSubmittedWeekStart;
   }
 
   private makeRng(seed: string): () => number {

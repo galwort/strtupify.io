@@ -25,6 +25,7 @@
       class="filter-btn"
       (click)="toggleDelete()"
       [disabled]="!selectedEmail || deleteInFlight"
+      *ngIf="aiDeleteEnabled"
     >
       <span class="material-symbols-outlined">auto_awesome</span>
       <span class="label">AI DELETE ✨</span>

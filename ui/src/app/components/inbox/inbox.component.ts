@@ -562,6 +562,11 @@ export class InboxComponent implements OnInit, OnDestroy {
   showDeleted = false;
   meAddress = '';
   showSent = false;
+
+  get aiDeleteEnabled(): boolean {
+    return this.aiDeleteEmailSent;
+  }
+
   private inboxSub: Subscription | null = null;
   private endgameStatus: EndgameStatus = 'idle';
   private endgameSub: Subscription | null = null;

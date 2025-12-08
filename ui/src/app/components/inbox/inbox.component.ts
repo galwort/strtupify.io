@@ -86,14 +86,31 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   get threadMessages(): InboxEmail[] {
-    if (!this.selectedEmail) return [];
-    const tid = (this.selectedEmail as any).threadId || this.selectedEmail.id;
-    const selectedTs = new Date(this.selectedEmail.timestamp || '').getTime();
+    return this.collectThreadMessages(this.selectedEmail);
+  }
+
+  get selectedEmailBody(): string {
+    if (!this.selectedEmail) return '';
+    return this.mergeBodyWithHistory(
+      this.selectedEmail.body,
+      this.selectedEmail
+    );
+  }
+
+  renderEmailBody(text: string | undefined | null): string {
+    if (!text) return '';
+    return this.simpleMarkdown(text);
+  }
+
+  private collectThreadMessages(email: InboxEmail | null): InboxEmail[] {
+    if (!email) return [];
+    const tid = (email as any).threadId || email.id;
+    const selectedTs = new Date(email.timestamp || '').getTime();
     const isValidTs = Number.isFinite(selectedTs);
     const list = this.allEmails.filter((e) => {
       const sameThread = ((e as any).threadId || e.id) === tid;
       if (!sameThread) return false;
-      if (e.id === this.selectedEmail?.id) return false;
+      if (e.id === email.id) return false;
       if (!isValidTs) return false;
       const ts = new Date(e.timestamp || '').getTime();
       return Number.isFinite(ts) && ts < selectedTs;
@@ -106,9 +123,44 @@ export class InboxComponent implements OnInit, OnDestroy {
       );
   }
 
-  renderEmailBody(text: string | undefined | null): string {
-    if (!text) return '';
-    return this.simpleMarkdown(text);
+  private mergeBodyWithHistory(
+    base: string | undefined | null,
+    email: InboxEmail | null,
+    includeCurrent: boolean = false
+  ): string {
+    const baseText = typeof base === 'string' ? base : '';
+    if (baseText.includes('----- Previous messages -----')) return baseText;
+    const history = this.formatThreadHistory(email, includeCurrent);
+    if (!history) return baseText;
+    const needsGap = baseText.trim().length > 0;
+    return needsGap ? `${baseText}\n\n${history}` : history;
+  }
+
+  private formatThreadHistory(
+    email: InboxEmail | null,
+    includeCurrent: boolean = false
+  ): string {
+    const history = this.collectThreadMessages(email);
+    const sequence = includeCurrent && email ? [email, ...history] : history;
+    if (!sequence.length) return '';
+    const lines: string[] = ['----- Previous messages -----'];
+    sequence.forEach((m) => {
+      const ts = this.formatThreadTimestamp(m.timestamp);
+      const sender = m.sender || m.displaySender || 'Unknown sender';
+      const header = ts ? `From: ${sender} - ${ts}` : `From: ${sender}`;
+      lines.push(header);
+      const bodyText = (m.body || '').trim();
+      if (bodyText) lines.push(bodyText);
+      lines.push('');
+    });
+    return lines.join('\n').trim();
+  }
+
+  private formatThreadTimestamp(raw: string | undefined): string {
+    if (!raw) return '';
+    const date = new Date(raw);
+    if (!Number.isFinite(date.getTime())) return '';
+    return date.toLocaleString();
   }
 
   private simpleMarkdown(src: string): string {
@@ -1628,10 +1680,15 @@ export class InboxComponent implements OnInit, OnDestroy {
         else if (tid.startsWith('mom-')) category = 'mom';
         else category = 'generic';
       }
+      const replyBody = this.mergeBodyWithHistory(
+        this.replyText.trim(),
+        this.selectedEmail,
+        true
+      );
       const replyId = await this.inboxService.sendReply(this.companyId, {
         threadId,
         subject,
-        message: this.replyText.trim(),
+        message: replyBody,
         parentId: this.selectedEmail.id,
         from: this.meAddress,
         to,
@@ -1984,7 +2041,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       } catch {}
     }
     this.inboxSub = this.inboxService
-      .getInbox(this.companyId, this.showDeleted)
+      .getInbox(this.companyId, true)
       .subscribe((emails) =>
         this.updateInboxView(emails.map((e) => this.decorateEmail(e)))
       );

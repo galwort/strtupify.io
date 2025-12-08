@@ -244,26 +244,8 @@
           </div>
           <div
             class="email-body"
-            [innerHTML]="renderEmailBody(selectedEmail?.body)"
+            [innerHTML]="renderEmailBody(selectedEmailBody)"
           ></div>
-          <br />
-          <br />
-          <div *ngIf="threadMessages.length" class="thread-chain">
-            <div class="original-sep">----- Previous messages -----</div>
-            <br />
-            <div class="thread-item" *ngFor="let m of threadMessages">
-              <div class="thread-head">
-                <span> From: {{ m.sender }}</span>
-                <span>&nbsp;&bull; {{ m.timestamp | date : "short" }}</span>
-              </div>
-              <br />
-              <div
-                class="thread-body"
-                [innerHTML]="renderEmailBody(m.body)"
-              ></div>
-              <br />
-            </div>
-          </div>
         </div>
       </ng-template>
     </div>

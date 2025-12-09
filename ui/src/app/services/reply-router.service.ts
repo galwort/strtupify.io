@@ -68,6 +68,18 @@ export class ReplyRouterService {
       });
       return;
     }
+    if (cat === 'cadabra') {
+      const replyText = await this.getReplyBody(opts.companyId, opts.parentId || '');
+      await this.handleCadabraConversation({
+        companyId: opts.companyId,
+        subject: opts.subject,
+        message: replyText,
+        threadId: opts.threadId,
+        parentId: opts.parentId,
+        timestamp: opts.timestamp,
+      });
+      return;
+    }
     if (cat === 'bank') {
       await this.sendBankAutoReply({
         companyId: opts.companyId,
@@ -304,6 +316,17 @@ export class ReplyRouterService {
       });
       return;
     }
+    if (this.isCadabraAddress(normalized)) {
+      await this.handleCadabraConversation({
+        companyId: opts.companyId,
+        subject: opts.subject,
+        message: opts.message,
+        threadId: opts.threadId,
+        parentId: opts.parentId,
+        timestamp: opts.timestamp,
+      });
+      return;
+    }
     if (this.isBankAddress(normalized)) {
       await this.sendBankAutoReply({
         companyId: opts.companyId,
@@ -323,6 +346,63 @@ export class ReplyRouterService {
       parentId: opts.parentId,
       timestamp: opts.timestamp,
     });
+  }
+
+  private async handleCadabraConversation(opts: {
+    companyId: string;
+    subject: string;
+    message: string;
+    threadId: string;
+    parentId?: string;
+    timestamp?: string;
+  }): Promise<void> {
+    const meAddress = await this.getMeAddress(opts.companyId);
+    const payload = {
+      company: opts.companyId,
+      subject: opts.subject || '(no subject)',
+      message: opts.message || '',
+      threadId: opts.threadId,
+    };
+    let res: any = null;
+    try {
+      res = await this.http
+        .post<any>('https://fa-strtupifyio.azurewebsites.net/api/cadabra_reply', payload)
+        .toPromise();
+    } catch (err) {
+      console.error('cadabra reply failed', err);
+    }
+    const from = res?.from || 'jeff@cadabra.com';
+    const subject = opts.subject || res?.subject || '(no subject)';
+    let body = typeof res?.body === 'string' ? res.body : '';
+    body = body.trim();
+    if (!body) {
+      body = 'This is Jeff. Something in here feels wrong. Stay on the line.';
+    }
+    const attempt = Number(res?.attempt);
+    const urgency = Number(res?.urgency);
+    const understanding = Number(res?.understanding);
+    const temperature = Number(res?.temperature);
+    const emailId = `cadabra-reply-${Date.now()}`;
+    const baseTs = opts.timestamp ? new Date(opts.timestamp) : new Date();
+    const timestampIso = new Date(baseTs.getTime() + 1).toISOString();
+    const docPayload: any = {
+      from,
+      to: meAddress,
+      subject,
+      message: body,
+      deleted: false,
+      banner: false,
+      timestamp: timestampIso,
+      threadId: opts.threadId,
+      category: 'cadabra',
+      avatarUrl: 'assets/cadabra-avatar.png',
+    };
+    if (opts.parentId) docPayload.parentId = opts.parentId;
+    if (Number.isFinite(attempt)) docPayload.cadabraReplyAttempt = attempt;
+    if (Number.isFinite(urgency)) docPayload.cadabraUrgency = urgency;
+    if (Number.isFinite(understanding)) docPayload.cadabraUnderstanding = understanding;
+    if (Number.isFinite(temperature)) docPayload.cadabraTemperature = temperature;
+    await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), docPayload);
   }
 
   private async handleMomConversation(opts: {
@@ -835,6 +915,17 @@ export class ReplyRouterService {
     const match = text.match(/<([^>]+)>/);
     const addr = match ? match[1] : text;
     return addr.trim();
+  }
+
+  private isCadabraAddress(address: string): boolean {
+    const normalized = this.normalizeAddress(address);
+    if (!normalized) return false;
+    return (
+      normalized === 'order-update@cadabra.com' ||
+      normalized === 'updates@cadabra.com' ||
+      normalized === 'jeff@cadabra.com' ||
+      normalized.endsWith('@cadabra.com')
+    );
   }
 
   private isBankAddress(address: string): boolean {

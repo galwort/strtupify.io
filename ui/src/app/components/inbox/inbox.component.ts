@@ -525,6 +525,17 @@ export class InboxComponent implements OnInit, OnDestroy {
     return addr.trim();
   }
 
+  private isCadabraAddress(address: string): boolean {
+    const normalized = this.normalizeAddress(address);
+    if (!normalized) return false;
+    return (
+      normalized === 'order-update@cadabra.com' ||
+      normalized === 'updates@cadabra.com' ||
+      normalized === 'jeff@cadabra.com' ||
+      normalized.endsWith('@cadabra.com')
+    );
+  }
+
   private isBankAddress(address: string): boolean {
     const normalized = this.normalizeAddress(address);
     if (!normalized) return false;
@@ -1817,6 +1828,9 @@ export class InboxComponent implements OnInit, OnDestroy {
     }
     if (normalized === 'mom@altavista.net') {
       return 'mom';
+    }
+    if (this.isCadabraAddress(normalized)) {
+      return 'cadabra';
     }
     if (this.isBankAddress(normalized)) {
       return 'bank';

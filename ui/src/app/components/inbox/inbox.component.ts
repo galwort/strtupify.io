@@ -525,6 +525,12 @@ export class InboxComponent implements OnInit, OnDestroy {
     return addr.trim();
   }
 
+  private isSupereatsAddress(address: string): boolean {
+    const normalized = this.normalizeAddress(address);
+    if (!normalized) return false;
+    return normalized === 'noreply@supereats.com' || normalized.endsWith('@supereats.com');
+  }
+
   private isCadabraAddress(address: string): boolean {
     const normalized = this.normalizeAddress(address);
     if (!normalized) return false;
@@ -655,6 +661,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     body: string;
   } | null = null;
   private superEatsProcessing = false;
+  private superEatsDisabled = false;
 
   private bankSendTime: number | null = null;
   private bankTemplate: {
@@ -766,6 +773,10 @@ export class InboxComponent implements OnInit, OnDestroy {
           this.updateDisplay();
           this.enqueueTick();
         }
+        this.superEatsDisabled = !!d.superEatsCancelled;
+        if (this.superEatsDisabled) this.superEatsSendTime = null;
+        else if (d.superEatsNextAt !== undefined)
+          this.superEatsSendTime = d.superEatsNextAt;
         if (d.calendarEmailSent) this.calendarEmailAt = null;
         else if (typeof d.calendarEmailAt === 'number')
           this.calendarEmailAt = d.calendarEmailAt;
@@ -956,7 +967,10 @@ export class InboxComponent implements OnInit, OnDestroy {
           this.speed = this.baseSpeed;
         }
       }
-      if (data.superEatsNextAt !== undefined) {
+      this.superEatsDisabled = !!data.superEatsCancelled;
+      if (this.superEatsDisabled) {
+        this.superEatsSendTime = null;
+      } else if (data.superEatsNextAt !== undefined) {
         this.superEatsSendTime = data.superEatsNextAt;
       } else {
         const firstAt = this.computeFirstDaySuperEats(this.simDate);
@@ -1383,6 +1397,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   private async checkSuperEatsEmail(): Promise<void> {
+    if (this.superEatsDisabled) return;
     if (!this.superEatsSendTime) return;
     if (this.simDate.getTime() < this.superEatsSendTime) return;
     if (!this.snacks.length) return;
@@ -1828,6 +1843,9 @@ export class InboxComponent implements OnInit, OnDestroy {
     }
     if (normalized === 'mom@altavista.net') {
       return 'mom';
+    }
+    if (this.isSupereatsAddress(normalized)) {
+      return 'supereats';
     }
     if (this.isCadabraAddress(normalized)) {
       return 'cadabra';

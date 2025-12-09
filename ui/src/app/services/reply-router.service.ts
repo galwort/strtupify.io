@@ -80,6 +80,18 @@ export class ReplyRouterService {
       });
       return;
     }
+    if (cat === 'supereats') {
+      const replyText = await this.getReplyBody(opts.companyId, opts.parentId || '');
+      await this.handleSupereatsConversation({
+        companyId: opts.companyId,
+        subject: opts.subject,
+        message: replyText,
+        threadId: opts.threadId,
+        parentId: opts.parentId,
+        timestamp: opts.timestamp,
+      });
+      return;
+    }
     if (cat === 'bank') {
       await this.sendBankAutoReply({
         companyId: opts.companyId,
@@ -316,6 +328,17 @@ export class ReplyRouterService {
       });
       return;
     }
+    if (this.isSupereatsAddress(normalized)) {
+      await this.handleSupereatsConversation({
+        companyId: opts.companyId,
+        subject: opts.subject,
+        message: opts.message,
+        threadId: opts.threadId,
+        parentId: opts.parentId,
+        timestamp: opts.timestamp,
+      });
+      return;
+    }
     if (this.isCadabraAddress(normalized)) {
       await this.handleCadabraConversation({
         companyId: opts.companyId,
@@ -405,6 +428,48 @@ export class ReplyRouterService {
     await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), docPayload);
   }
 
+  private async handleSupereatsConversation(opts: {
+    companyId: string;
+    subject: string;
+    message: string;
+    threadId: string;
+    parentId?: string;
+    timestamp?: string;
+  }): Promise<void> {
+    const meAddress = await this.getMeAddress(opts.companyId);
+    const decision = await this.classifySupereatsCancellation(opts.message || '');
+    const baseSubject = (opts.subject || '').trim() || '(no subject)';
+
+    if (!decision.cancel) {
+      await this.sendSupereatsTemplateEmail({
+        companyId: opts.companyId,
+        templatePath: 'emails/supereats-generic.md',
+        fallbackSubject: `Re: ${baseSubject}`,
+        meAddress,
+        threadId: opts.threadId,
+        parentId: opts.parentId,
+        timestamp: opts.timestamp,
+      });
+      return;
+    }
+
+    const stage = await this.advanceSupereatsCancelStage(opts.companyId);
+    const templatePath = this.supereatsTemplateForStage(stage);
+    await this.sendSupereatsTemplateEmail({
+      companyId: opts.companyId,
+      templatePath,
+      fallbackSubject: `Re: ${baseSubject}`,
+      meAddress,
+      threadId: opts.threadId,
+      parentId: opts.parentId,
+      timestamp: opts.timestamp,
+    });
+
+    if (stage >= 4) {
+      await this.disableSuperEatsEmails(opts.companyId);
+    }
+  }
+
   private async handleMomConversation(opts: {
     companyId: string;
     subject: string;
@@ -476,6 +541,142 @@ export class ReplyRouterService {
         );
       } catch {}
     }
+  }
+
+  private supereatsTemplateForStage(stage: number): string {
+    if (stage >= 4) return 'emails/supereats-cancel-block.md';
+    if (stage === 3) return 'emails/supereats-cancel-gold.md';
+    if (stage === 2) return 'emails/supereats-cancel-plus.md';
+    return 'emails/supereats-cancel-ack.md';
+  }
+
+  private async classifySupereatsCancellation(
+    message: string
+  ): Promise<{ cancel: boolean; confidence: number; source: string }> {
+    const text = (message || '').trim();
+    if (!text) return { cancel: false, confidence: 0, source: 'empty' };
+    try {
+      const res = await this.http
+        .post<any>('https://fa-strtupifyio.azurewebsites.net/api/supereats_cancel', {
+          message: text,
+        })
+        .toPromise();
+      const cancel = !!(res && res.cancel);
+      const confidence = Number(res && res.confidence);
+      const source = String((res && res.source) || 'api');
+      return {
+        cancel,
+        confidence: Number.isFinite(confidence) ? confidence : 0,
+        source,
+      };
+    } catch {
+      const lower = text.toLowerCase();
+      const keywords = ['cancel', 'stop', 'undo', 'wrong order', 'do not charge', 'reverse'];
+      const cancel = keywords.some((k) => lower.includes(k));
+      return { cancel, confidence: cancel ? 0.4 : 0, source: 'fallback' };
+    }
+  }
+
+  private async advanceSupereatsCancelStage(companyId: string): Promise<number> {
+    const ref = doc(db, `companies/${companyId}`);
+    const now = new Date().toISOString();
+    let stage = 1;
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        const data = (snap && (snap.data() as any)) || {};
+        const prev = Number.isFinite(data.superEatsCancelStage)
+          ? Number(data.superEatsCancelStage)
+          : 0;
+        stage = Math.min(4, Math.max(1, prev + 1));
+        const update: any = {
+          superEatsCancelStage: stage,
+          superEatsCancelUpdatedAt: now,
+        };
+        if (stage >= 4) {
+          update.superEatsNextAt = null;
+          update.superEatsEmailInProgress = false;
+          update.superEatsCancelled = true;
+          update.superEatsCancelledAt = now;
+        }
+        tx.set(ref, update, { merge: true });
+      });
+    } catch {
+      try {
+        const update: any = {
+          superEatsCancelStage: stage,
+          superEatsCancelUpdatedAt: now,
+          superEatsCancelled: stage >= 4,
+        };
+        if (stage >= 4) {
+          update.superEatsCancelledAt = now;
+          update.superEatsNextAt = null;
+          update.superEatsEmailInProgress = false;
+        }
+        await setDoc(ref, update, { merge: true });
+      } catch {}
+    }
+    return stage;
+  }
+
+  private async disableSuperEatsEmails(companyId: string): Promise<void> {
+    const ref = doc(db, `companies/${companyId}`);
+    const now = new Date().toISOString();
+    try {
+      await setDoc(
+        ref,
+        {
+          superEatsNextAt: null,
+          superEatsEmailInProgress: false,
+          superEatsCancelled: true,
+          superEatsCancelledAt: now,
+        },
+        { merge: true }
+      );
+    } catch {}
+  }
+
+  private async sendSupereatsTemplateEmail(opts: {
+    companyId: string;
+    templatePath: string;
+    fallbackSubject: string;
+    meAddress: string;
+    threadId: string;
+    parentId?: string;
+    timestamp?: string;
+  }): Promise<void> {
+    let template: { from?: string; subject?: string; banner?: boolean; deleted?: boolean; body: string } = {
+      body: '',
+    };
+    try {
+      template = await this.loadTemplate(opts.templatePath);
+    } catch {
+      template = { body: '' };
+    }
+    const from = template.from || 'support@supereats.com';
+    const subject = template.subject || opts.fallbackSubject || 'Re: Your Super Eats order';
+    const message =
+      (template.body || '').trim() ||
+      'Your email has been received. Thank you for contacting Super Eats support.';
+    const deleted = typeof template.deleted === 'boolean' ? template.deleted : false;
+    const banner = typeof template.banner === 'boolean' ? template.banner : true;
+    const emailId = `supereats-reply-${Date.now()}`;
+    const base = opts.timestamp ? new Date(opts.timestamp) : new Date();
+    const timestamp = new Date(base.getTime() + 1).toISOString();
+    const payload: any = {
+      from,
+      to: opts.meAddress,
+      subject,
+      message,
+      deleted,
+      banner,
+      timestamp,
+      threadId: opts.threadId,
+      category: 'supereats',
+      avatarUrl: 'assets/supereats-avatar.png',
+    };
+    if (opts.parentId) payload.parentId = opts.parentId;
+    await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), payload);
   }
 
   private async sendBankAutoReply(opts: {
@@ -926,6 +1127,12 @@ export class ReplyRouterService {
       normalized === 'jeff@cadabra.com' ||
       normalized.endsWith('@cadabra.com')
     );
+  }
+
+  private isSupereatsAddress(address: string): boolean {
+    const normalized = this.normalizeAddress(address);
+    if (!normalized) return false;
+    return normalized === 'noreply@supereats.com' || normalized.endsWith('@supereats.com');
   }
 
   private isBankAddress(address: string): boolean {

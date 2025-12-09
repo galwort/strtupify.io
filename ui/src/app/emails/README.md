@@ -13,6 +13,11 @@ Templates:
 
 - vlad-welcome.md: initial onboarding email from Vlad
 - supereats.md: Super Eats order notification template
+- supereats-cancel-ack.md: Super Eats cancellation acknowledgement with Subscription Plus offer
+- supereats-cancel-plus.md: Confirmation that Subscription Plus was added
+- supereats-cancel-gold.md: Upgrade notice to the Subscription Gold plan
+- supereats-cancel-block.md: Final escalation that blocks the account and stops future emails
+- supereats-generic.md: Generic acknowledgement for non-cancellation Super Eats emails
 - bank.md: Fifth Fourth Bank payroll disbursement notification template
 - bank-autoreply.md: Fifth Fourth automated legal/compliance acknowledgement for outbound messages
 - cadabra.md: Cadabra (not-Amazon) order confirmation template

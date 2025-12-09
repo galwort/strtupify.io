@@ -68,6 +68,16 @@ export class ReplyRouterService {
       });
       return;
     }
+    if (cat === 'bank') {
+      await this.sendBankAutoReply({
+        companyId: opts.companyId,
+        subject: opts.subject,
+        threadId: opts.threadId,
+        parentId: opts.parentId,
+        timestamp: opts.timestamp,
+      });
+      return;
+    }
     if (cat === 'kickoff') {
       const meAddress = await this.getMeAddress(opts.companyId);
       const replyText = await this.getReplyBody(opts.companyId, opts.parentId || '');
@@ -270,7 +280,7 @@ export class ReplyRouterService {
     parentId: string;
     timestamp?: string;
   }): Promise<void> {
-    const normalized = (opts.to || '').trim().toLowerCase();
+    const normalized = this.normalizeAddress(opts.to);
     if (!normalized) return;
     if (normalized === 'vlad@strtupify.io') {
       await this.handleReply({
@@ -288,6 +298,16 @@ export class ReplyRouterService {
         companyId: opts.companyId,
         subject: opts.subject,
         message: opts.message,
+        threadId: opts.threadId,
+        parentId: opts.parentId,
+        timestamp: opts.timestamp,
+      });
+      return;
+    }
+    if (this.isBankAddress(normalized)) {
+      await this.sendBankAutoReply({
+        companyId: opts.companyId,
+        subject: opts.subject,
         threadId: opts.threadId,
         parentId: opts.parentId,
         timestamp: opts.timestamp,
@@ -376,6 +396,132 @@ export class ReplyRouterService {
         );
       } catch {}
     }
+  }
+
+  private async sendBankAutoReply(opts: {
+    companyId: string;
+    subject: string;
+    threadId: string;
+    parentId?: string;
+    timestamp?: string;
+  }): Promise<void> {
+    const meAddress = await this.getMeAddress(opts.companyId);
+    const { ticket, etaHours, etaText } = await this.nextBankTicket(opts.companyId);
+    const subjectLabel = (opts.subject || '').trim() || '(no subject)';
+    const context: Record<string, string> = {
+      SUBJECT: subjectLabel,
+      TICKET_NUMBER: ticket,
+      ETA_TEXT: etaText,
+      ETA_HOURS: String(Math.max(1, Math.round(etaHours || 0))),
+    };
+
+    let from = 'compliance@54.com';
+    let subject = `Re: ${subjectLabel}`;
+    let banner = true;
+    let deleted = false;
+    const fallbackLines = [
+      'Fifth Fourth Bank Automated Notice',
+      '',
+      'This communication may contain privileged or confidential information intended solely for the recipient. Unauthorized review, use, or disclosure is prohibited and may violate applicable banking regulations.',
+      '',
+      `Ticket ${ticket} has been logged for your message. Estimated response ETA: ${etaText}.`,
+      'Correspondence may be monitored and retained for supervision, audit, and quality assurance purposes.',
+      '',
+      'Do not transmit payment instructions or account changes via unsecured email. Contact your Relationship Manager for urgent matters.',
+      '',
+      'Thank you for banking with Fifth Fourth Bank.',
+    ];
+    let body = fallbackLines.join('\n');
+
+    try {
+      const template = await this.loadTemplate('emails/bank-autoreply.md');
+      const rendered = this.renderTemplate(template, context);
+      from = rendered.from || from;
+      subject = rendered.subject || subject;
+      banner = typeof rendered.banner === 'boolean' ? rendered.banner : banner;
+      deleted = typeof rendered.deleted === 'boolean' ? rendered.deleted : deleted;
+      body = rendered.body || body;
+    } catch {}
+
+    const base = opts.timestamp ? new Date(opts.timestamp) : new Date();
+    const timestamp = new Date(base.getTime() + 1).toISOString();
+    const emailId = `bank-auto-${Date.now()}`;
+    const payload: any = {
+      from,
+      to: meAddress,
+      subject,
+      message: body,
+      deleted,
+      banner,
+      timestamp,
+      threadId: opts.threadId,
+      category: 'bank',
+      bankTicketNumber: ticket,
+      bankEtaHours: etaHours,
+      bankEtaText: etaText,
+    };
+    if (opts.parentId) payload.parentId = opts.parentId;
+    await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), payload);
+  }
+
+  private async nextBankTicket(companyId: string): Promise<{ ticket: string; etaHours: number; etaText: string }> {
+    const ref = doc(db, `companies/${companyId}`);
+    let ticketNumber = this.formatBankTicket(1);
+    let etaHours = 72;
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        const data = (snap && (snap.data() as any)) || {};
+        const prevCounter =
+          typeof data.bankAutoTicketCounter === 'number' && Number.isFinite(data.bankAutoTicketCounter)
+            ? Math.max(0, Math.floor(data.bankAutoTicketCounter))
+            : 0;
+        const prevEta =
+          typeof data.bankAutoEtaHours === 'number' && Number.isFinite(data.bankAutoEtaHours) && data.bankAutoEtaHours > 0
+            ? Number(data.bankAutoEtaHours)
+            : 36;
+        const nextCounter = prevCounter + 1;
+        const etaBump = this.randomInt(18, 42);
+        let nextEta = prevEta + etaBump;
+        if (nextEta <= prevEta) nextEta = prevEta + etaBump + 6;
+        tx.set(
+          ref,
+          { bankAutoTicketCounter: nextCounter, bankAutoEtaHours: nextEta, bankAutoUpdatedAt: new Date().toISOString() },
+          { merge: true }
+        );
+        ticketNumber = this.formatBankTicket(nextCounter);
+        etaHours = nextEta;
+      });
+    } catch {
+      try {
+        const fallbackCounter = this.randomInt(1000, 9999);
+        const fallbackEta = this.randomInt(48, 96);
+        await setDoc(
+          ref,
+          { bankAutoTicketCounter: fallbackCounter, bankAutoEtaHours: fallbackEta, bankAutoUpdatedAt: new Date().toISOString() },
+          { merge: true }
+        );
+        ticketNumber = this.formatBankTicket(fallbackCounter);
+        etaHours = fallbackEta;
+      } catch {}
+    }
+    const etaText = this.describeBankEta(etaHours);
+    return { ticket: ticketNumber, etaHours, etaText };
+  }
+
+  private formatBankTicket(counter: number): string {
+    const safe = Number.isFinite(counter) && counter > 0 ? Math.floor(counter) : 1;
+    return `54-${safe.toString().padStart(6, '0')}`;
+  }
+
+  private describeBankEta(hours: number): string {
+    if (!Number.isFinite(hours) || hours <= 0) return '72 hours';
+    const rounded = Math.max(1, Math.round(hours));
+    if (rounded >= 24) {
+      const days = Math.ceil(rounded / 24);
+      return `${days} business day${days === 1 ? '' : 's'}`;
+    }
+    return `${rounded} hours`;
   }
 
   private async sendMailerDaemonBounce(opts: {
@@ -681,6 +827,26 @@ export class ReplyRouterService {
     } catch {
       return `me@${companyId}.com`;
     }
+  }
+
+  private normalizeAddress(raw: string): string {
+    const text = String(raw || '').trim().toLowerCase();
+    if (!text) return '';
+    const match = text.match(/<([^>]+)>/);
+    const addr = match ? match[1] : text;
+    return addr.trim();
+  }
+
+  private isBankAddress(address: string): boolean {
+    const normalized = this.normalizeAddress(address);
+    if (!normalized) return false;
+    return (
+      normalized === 'noreply@54.com' ||
+      normalized === 'noreply@54bank.com' ||
+      normalized.endsWith('@54.com') ||
+      normalized.endsWith('@54bank.com') ||
+      normalized.includes('fifthfourth')
+    );
   }
 
   private loadTemplate(path: string): Promise<{ from?: string; subject?: string; banner?: boolean; deleted?: boolean; body: string }>

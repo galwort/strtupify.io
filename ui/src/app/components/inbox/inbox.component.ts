@@ -525,6 +525,18 @@ export class InboxComponent implements OnInit, OnDestroy {
     return addr.trim();
   }
 
+  private isBankAddress(address: string): boolean {
+    const normalized = this.normalizeAddress(address);
+    if (!normalized) return false;
+    return (
+      normalized === 'noreply@54.com' ||
+      normalized === 'noreply@54bank.com' ||
+      normalized.endsWith('@54.com') ||
+      normalized.endsWith('@54bank.com') ||
+      normalized.includes('fifthfourth')
+    );
+  }
+
   private vladAvatarForTimestamp(ts: number | null): string {
     if (
       this.vladOpenToWorkAt !== null &&
@@ -1799,12 +1811,15 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   private resolveRecipientCategory(address: string): string {
-    const normalized = (address || '').trim().toLowerCase();
+    const normalized = this.normalizeAddress(address);
     if (normalized === 'vlad@strtupify.io') {
       return 'vlad';
     }
     if (normalized === 'mom@altavista.net') {
       return 'mom';
+    }
+    if (this.isBankAddress(normalized)) {
+      return 'bank';
     }
     return 'outbound';
   }

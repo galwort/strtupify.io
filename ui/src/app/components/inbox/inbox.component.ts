@@ -25,6 +25,7 @@ import { environment } from 'src/environments/environment';
 import { EndgameService, EndgameStatus } from '../../services/endgame.service';
 import { UiStateService } from '../../services/ui-state.service';
 import { AvatarMood, buildAvatarUrl, burnoutMood, normalizeOutcomeStatus, outcomeMood } from 'src/app/utils/avatar';
+import { fallbackEmployeeColor, normalizeEmployeeColor } from 'src/app/utils/employee-colors';
 
 const fbApp = getApps().length
   ? getApps()[0]
@@ -44,6 +45,7 @@ type EmployeeAvatarSource = {
   avatarName: string;
   directUrl: string | null;
   burnout: boolean;
+  color: string | null;
 };
 
 type EmployeeAvatarRecord = EmployeeAvatarSource & {
@@ -269,10 +271,12 @@ export class InboxComponent implements OnInit, OnDestroy {
         const stress = Math.max(0, Math.min(100, Number(data.stress || 0)));
         const status = String(data.status || '');
         const burnout = burnoutMood(stress, status) === 'sad';
+        const color = normalizeEmployeeColor(data.calendarColor || data.color) || fallbackEmployeeColor(d.id);
         sources.set(this.normalizeName(name), {
           avatarName,
           directUrl: directUrl || null,
           burnout,
+          color,
         });
       });
       this.employeeAvatarSources = sources;
@@ -308,17 +312,85 @@ export class InboxComponent implements OnInit, OnDestroy {
     const map = new Map<string, EmployeeAvatarRecord>();
     this.employeeAvatarSources.forEach((src, key) => {
       const mood: AvatarMood = src.burnout ? 'sad' : this.endgameOutcomeMood || 'neutral';
-      const built = src.avatarName ? buildAvatarUrl(src.avatarName, mood) : '';
-      const preferMood = src.burnout || mood !== 'neutral';
-      const url = preferMood ? built || src.directUrl || null : src.directUrl || built || null;
-      map.set(key, {
-        ...src,
-        mood,
-        url,
-      });
+      const record: EmployeeAvatarRecord = { ...src, mood, url: null };
+      const url = this.buildAvatarUrlForRecord(key, record, mood);
+      map.set(key, { ...record, url });
     });
     this.employeeAvatars = map;
     this.refreshEmailAvatars();
+  }
+
+  private avatarCacheKey(src: EmployeeAvatarSource, mood: AvatarMood, color?: string | null): string {
+    return `${src.avatarName || ''}|${mood}|${color || ''}`;
+  }
+
+  private buildAvatarUrlForRecord(
+    nameKey: string,
+    record: EmployeeAvatarRecord,
+    moodOverride?: AvatarMood | null
+  ): string | null {
+    const baseMood =
+      this.normalizeMoodValue(moodOverride || record.mood) || this.endgameOutcomeMood || 'neutral';
+    const mood: AvatarMood = record.burnout ? 'sad' : baseMood;
+    const color = normalizeEmployeeColor(record.color);
+    const baseUrl = record.avatarName ? buildAvatarUrl(record.avatarName, mood) : '';
+    const cacheKey = color && baseUrl ? this.avatarCacheKey(record, mood, color) : null;
+    const cached = cacheKey ? this.avatarColorCache.get(cacheKey) : undefined;
+    if (!cached && cacheKey && baseUrl) {
+      void this.fetchAndColorAvatar(cacheKey, baseUrl, color, nameKey, mood);
+    }
+    const preferMood = record.burnout || mood !== 'neutral';
+    const moodUrl = cached || baseUrl || null;
+    const fallback = record.directUrl;
+    return preferMood ? moodUrl || fallback || record.url : fallback || moodUrl || record.url;
+  }
+
+  private async fetchAndColorAvatar(
+    cacheKey: string,
+    baseUrl: string,
+    color: string,
+    nameKey: string,
+    mood: AvatarMood
+  ): Promise<void> {
+    if (this.pendingAvatarFetches.has(cacheKey)) return this.pendingAvatarFetches.get(cacheKey)!;
+    const task = (async () => {
+      try {
+        const resp = await fetch(baseUrl);
+        if (!resp.ok) throw new Error(`avatar_status_${resp.status}`);
+        const svg = await resp.text();
+        const updated = svg.replace(/#262E33/gi, color);
+        const uri = this.svgToDataUri(updated);
+        this.avatarColorCache.set(cacheKey, uri);
+        this.applyColoredAvatar(nameKey, mood, cacheKey, uri);
+      } catch (err) {
+        console.error('Failed to recolor avatar', err);
+      } finally {
+        this.pendingAvatarFetches.delete(cacheKey);
+      }
+    })();
+    this.pendingAvatarFetches.set(cacheKey, task);
+    return task;
+  }
+
+  private applyColoredAvatar(nameKey: string, mood: AvatarMood, cacheKey: string, url: string): void {
+    const record = this.employeeAvatars.get(nameKey);
+    if (!record) return;
+    const color = normalizeEmployeeColor(record.color);
+    const expectedKey = color ? this.avatarCacheKey(record, mood, color) : null;
+    if (expectedKey !== cacheKey) return;
+    const preferMood = record.burnout || mood !== 'neutral';
+    const nextUrl = preferMood ? url || record.directUrl || record.url : record.directUrl || url || record.url;
+    this.employeeAvatars.set(nameKey, { ...record, url: nextUrl, mood });
+    this.refreshEmailAvatars();
+  }
+
+  private svgToDataUri(svg: string): string {
+    const encoded = btoa(
+      encodeURIComponent(svg).replace(/%([0-9A-F]{2})/g, (_match, p1) =>
+        String.fromCharCode(parseInt(p1, 16))
+      )
+    );
+    return `data:image/svg+xml;base64,${encoded}`;
   }
 
   private extractOutcomeMood(data: any): AvatarMood | null {
@@ -494,13 +566,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     if (!key) return null;
     const record = this.employeeAvatars.get(key);
     if (!record) return null;
-    const baseMood =
-      this.normalizeMoodValue(moodOverride || record.mood) || this.endgameOutcomeMood || 'neutral';
-    const mood: AvatarMood = record.burnout ? 'sad' : baseMood;
-    const built = record.avatarName ? buildAvatarUrl(record.avatarName, mood) : '';
-    const preferMood = record.burnout || mood !== 'neutral';
-    if (preferMood && built) return built;
-    return record.directUrl || built || record.url || null;
+    return this.buildAvatarUrlForRecord(key, record, moodOverride);
   }
 
   private normalizeName(name: string): string {
@@ -550,6 +616,8 @@ export class InboxComponent implements OnInit, OnDestroy {
   private pendingSelectionId: string | null = null;
   private employeeAvatarSources = new Map<string, EmployeeAvatarSource>();
   private employeeAvatars = new Map<string, EmployeeAvatarRecord>();
+  private avatarColorCache = new Map<string, string>();
+  private pendingAvatarFetches = new Map<string, Promise<void>>();
   private employeeAvatarUnsub: (() => void) | null = null;
   private endgameOutcomeMood: AvatarMood | null = null;
   private readonly markingRead = new Set<string>();

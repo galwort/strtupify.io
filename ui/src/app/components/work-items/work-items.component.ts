@@ -27,7 +27,8 @@ import {
   StressMetrics,
 } from '../../services/stress.service';
 import { EndgameService, EndgameStatus } from '../../services/endgame.service';
-import { buildAvatarUrl } from '../../utils/avatar';
+import { AvatarMood, buildAvatarUrl } from '../../utils/avatar';
+import { fallbackEmployeeColor, normalizeEmployeeColor } from '../../utils/employee-colors';
 
 type WorkItem = {
   id: string;
@@ -60,6 +61,7 @@ type HireSummary = {
   avatarUrl?: string;
   avatarName?: string;
   initials: string;
+  color?: string;
 };
 
 type ProductInfo = {
@@ -119,6 +121,8 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   private endgameStatus: EndgameStatus = 'idle';
   private endgameSub: Subscription | null = null;
   private companySnapshotSeen = false;
+  private avatarColorCache = new Map<string, string>();
+  private pendingAvatarFetches = new Map<string, Promise<void>>();
 
   constructor(private ui: UiStateService, private endgame: EndgameService) {}
 
@@ -804,11 +808,13 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
         const statusRaw = String(h.status || 'Active');
         const status: 'Active' | 'Burnout' = statusRaw === 'Burnout' ? 'Burnout' : 'Active';
         const multiplier = getStressMultiplier(persistedStress, status);
+        const directAvatarUrl = String(h.avatarUrl || h.avatar_url || '').trim();
         const avatarName = String(h.avatar || h.photo || h.photoUrl || h.image || '').trim();
-        const avatarUrl = buildAvatarUrl(avatarName, 'neutral');
+        const avatarUrl = directAvatarUrl || buildAvatarUrl(avatarName, 'neutral');
         const initials = this.initialsFor(String(h.name || h.id));
         const name = String(h.name || '');
         const title = String(h.title || '');
+        const color = normalizeEmployeeColor(h.calendarColor || h.color) || fallbackEmployeeColor(h.id);
         list.push({
           id: h.id,
           name,
@@ -821,12 +827,16 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
           avatarName,
           avatarUrl,
           initials,
+          color,
         });
         this.lastPersistedStress.set(h.id, { stress: persistedStress, status });
       }
       this.hires = list;
       this.empById.clear();
       for (const e of list) this.empById.set(e.id, e);
+      this.hires.forEach((hire) => {
+        if (hire.avatarName && hire.color) void this.colorizeAvatar(hire);
+      });
       this.scheduleRateGeneration();
       this.recomputeStress();
     } catch (err) {
@@ -891,6 +901,59 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     if (anyLoad) {
       this.activateHrModuleOnce();
     }
+  }
+
+  private avatarCacheKey(hire: HireSummary, mood: AvatarMood, color: string): string {
+    return `${hire.avatarName || ''}|${mood}|${color || ''}`;
+  }
+
+  private async colorizeAvatar(hire: HireSummary, mood: AvatarMood = 'neutral'): Promise<void> {
+    const color = normalizeEmployeeColor(hire.color);
+    if (!color || !hire.avatarName) return;
+    const baseUrl = buildAvatarUrl(hire.avatarName, mood);
+    if (!baseUrl) return;
+    const cacheKey = this.avatarCacheKey(hire, mood, color);
+    const cached = this.avatarColorCache.get(cacheKey);
+    if (cached) {
+      this.applyHireAvatarUrl(hire.id, cached);
+      return;
+    }
+    if (this.pendingAvatarFetches.has(cacheKey)) {
+      await this.pendingAvatarFetches.get(cacheKey);
+      return;
+    }
+    const task = (async () => {
+      try {
+        const resp = await fetch(baseUrl);
+        if (!resp.ok) throw new Error(`avatar_status_${resp.status}`);
+        const svg = await resp.text();
+        const updated = svg.replace(/#262E33/gi, color);
+        const uri = this.svgToDataUri(updated);
+        this.avatarColorCache.set(cacheKey, uri);
+        this.applyHireAvatarUrl(hire.id, uri);
+      } catch (err) {
+        console.error('Failed to recolor avatar', err);
+      } finally {
+        this.pendingAvatarFetches.delete(cacheKey);
+      }
+    })();
+    this.pendingAvatarFetches.set(cacheKey, task);
+    await task;
+  }
+
+  private applyHireAvatarUrl(hireId: string, url: string): void {
+    this.hires = this.hires.map((h) => (h.id === hireId ? { ...h, avatarUrl: url } : h));
+    const cached = this.empById.get(hireId);
+    if (cached) this.empById.set(hireId, { ...cached, avatarUrl: url });
+  }
+
+  private svgToDataUri(svg: string): string {
+    const encoded = btoa(
+      encodeURIComponent(svg).replace(/%([0-9A-F]{2})/g, (_m, p1) =>
+        String.fromCharCode(parseInt(p1, 16))
+      )
+    );
+    return `data:image/svg+xml;base64,${encoded}`;
   }
 
   private activateHrModuleOnce() {

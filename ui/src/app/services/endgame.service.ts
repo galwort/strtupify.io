@@ -18,7 +18,8 @@ import {
   where,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
-import { buildAvatarUrl, normalizeOutcomeStatus, outcomeMood } from '../utils/avatar';
+import { buildAvatarUrl, EndgameOutcome, normalizeOutcomeStatus, outcomeMood } from '../utils/avatar';
+import { STRESS_BURNOUT_THRESHOLD } from './stress.service';
 
 export type EndgameStatus = 'idle' | 'triggered' | 'resolved';
 
@@ -29,6 +30,27 @@ export interface EndgameState {
   triggeredAt?: number;
   resetAt?: number;
 }
+
+type EndgameCreditsStats = {
+  companyName: string;
+  outcome: EndgameOutcome;
+  netProfit: number;
+  companySize: number;
+  tasksCompleted: { done: number; total: number };
+  focusPoints: number;
+  burnoutCount: number;
+  supereatsSpend: number;
+  jeffLevel: number | null;
+};
+
+type LedgerTotals = {
+  payroll: number;
+  supereats: number;
+  cadabra: number;
+  momGifts: number;
+  jeffAttempts: number;
+  sawJeff: boolean;
+};
 
 @Injectable({ providedIn: 'root' })
 export class EndgameService implements OnDestroy {
@@ -169,9 +191,13 @@ export class EndgameService implements OnDestroy {
       const timestampIso = emailDate.toISOString();
 
       const vladSent = await this.sendVladResetEmail(meAddress, timestampIso, elapsedMs);
-      const outcomeSent = await this.sendOutcomeEmail(meAddress, months, timestampIso, triggeredAt, resetAt);
+      const outcomeResult = await this.sendOutcomeEmail(meAddress, months, timestampIso, triggeredAt, resetAt);
+      const creditsStats = await this.buildCreditsStats(data, outcomeResult.outcomeStatus);
+      const creditsSent = creditsStats
+        ? await this.sendCreditsEmail(meAddress, timestampIso, creditsStats)
+        : false;
 
-      if (vladSent || outcomeSent) {
+      if (vladSent || outcomeResult.sent || creditsSent) {
         await updateDoc(ref, { endgameEmailsSent: true });
       }
     } catch (err) {
@@ -240,7 +266,7 @@ export class EndgameService implements OnDestroy {
     timestampIso: string,
     triggeredAt?: number,
     resetAt?: number
-  ): Promise<boolean> {
+  ): Promise<{ sent: boolean; outcomeStatus: EndgameOutcome; estimatedRevenue: number | null }> {
     const companyRef = doc(this.db, 'companies', this.companyId);
     const sender = await this.resolveKickoffSender();
     const product = await this.loadAcceptedProduct();
@@ -313,6 +339,188 @@ export class EndgameService implements OnDestroy {
           endgameOutcomeMood: outcomeAvatarMood,
         });
       } catch {}
+      return { sent: true, outcomeStatus, estimatedRevenue };
+    } catch {
+      return { sent: false, outcomeStatus, estimatedRevenue };
+    }
+  }
+
+  private async buildCreditsStats(companyData: any, outcomeHint: EndgameOutcome): Promise<EndgameCreditsStats | null> {
+    if (!this.companyId) return null;
+    const companyName =
+      (companyData && typeof companyData.company_name === 'string' && companyData.company_name.trim()) ||
+      this.companyId;
+    const focusPointsRaw = Number(companyData?.focusPoints ?? 0);
+    const focusPoints = Number.isFinite(focusPointsRaw) ? Math.max(0, Math.round(focusPointsRaw)) : 0;
+    const fundingApproved = !!companyData?.funding?.approved;
+    const fundingAmount = fundingApproved ? this.safeNumber(companyData?.funding?.amount) : 0;
+
+    let companySize = 0;
+    let burnoutCount = 0;
+    try {
+      const employeesSnap = await getDocs(
+        query(collection(this.db, `companies/${this.companyId}/employees`), where('hired', '==', true))
+      );
+      employeesSnap.forEach((docSnap) => {
+        const data = (docSnap.data() as any) || {};
+        companySize += 1;
+        const stress = this.safeNumber(data.stress);
+        const status = String(data.status || '').toLowerCase();
+        const burnedOut = status === 'burnout' || stress >= STRESS_BURNOUT_THRESHOLD;
+        if (burnedOut) burnoutCount += 1;
+      });
+    } catch {}
+
+    let tasksTotal = 0;
+    let tasksDone = 0;
+    try {
+      const workSnap = await getDocs(collection(this.db, `companies/${this.companyId}/workitems`));
+      workSnap.forEach((docSnap) => {
+        const status = String((docSnap.data() as any)?.status || '').toLowerCase();
+        tasksTotal += 1;
+        if (status === 'done') tasksDone += 1;
+      });
+    } catch {}
+
+    const ledger = await this.loadLedgerTotals();
+    const momGifts = this.safeNumber(ledger.momGifts);
+    const netProfit = fundingAmount + momGifts - ledger.payroll - ledger.supereats - ledger.cadabra;
+
+    const jeffCountCandidates = [
+      ledger.jeffAttempts,
+      this.safeInt(companyData?.cadabraReplyCount),
+      this.safeInt(companyData?.cadabraJeffCount),
+    ];
+    const maxJeffAttempt = Math.max(0, ...jeffCountCandidates.filter((n) => Number.isFinite(n)));
+    const sawJeff = ledger.sawJeff || maxJeffAttempt > 0;
+    const jeffLevel = sawJeff ? Math.min(5, Math.max(1, maxJeffAttempt || 1)) * 20 : null;
+
+    const fallbackOutcome = normalizeOutcomeStatus(
+      companyData?.endgameOutcome || companyData?.outcomeStatus || '',
+      null
+    );
+    const outcome =
+      outcomeHint && outcomeHint !== 'unknown'
+        ? outcomeHint
+        : fallbackOutcome !== 'unknown'
+        ? fallbackOutcome
+        : 'unknown';
+
+    return {
+      companyName,
+      outcome,
+      netProfit,
+      companySize,
+      tasksCompleted: { done: tasksDone, total: tasksTotal },
+      focusPoints,
+      burnoutCount,
+      supereatsSpend: ledger.supereats,
+      jeffLevel,
+    };
+  }
+
+  private async loadLedgerTotals(): Promise<LedgerTotals> {
+    const totals: LedgerTotals = {
+      payroll: 0,
+      supereats: 0,
+      cadabra: 0,
+      momGifts: 0,
+      jeffAttempts: 0,
+      sawJeff: false,
+    };
+    if (!this.companyId) return totals;
+    try {
+      const inboxRef = collection(this.db, `companies/${this.companyId}/inbox`);
+      const snap = await getDocs(
+        query(inboxRef, where('category', 'in', ['bank', 'supereats', 'mom-gift', 'cadabra']))
+      );
+      snap.forEach((docSnap) => {
+        const data = (docSnap.data() as any) || {};
+        const category = String(data.category || '').toLowerCase();
+        if (category === 'bank') {
+          totals.payroll += this.parsePayrollTotal(data);
+        } else if (category === 'supereats') {
+          totals.supereats += this.parseSuperEatsTotal(data);
+        } else if (category === 'cadabra') {
+          totals.cadabra += this.parseCadabraTotal(data);
+          const attempt = this.safeInt(
+            data.cadabraReplyAttempt ?? data.cadabraAttempt ?? data.cadabraJeffAttempt ?? data.cadabraReplyCount
+          );
+          if (attempt > totals.jeffAttempts) totals.jeffAttempts = attempt;
+          const from = String(data.from || '').toLowerCase();
+          if (from.includes('jeff@cadabra.com')) {
+            totals.sawJeff = true;
+            if (totals.jeffAttempts < 1) totals.jeffAttempts = 1;
+          }
+        } else if (category === 'mom-gift') {
+          totals.momGifts += this.parseMomGiftAmount(data);
+        }
+      });
+    } catch {}
+    totals.payroll = Math.max(0, this.safeNumber(totals.payroll));
+    totals.supereats = Math.max(0, this.safeNumber(totals.supereats));
+    totals.cadabra = Math.max(0, this.safeNumber(totals.cadabra));
+    totals.momGifts = Math.max(0, this.safeNumber(totals.momGifts));
+    return totals;
+  }
+
+  private async sendCreditsEmail(to: string, timestampIso: string, stats: EndgameCreditsStats): Promise<boolean> {
+    const subject = 'Thank you!';
+    const outcomeLabel = this.formatOutcomeLabel(stats.outcome);
+    const tasksLabel =
+      stats.tasksCompleted.total > 0
+        ? `${stats.tasksCompleted.done} / ${stats.tasksCompleted.total}`
+        : `${stats.tasksCompleted.done}`;
+    const lines = [
+      'Hello End User,',
+      '',
+      'Thank you for playing my game!',
+      '',
+      'STATS',
+      `${stats.companyName} - ${outcomeLabel}`,
+      `Net Profit: ${this.formatCurrency(stats.netProfit)}`,
+      `Company Size: ${this.formatNumber(stats.companySize)}`,
+      `Tasks Completed: ${tasksLabel}`,
+      `Focus Points Earned: ${this.formatNumber(stats.focusPoints)}`,
+      `Employees Burnt Out: ${this.formatNumber(stats.burnoutCount)}`,
+      `Money Spent on Food Delivery: ${this.formatCurrency(stats.supereatsSpend)}`,
+    ];
+    if (stats.jeffLevel !== null) {
+      lines.push(`Jeff Unhinged Level: ${Math.min(100, Math.round(stats.jeffLevel))}%`);
+    }
+    lines.push(
+      '',
+      'CREDITS',
+      'Game Designer - Tom Gorbett',
+      'Lead Programmer - Tom Gorbett',
+      'UI Designer - Tom Gorbett',
+      'Future development work - possibly you??? (please help me)'
+    );
+    const body = lines.join('\n');
+    const emailId = `credits-${Date.now()}`;
+    try {
+      await setDoc(doc(this.db, `companies/${this.companyId}/inbox/${emailId}`), {
+        from: 'hello@tomgorbett.com',
+        to,
+        subject,
+        message: body,
+        deleted: false,
+        banner: false,
+        timestamp: timestampIso,
+        threadId: emailId,
+        category: 'credits',
+        stats: {
+          outcome: stats.outcome,
+          netProfit: stats.netProfit,
+          companySize: stats.companySize,
+          tasksDone: stats.tasksCompleted.done,
+          tasksTotal: stats.tasksCompleted.total,
+          focusPoints: stats.focusPoints,
+          burnoutCount: stats.burnoutCount,
+          supereatsSpend: stats.supereatsSpend,
+          jeffLevel: stats.jeffLevel,
+        },
+      });
       return true;
     } catch {
       return false;
@@ -363,6 +571,125 @@ export class EndgameService implements OnDestroy {
       name: this.companyId || 'Flagship Product',
       description: '',
     };
+  }
+
+  private safeNumber(value: any): number {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  private safeInt(value: any): number {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.round(n) : 0;
+  }
+
+  private parsePayrollTotal(entry: any): number {
+    const candidates = [entry?.payrollTotal, entry?.ledgerAmount, entry?.ledger?.amount];
+    for (const raw of candidates) {
+      const n = this.safeNumber(raw);
+      if (n > 0) return n;
+    }
+    const linesTotal = this.sumPayrollLines(entry);
+    if (linesTotal > 0) return linesTotal;
+    const msg = String(entry?.message || '');
+    const fromMsg = this.parseTotalFromMessage(msg);
+    return fromMsg > 0 ? fromMsg : 0;
+  }
+
+  private sumPayrollLines(entry: any): number {
+    let total = 0;
+    try {
+      const arr = entry?.payrollLines || [];
+      for (const line of arr) {
+        const amt = this.safeNumber(line?.amount);
+        if (amt > 0) total += amt;
+      }
+    } catch {}
+    if (total > 0) return total;
+    const msg = String(entry?.message || '');
+    const pattern = /^\s*\$([0-9,.]+)\s+[\u2013\u2014-]\s+Payment for\s+(.+)\s*$/i;
+    for (const line of msg.split(/\r?\n/)) {
+      const match = line.match(pattern);
+      if (match && match[1]) {
+        const amt = this.safeNumber(match[1].replace(/,/g, ''));
+        if (amt > 0) total += amt;
+      }
+    }
+    return total;
+  }
+
+  private parseSuperEatsTotal(entry: any): number {
+    const candidates = [entry?.ledgerAmount, entry?.supereatsTotal, entry?.supereats?.total, entry?.ledger?.amount];
+    for (const raw of candidates) {
+      const n = this.safeNumber(raw);
+      if (n > 0) return n;
+    }
+    const msg = String(entry?.message || '');
+    const match = msg.match(/Total:\s*\$([0-9,.]+)/i) || msg.match(/\$([0-9,.]+)\s+total/i);
+    if (match && match[1]) {
+      const n = this.safeNumber(match[1].replace(/,/g, ''));
+      if (n > 0) return n;
+    }
+    return 0;
+  }
+
+  private parseCadabraTotal(entry: any): number {
+    const candidates = [entry?.ledgerAmount, entry?.cadabraTotal, entry?.cadabra?.total, entry?.ledger?.amount];
+    for (const raw of candidates) {
+      const n = this.safeNumber(raw);
+      if (n > 0) return n;
+    }
+    const msg = String(entry?.message || '');
+    const match =
+      msg.match(/Order total:\s*\$([0-9,.]+)/i) ||
+      msg.match(/\$([0-9,.]+)\s+(order\s+total|total)/i);
+    if (match && match[1]) {
+      const n = this.safeNumber(match[1].replace(/,/g, ''));
+      if (n > 0) return n;
+    }
+    return 0;
+  }
+
+  private parseMomGiftAmount(entry: any): number {
+    const candidates = [entry?.ledgerAmount, entry?.momGiftAmount, entry?.ledger?.amount];
+    for (const raw of candidates) {
+      const n = this.safeNumber(raw);
+      if (n > 0) return n;
+    }
+    const msg = String(entry?.message || '');
+    const match = msg.match(/\$([0-9,.]+)\s*(gift|wire|sent)/i);
+    if (match && match[1]) {
+      const n = this.safeNumber(match[1].replace(/,/g, ''));
+      if (n > 0) return n;
+    }
+    return 0;
+  }
+
+  private parseTotalFromMessage(msg: string): number {
+    const match = msg.match(/withdrawal of \$([0-9,.]+)/i);
+    if (match && match[1]) {
+      const n = this.safeNumber(match[1].replace(/,/g, ''));
+      if (n > 0) return n;
+    }
+    return 0;
+  }
+
+  private formatOutcomeLabel(outcome: EndgameOutcome): string {
+    if (outcome === 'success') return 'Success!';
+    if (outcome === 'failure') return 'Failure :(';
+    return 'Unknown';
+  }
+
+  private formatCurrency(amount: number): string {
+    const n = Number.isFinite(amount) ? amount : 0;
+    const sign = n < 0 ? '-' : '';
+    const abs = Math.abs(n);
+    return `${sign}$${abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+
+  private formatNumber(value: number): string {
+    const n = Number.isFinite(value) ? value : 0;
+    return n.toLocaleString();
   }
 
   private parseMarkdownEmail(text: string): {

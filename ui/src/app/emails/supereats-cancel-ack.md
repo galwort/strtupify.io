@@ -3,8 +3,6 @@ Subject: Re: Your Super Eats order
 Banner: true
 Deleted: false
 
-We received your request to cancel your Super Eats order. We can help with that.
+We received your request to cancel your Super Eats order. We're sorry to hear that you are unhappy with our serives.
 
-Before we process it, would you like to be signed up for our Subscription Plus plan so we can prioritize your service?
-
-Reply to let us know; otherwise we'll keep working through your request.
+If you would like, we can sign you up for the Subscription Plus plan, to better prioritize your orders.

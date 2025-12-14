@@ -15,6 +15,7 @@ import { BoardroomService } from '../../services/boardroom.service';
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, doc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { buildAvatarUrl } from 'src/app/utils/avatar';
+import { fallbackEmployeeColor, normalizeEmployeeColor } from 'src/app/utils/employee-colors';
 import { environment } from 'src/environments/environment';
 
 const fbApp = getApps().length ? getApps()[0] : initializeApp(environment.firebase);
@@ -51,6 +52,8 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
   showAiSummary = false;
   aiSummary = '';
   private employeeAvatars = new Map<string, string>();
+  private avatarColorCache = new Map<string, string>();
+  private pendingAvatarFetches = new Map<string, Promise<void>>();
 
   constructor(private api: BoardroomService, private cdr: ChangeDetectorRef) {}
 
@@ -196,18 +199,30 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
       );
       const snap = await getDocs(ref);
       const map = new Map<string, string>();
+      const tasks: Array<Promise<void>> = [];
       snap.docs.forEach((d) => {
         const data = (d.data() as any) || {};
         const name = String(data.name || '').trim();
         if (!name) return;
+        const nameKey = name.toLowerCase();
         const avatarName = String(
           data.avatar || data.photo || data.photoUrl || data.image || ''
         ).trim();
-        const avatarUrl = buildAvatarUrl(avatarName, 'neutral');
-        if (avatarUrl) map.set(name.toLowerCase(), avatarUrl);
+        const directUrl = String(data.avatarUrl || data.avatar_url || '').trim();
+        const color =
+          normalizeEmployeeColor(data.calendarColor || data.color) ||
+          fallbackEmployeeColor(d.id);
+        const builtUrl = buildAvatarUrl(avatarName, 'neutral');
+        const baseUrl = directUrl || builtUrl;
+        if (baseUrl) map.set(nameKey, baseUrl);
+        if (avatarName && color) {
+          const colorBase = builtUrl || baseUrl || null;
+          tasks.push(this.colorizeAvatar(nameKey, avatarName, color, colorBase));
+        }
       });
       this.employeeAvatars = map;
       this.refreshTranscriptAvatars();
+      if (tasks.length) await Promise.all(tasks);
     } catch (err) {
       console.error('Failed to load boardroom avatars', err);
     }
@@ -260,5 +275,62 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
           (participants.length > 4 ? ', and others' : '');
 
     return `This meeting's main focus was ${productName}, which is ${productDescription}. Key voices: ${voices}. Key insights: {AI_INSIGHTS}`;
+  }
+
+  private avatarCacheKey(avatarName: string, color: string): string {
+    return `${avatarName || ''}|${color || ''}`;
+  }
+
+  private async colorizeAvatar(
+    nameKey: string,
+    avatarName: string,
+    color: string,
+    preferredBaseUrl: string | null
+  ): Promise<void> {
+    const normalizedColor = normalizeEmployeeColor(color);
+    if (!normalizedColor) return;
+    const cacheKey = this.avatarCacheKey(avatarName, normalizedColor);
+    const cached = this.avatarColorCache.get(cacheKey);
+    if (cached) {
+      this.applyAvatarForName(nameKey, cached);
+      return;
+    }
+    if (this.pendingAvatarFetches.has(cacheKey)) {
+      await this.pendingAvatarFetches.get(cacheKey);
+      return;
+    }
+    const baseUrl = preferredBaseUrl || buildAvatarUrl(avatarName, 'neutral');
+    if (!baseUrl) return;
+    const task = (async () => {
+      try {
+        const resp = await fetch(baseUrl);
+        if (!resp.ok) throw new Error(`avatar_status_${resp.status}`);
+        const svg = await resp.text();
+        const updated = svg.replace(/#262E33/gi, normalizedColor);
+        const uri = this.svgToDataUri(updated);
+        this.avatarColorCache.set(cacheKey, uri);
+        this.applyAvatarForName(nameKey, uri);
+      } catch (err) {
+        console.error('Failed to recolor avatar', err);
+      } finally {
+        this.pendingAvatarFetches.delete(cacheKey);
+      }
+    })();
+    this.pendingAvatarFetches.set(cacheKey, task);
+    await task;
+  }
+
+  private applyAvatarForName(nameKey: string, url: string): void {
+    this.employeeAvatars.set(nameKey, url);
+    this.refreshTranscriptAvatars();
+  }
+
+  private svgToDataUri(svg: string): string {
+    const encoded = btoa(
+      encodeURIComponent(svg).replace(/%([0-9A-F]{2})/g, (_m, p1) =>
+        String.fromCharCode(parseInt(p1, 16))
+      )
+    );
+    return `data:image/svg+xml;base64,${encoded}`;
   }
 }

@@ -134,7 +134,7 @@
             gap: 6px;
 
             .sender {
-              font-weight: 700;
+              font-weight: 400;
               flex: 1;
               min-width: 0;
               overflow: hidden;
@@ -152,7 +152,7 @@
           .subject {
             font-size: 14px;
             margin: 0;
-            font-weight: 600;
+            font-weight: 400;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -170,7 +170,7 @@
 
         &.unread .sender,
         &.unread .subject {
-          font-weight: 800;
+          font-weight: 700 !important;
         }
 
         &.unread .preview-text {

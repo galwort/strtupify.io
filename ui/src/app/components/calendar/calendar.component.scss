@@ -160,6 +160,20 @@
       grid-template-columns: 70px repeat(5, 1fr);
       gap: 12px;
       align-items: end;
+      position: relative;
+    }
+    .calendar.locked {
+      filter: grayscale(0.8);
+    }
+    .calendar.locked .day-body {
+      cursor: not-allowed;
+    }
+    .calendar.locked .day-body::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.55);
+      pointer-events: none;
     }
     .time-column {
       display: grid;

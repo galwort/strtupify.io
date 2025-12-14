@@ -5,7 +5,7 @@
 
   <div class="content-body">
     <div class="layout">
-      <div class="calendar">
+      <div class="calendar" [class.locked]="calendarLocked">
         <div class="time-column">
           <div class="time-slot" *ngFor="let t of timeTicks">{{ t }}</div>
         </div>
@@ -53,12 +53,7 @@
       <div class="sidebar">
         <div class="panel focus-panel">
           <div class="week-label" *ngIf="weekLabel">{{ weekLabel }}</div>
-          <div class="lock-status" *ngIf="calendarLocked">
-            Submitted for this week — schedule is locked.
-          </div>
           <div class="score">Focus score: {{ focusScore | number: '1.0-1' }}</div>
-          <div class="score sub">Potential focus points: {{ focusPointEstimate | number: '1.0-0' }}</div>
-          <div class="score sub">Banked focus points: {{ focusPoints | number: '1.0-0' }}</div>
           <button
             type="button"
             class="submit"
@@ -67,20 +62,12 @@
           >
             {{
               calendarLocked
-                ? 'Submitted'
+                ? 'Reschedules Sent'
                 : isSubmitting
                 ? 'Submitting...'
                 : 'Send reschedules'
             }}
           </button>
-          <div class="status" *ngIf="isSubmitting">Saving focus points...</div>
-          <div class="status" *ngIf="!isSubmitting && lastEarnedPoints !== null">
-            Last submission added {{ lastEarnedPoints | number: '1.0-0' }} focus points
-          </div>
-          <div class="status" *ngIf="!isSubmitting && submittedScore !== null">
-            Submitted: {{ submittedScore | number: '1.0-1' }}
-          </div>
-          <div class="error" *ngIf="statusError">{{ statusError }}</div>
         </div>
 
         <div class="panel">

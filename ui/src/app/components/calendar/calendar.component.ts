@@ -89,6 +89,8 @@ export class CalendarComponent implements OnInit, OnDestroy {
   timeTicks: string[] = [];
   calendarLocked = false;
   private calendarSubmittedWeekStart: number | null = null;
+  private storedWeekStart: number | null = null;
+  private storedMeetings: CalendarMeeting[] = [];
 
   private simTime = Date.now();
   private unsubCompany: (() => void) | null = null;
@@ -210,6 +212,14 @@ export class CalendarComponent implements OnInit, OnDestroy {
       if (Number.isFinite(st)) {
         this.simTime = st;
       }
+      const scheduleWeek =
+        typeof data.calendarScheduleWeekStart === 'number'
+          ? data.calendarScheduleWeekStart
+          : null;
+      const scheduleData = Array.isArray((data as any).calendarSchedule)
+        ? (data as any).calendarSchedule
+        : null;
+      this.readStoredSchedule(scheduleData, scheduleWeek);
       const submittedWeek =
         typeof data.calendarSubmittedWeekStart === 'number'
           ? data.calendarSubmittedWeekStart
@@ -268,6 +278,19 @@ export class CalendarComponent implements OnInit, OnDestroy {
     );
   }
 
+  private readStoredSchedule(raw: any, weekStart: number | null): void {
+    if (!Array.isArray(raw) || weekStart === null) {
+      this.storedWeekStart = null;
+      this.storedMeetings = [];
+      return;
+    }
+    const normalized = raw
+      .map((m) => this.normalizeStoredMeeting(m))
+      .filter((m): m is CalendarMeeting => !!m);
+    this.storedWeekStart = normalized.length ? weekStart : null;
+    this.storedMeetings = normalized.length ? normalized : [];
+  }
+
   private async persistEmployeeColors(
     docs: Array<{ id: string; data(): any }>,
     colors: Map<string, string>
@@ -306,7 +329,12 @@ export class CalendarComponent implements OnInit, OnDestroy {
         this.weekDays[this.weekDays.length - 1]
       );
       this.scheduleSeed = seedKey;
-      this.buildMeetings();
+      const stored = this.useStoredSchedule(nextWeek.getTime());
+      if (stored) {
+        this.applyMeetings(stored);
+      } else {
+        this.buildMeetings();
+      }
     } else {
       this.recomputeVisuals();
       this.computeFocusScore();
@@ -395,6 +423,28 @@ export class CalendarComponent implements OnInit, OnDestroy {
     this.syncSelection();
     this.recomputeVisuals();
     this.computeFocusScore();
+  }
+
+  private applyMeetings(list: CalendarMeeting[]): void {
+    this.meetings = [];
+    this.calendarByPerson.clear();
+    for (const m of list) {
+      this.addMeeting({ ...m, participants: [...m.participants] });
+    }
+    this.syncSelection();
+    this.recomputeVisuals();
+    this.computeFocusScore();
+  }
+
+  private useStoredSchedule(weekStartMs: number): CalendarMeeting[] | null {
+    if (
+      this.storedWeekStart === null ||
+      this.storedWeekStart !== weekStartMs ||
+      !this.storedMeetings.length
+    ) {
+      return null;
+    }
+    return this.cloneMeetings(this.storedMeetings);
   }
 
   private placeMeeting(
@@ -752,12 +802,39 @@ export class CalendarComponent implements OnInit, OnDestroy {
     this.focusScore = Math.round(score * 10) / 10;
   }
 
+  private serializeMeetings(): Array<{
+    id: string;
+    owner: string;
+    participants: string[];
+    dayIndex: number;
+    start: number;
+    end: number;
+  }> {
+    return this.meetings.map((m) => ({
+      id: m.id,
+      owner: m.owner,
+      participants: [...m.participants],
+      dayIndex: m.dayIndex,
+      start: m.start,
+      end: m.end,
+    }));
+  }
+
+  private cloneMeetings(list: CalendarMeeting[]): CalendarMeeting[] {
+    return list.map((m) => ({
+      ...m,
+      participants: [...m.participants],
+    }));
+  }
+
   private async persistFocusPoints(
     earned: number,
     submittedWeekStart?: number
   ): Promise<number> {
     if (!this.companyId) return 0;
     const ref = doc(db, `companies/${this.companyId}`);
+    const serializedSchedule =
+      submittedWeekStart !== undefined ? this.serializeMeetings() : null;
     const result = await runTransaction(db, async (tx) => {
       const snap = await tx.get(ref);
       const data = (snap && (snap.data() as any)) || {};
@@ -777,11 +854,17 @@ export class CalendarComponent implements OnInit, OnDestroy {
         update.calendarSubmittedWeekStart = submittedWeekStart;
         update.calendarSubmittedAt = serverTimestamp();
         update.lastFocusScheduleWeekStart = submittedWeekStart;
+        update.calendarScheduleWeekStart = submittedWeekStart;
+        update.calendarSchedule = serializedSchedule;
       }
       tx.set(ref, update, { merge: true });
       return { current, next };
     });
     this.focusPoints = result.next;
+    if (submittedWeekStart !== undefined) {
+      this.storedWeekStart = submittedWeekStart;
+      this.storedMeetings = this.cloneMeetings(this.meetings);
+    }
     return Math.max(0, result.next - result.current);
   }
 
@@ -835,6 +918,24 @@ export class CalendarComponent implements OnInit, OnDestroy {
       currentWeekStart !== null &&
       this.calendarSubmittedWeekStart !== null &&
       currentWeekStart === this.calendarSubmittedWeekStart;
+  }
+
+  private normalizeStoredMeeting(raw: any): CalendarMeeting | null {
+    if (!raw || typeof raw !== 'object') return null;
+    const id = typeof raw.id === 'string' ? raw.id : null;
+    const owner = typeof raw.owner === 'string' ? raw.owner : null;
+    const participants = Array.isArray((raw as any).participants)
+      ? (raw as any).participants.filter((p: any) => typeof p === 'string')
+      : [];
+    const dayIndex = Number((raw as any).dayIndex);
+    const start = Number((raw as any).start);
+    const end = Number((raw as any).end);
+    if (!id || !owner) return null;
+    if (!Number.isFinite(dayIndex) || dayIndex < 0 || dayIndex > 4) return null;
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+      return null;
+    }
+    return { id, owner, participants, dayIndex, start, end };
   }
 
   private makeRng(seed: string): () => number {

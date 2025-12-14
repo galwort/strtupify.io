@@ -1,5 +1,5 @@
 From: noreply@supereats.com
-Subject: Account escalation complete
+Subject: Account Terminated
 Banner: true
 Deleted: false
 

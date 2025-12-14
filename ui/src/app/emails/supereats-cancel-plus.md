@@ -1,5 +1,5 @@
 From: noreply@supereats.com
-Subject: Subscription Plus activated
+Subject: Subscription Plus Plan Activated
 Banner: true
 Deleted: false
 

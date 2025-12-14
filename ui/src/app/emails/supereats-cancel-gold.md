@@ -1,5 +1,5 @@
 From: noreply@supereats.com
-Subject: Subscription Gold upgrade
+Subject: Welcome to your new Subscription Gold plan!
 Banner: true
 Deleted: false
 

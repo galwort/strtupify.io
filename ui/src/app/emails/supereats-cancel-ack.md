@@ -1,5 +1,5 @@
 From: noreply@supereats.com
-Subject: Re: Your Super Eats order
+Subject: Cancelation Request
 Banner: true
 Deleted: false
 

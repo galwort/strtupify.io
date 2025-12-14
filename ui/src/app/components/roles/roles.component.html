@@ -39,7 +39,7 @@
         type="text"
         placeholder="Enter custom role title"
         [(ngModel)]="role.title"
-        [class.invalid]="role.count > 0 && !role.title?.trim()"
+        [class.invalid]="role.count > 0 && !role.title.trim()"
       />
       <div class="custom-actions">
         <button
@@ -50,7 +50,7 @@
           Remove
         </button>
       </div>
-      <div class="error" *ngIf="role.count > 0 && !role.title?.trim()">
+      <div class="error" *ngIf="role.count > 0 && !role.title.trim()">
         Add a title to continue.
       </div>
     </div>

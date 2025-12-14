@@ -100,7 +100,7 @@ export class RolesComponent implements OnInit {
     );
     this.roles = querySnapshot.docs.map((docSnap) => ({
       id: docSnap.id,
-      title: docSnap.data()['title'],
+      title: String(docSnap.data()['title'] || ''),
       count: 0,
     }));
   }

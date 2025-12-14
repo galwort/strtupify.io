@@ -174,29 +174,29 @@
           <div class="sender-row" *ngIf="selectedEmail">
             <div
               class="avatar"
-              [class.fallback]="!selectedEmail?.senderAvatarUrl"
+              [class.fallback]="!selectedEmail.senderAvatarUrl"
             >
               <img
-                *ngIf="selectedEmail?.senderAvatarUrl"
-                [src]="selectedEmail?.senderAvatarUrl"
+                *ngIf="selectedEmail.senderAvatarUrl"
+                [src]="selectedEmail.senderAvatarUrl"
                 [alt]="
-                  (selectedEmail?.displaySender || selectedEmail?.sender) +
+                  (selectedEmail.displaySender || selectedEmail.sender) +
                   ' avatar'
                 "
               />
-              <span *ngIf="!selectedEmail?.senderAvatarUrl">{{
-                selectedEmail?.senderInitials
+              <span *ngIf="!selectedEmail.senderAvatarUrl">{{
+                selectedEmail.senderInitials
               }}</span>
             </div>
             <div class="sender-details">
               <div class="sender-name">
-                {{ selectedEmail?.displaySender || selectedEmail?.sender }}
+                {{ selectedEmail.displaySender || selectedEmail.sender }}
               </div>
               <div class="sender-meta">
                 <span class="label">From</span>
-                <span class="value">{{ selectedEmail?.sender }}</span>
+                <span class="value">{{ selectedEmail.sender }}</span>
                 <span class="timestamp">{{
-                  selectedEmail?.timestamp | date : "short"
+                  selectedEmail.timestamp | date : "short"
                 }}</span>
               </div>
             </div>

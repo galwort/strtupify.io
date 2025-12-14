@@ -336,7 +336,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     const baseUrl = record.avatarName ? buildAvatarUrl(record.avatarName, mood) : '';
     const cacheKey = color && baseUrl ? this.avatarCacheKey(record, mood, color) : null;
     const cached = cacheKey ? this.avatarColorCache.get(cacheKey) : undefined;
-    if (!cached && cacheKey && baseUrl) {
+    if (!cached && cacheKey && baseUrl && color) {
       void this.fetchAndColorAvatar(cacheKey, baseUrl, color, nameKey, mood);
     }
     const preferMood = record.burnout || mood !== 'neutral';

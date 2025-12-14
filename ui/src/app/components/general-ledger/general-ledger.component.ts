@@ -14,6 +14,7 @@ type LedgerRow = {
   amount: number;
   balance: number | null;
   sub?: boolean;
+  groupId: string;
 };
 
 @Component({
@@ -35,6 +36,7 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
   currentBalance = 0;
   filteredTotal = 0;
   private unsub: (() => void) | null = null;
+  private groupSeq = 0;
 
   async ngOnInit() {
     if (!this.companyId) return;
@@ -118,13 +120,16 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
         .sort((a, b) => this.compareTimestamp(a.ts, b.ts));
 
       const rows: LedgerRow[] = [];
+      this.groupSeq = 0;
       let running = this.openingCredit;
+      const openingGroup = this.nextGroupId();
       rows.push({
         date: this.formatDate(data?.founded_at || new Date().toISOString()),
         description: 'Loan funded',
         payee: 'Fifth Fourth Bank',
         amount: this.openingCredit,
         balance: running,
+        groupId: openingGroup,
       });
 
       let payrollTotal = 0;
@@ -132,6 +137,7 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
         if (entry.kind === 'bank') {
           const total = entry.total;
           if (!total) continue;
+          const groupId = this.nextGroupId();
           payrollTotal += total;
           running -= total;
           rows.push({
@@ -140,6 +146,7 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
             payee: 'Fifth Fourth Bank',
             amount: -total,
             balance: running,
+            groupId,
           });
           for (const li of entry.lines) {
             rows.push({
@@ -148,11 +155,13 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
               payee: li.name,
               amount: -li.amount,
               balance: null,
+              groupId,
               sub: true,
             });
           }
         } else if (entry.kind === 'supereats') {
           const total = entry.total;
+          const groupId = this.nextGroupId();
           running -= total;
           rows.push({
             date: this.formatDate(entry.ts),
@@ -160,6 +169,7 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
             payee: 'Super Eats',
             amount: -total,
             balance: running,
+            groupId,
           });
           if (entry.memo) {
             rows.push({
@@ -168,11 +178,13 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
               payee: '',
               amount: 0,
               balance: null,
+              groupId,
               sub: true,
             });
           }
         } else if (entry.kind === 'cadabra') {
           const total = entry.total;
+          const groupId = this.nextGroupId();
           running -= total;
           rows.push({
             date: this.formatDate(entry.ts),
@@ -180,6 +192,7 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
             payee: 'Cadabra',
             amount: -total,
             balance: running,
+            groupId,
           });
           if (entry.memo) {
             rows.push({
@@ -188,11 +201,13 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
               payee: '',
               amount: 0,
               balance: null,
+              groupId,
               sub: true,
             });
           }
         } else if (entry.kind === 'mom-gift') {
           const total = entry.total;
+          const groupId = this.nextGroupId();
           running += total;
           rows.push({
             date: this.formatDate(entry.ts),
@@ -200,6 +215,7 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
             payee: 'Mom',
             amount: total,
             balance: running,
+            groupId,
           });
           if (entry.memo) {
             rows.push({
@@ -208,6 +224,7 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
               payee: '',
               amount: 0,
               balance: null,
+              groupId,
               sub: true,
             });
           }
@@ -247,14 +264,19 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
   }
 
   private computeTotal(rows: LedgerRow[]): number {
-    // Only count top-level rows to avoid double-counting sub-rows
+    const parentsInView = new Set(rows.filter((row) => !row.sub).map((row) => row.groupId));
     return rows.reduce((sum, row) => {
-      if (row.sub) return sum;
+      const shouldSkipSub = row.sub && parentsInView.has(row.groupId);
+      if (shouldSkipSub) return sum;
       const amt = Number(row.amount);
       return isFinite(amt) ? sum + amt : sum;
     }, 0);
   }
 
+  private nextGroupId(): string {
+    this.groupSeq += 1;
+    return `gl-${this.groupSeq}`;
+  }
 
 
   private compareTimestamp(a: string, b: string): number {

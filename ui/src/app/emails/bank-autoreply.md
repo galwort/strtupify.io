@@ -1,4 +1,4 @@
-From: compliance@54.com
+From: support@54.com
 Subject: Re: [[SUBJECT]] (Ticket #[[TICKET_NUMBER]])
 Banner: true
 Deleted: false

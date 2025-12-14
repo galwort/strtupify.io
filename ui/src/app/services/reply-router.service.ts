@@ -418,7 +418,10 @@ export class ReplyRouterService {
       timestamp: timestampIso,
       threadId: opts.threadId,
       category: 'cadabra',
-      avatarUrl: 'assets/cadabra-avatar.png',
+      avatarUrl:
+        from.toLowerCase() === 'jeff@cadabra.com'
+          ? 'assets/jeff.svg'
+          : 'assets/cadabra-avatar.png',
     };
     if (opts.parentId) docPayload.parentId = opts.parentId;
     if (Number.isFinite(attempt)) docPayload.cadabraReplyAttempt = attempt;

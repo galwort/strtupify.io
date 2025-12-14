@@ -504,6 +504,12 @@ export class InboxComponent implements OnInit, OnDestroy {
       return 'assets/fifthfourth-avatar.png';
     }
     if (
+      normalized === 'jeff@cadabra.com' &&
+      category === 'cadabra'
+    ) {
+      return 'assets/jeff.svg';
+    }
+    if (
       normalized === 'order-update@cadabra.com' ||
       normalized === 'updates@cadabra.com' ||
       category === 'cadabra'

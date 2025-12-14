@@ -54,6 +54,7 @@ type LedgerTotals = {
 
 @Injectable({ providedIn: 'root' })
 export class EndgameService implements OnDestroy {
+  private readonly focusPointCost = 1000;
   private fbApp = getApps().length ? getApps()[0] : initializeApp(environment.firebase);
   private db = getFirestore(this.fbApp);
   private companyId = '';
@@ -351,25 +352,31 @@ export class EndgameService implements OnDestroy {
       (companyData && typeof companyData.company_name === 'string' && companyData.company_name.trim()) ||
       this.companyId;
     const focusPointsRaw = Number(companyData?.focusPoints ?? 0);
-    const focusPoints = Number.isFinite(focusPointsRaw) ? Math.max(0, Math.round(focusPointsRaw)) : 0;
+    const focusPointsAvailable = Number.isFinite(focusPointsRaw) ? Math.max(0, Math.round(focusPointsRaw)) : 0;
+    const focusPointsSpentRecorded = Math.max(0, this.safeNumber(companyData?.focusPointsSpent));
     const fundingApproved = !!companyData?.funding?.approved;
     const fundingAmount = fundingApproved ? this.safeNumber(companyData?.funding?.amount) : 0;
 
     let companySize = 0;
     let burnoutCount = 0;
+    let focusPointsSpentCalculated = 0;
     try {
       const employeesSnap = await getDocs(
         query(collection(this.db, `companies/${this.companyId}/employees`), where('hired', '==', true))
       );
-      employeesSnap.forEach((docSnap) => {
+      for (const docSnap of employeesSnap.docs) {
         const data = (docSnap.data() as any) || {};
         companySize += 1;
         const stress = this.safeNumber(data.stress);
         const status = String(data.status || '').toLowerCase();
         const burnedOut = status === 'burnout' || stress >= STRESS_BURNOUT_THRESHOLD;
         if (burnedOut) burnoutCount += 1;
-      });
+        const spend = await this.sumEmployeeFocusSpend(docSnap.id);
+        if (spend > 0) focusPointsSpentCalculated += spend;
+      }
     } catch {}
+    const focusPointsSpent = Math.max(focusPointsSpentRecorded, focusPointsSpentCalculated);
+    const focusPointsTotal = Math.max(0, focusPointsAvailable + focusPointsSpent);
 
     let tasksTotal = 0;
     let tasksDone = 0;
@@ -412,7 +419,7 @@ export class EndgameService implements OnDestroy {
       netProfit,
       companySize,
       tasksCompleted: { done: tasksDone, total: tasksTotal },
-      focusPoints,
+      focusPoints: focusPointsTotal,
       burnoutCount,
       supereatsSpend: ledger.supereats,
       jeffLevel,
@@ -467,10 +474,8 @@ export class EndgameService implements OnDestroy {
   private async sendCreditsEmail(to: string, timestampIso: string, stats: EndgameCreditsStats): Promise<boolean> {
     const subject = 'Thank you!';
     const outcomeLabel = this.formatOutcomeLabel(stats.outcome);
-    const tasksLabel =
-      stats.tasksCompleted.total > 0
-        ? `${stats.tasksCompleted.done} / ${stats.tasksCompleted.total}`
-        : `${stats.tasksCompleted.done}`;
+    const tasksCount = stats.tasksCompleted.total || stats.tasksCompleted.done;
+    const tasksLabel = this.formatNumber(tasksCount);
     const lines = [
       'Hello End User,',
       '',
@@ -509,6 +514,7 @@ export class EndgameService implements OnDestroy {
         timestamp: timestampIso,
         threadId: emailId,
         category: 'credits',
+        avatarUrl: 'assets/profile.svg',
         stats: {
           outcome: stats.outcome,
           netProfit: stats.netProfit,
@@ -690,6 +696,24 @@ export class EndgameService implements OnDestroy {
   private formatNumber(value: number): string {
     const n = Number.isFinite(value) ? value : 0;
     return n.toLocaleString();
+  }
+
+  private async sumEmployeeFocusSpend(employeeId: string): Promise<number> {
+    if (!this.companyId || !employeeId) return 0;
+    try {
+      const snap = await getDocs(
+        collection(this.db, `companies/${this.companyId}/employees/${employeeId}/skills`)
+      );
+      let spent = 0;
+      snap.forEach((docSnap) => {
+        const levelRaw = this.safeInt((docSnap.data() as any)?.level ?? 1);
+        const level = Math.max(1, levelRaw);
+        if (level > 1) spent += (level - 1) * this.focusPointCost;
+      });
+      return spent;
+    } catch {
+      return 0;
+    }
   }
 
   private parseMarkdownEmail(text: string): {

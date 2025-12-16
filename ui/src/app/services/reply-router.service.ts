@@ -510,7 +510,9 @@ export class ReplyRouterService {
     }
     const emailId = `mom-reply-${Date.now()}`;
     const baseTs = opts.timestamp ? new Date(opts.timestamp) : new Date();
-    const timestampIso = new Date(baseTs.getTime() + 1).toISOString(); // ensure replies sort after the outbound message
+    const delayMs = this.randomInt(25_000, 75_000); // stagger to feel more realistic
+    const sendAt = Math.max(baseTs.getTime() + 1, Date.now() + delayMs);
+    const timestampIso = new Date(sendAt).toISOString(); // ensure replies sort after the outbound message and include delay
     const category = grant ? 'mom-gift' : 'mom-reply';
     const docPayload: any = {
       from,
@@ -531,19 +533,30 @@ export class ReplyRouterService {
       docPayload.ledger = { type: 'mom-gift', amount, memo };
       docPayload.momGiftAmount = amount;
     }
-    await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), docPayload);
-    if (grant) {
+    const sendReply = async () => {
       try {
-        await setDoc(
-          doc(db, `companies/${opts.companyId}`),
-          {
-            ledgerEnabled: true,
-            momGiftGranted: true,
-          },
-          { merge: true }
-        );
-      } catch {}
-    }
+        await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), docPayload);
+        if (grant) {
+          try {
+            await setDoc(
+              doc(db, `companies/${opts.companyId}`),
+              {
+                ledgerEnabled: true,
+                momGiftGranted: true,
+              },
+              { merge: true }
+            );
+          } catch {}
+        }
+      } catch (err) {
+        console.error('failed to send mom reply', err);
+      }
+    };
+
+    // Fire-and-forget the delayed send so the UI isn't blocked while we wait.
+    setTimeout(() => {
+      void sendReply();
+    }, Math.max(0, sendAt - Date.now()));
   }
 
   private supereatsTemplateForStage(stage: number): string {

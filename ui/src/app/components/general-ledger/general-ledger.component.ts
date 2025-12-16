@@ -255,11 +255,27 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
       this.filteredTotal = this.computeTotal(this.filteredRows);
       return;
     }
-    this.filteredRows = this.rows.filter((row) => {
+    const parentIndexByGroup = new Map<string, number>();
+    this.rows.forEach((row, idx) => {
+      if (!row.sub && row.groupId && !parentIndexByGroup.has(row.groupId)) {
+        parentIndexByGroup.set(row.groupId, idx);
+      }
+    });
+
+    const matchedIndexes = new Set<number>();
+    this.rows.forEach((row, idx) => {
       const desc = (row.description || '').toLowerCase();
       const payee = (row.payee || '').toLowerCase();
-      return desc.includes(term) || payee.includes(term);
+      if (desc.includes(term) || payee.includes(term)) {
+        matchedIndexes.add(idx);
+        if (row.sub) {
+          const parentIdx = parentIndexByGroup.get(row.groupId);
+          if (parentIdx !== undefined) matchedIndexes.add(parentIdx);
+        }
+      }
     });
+
+    this.filteredRows = this.rows.filter((_, idx) => matchedIndexes.has(idx));
     this.filteredTotal = this.computeTotal(this.filteredRows);
   }
 

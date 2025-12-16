@@ -189,13 +189,26 @@ export class EndgameService implements OnDestroy {
       const meAddress = this.buildFounderAddress(data);
       const emailDate = new Date(resetAt);
       emailDate.setMonth(emailDate.getMonth() + 6);
-      const timestampIso = emailDate.toISOString();
+      const baseMs = emailDate.getTime();
+      const vladTimestampIso = new Date(baseMs).toISOString();
+      const outcomeTimestampIso = new Date(this.jitteredOffset(baseMs, 20_000, 45_000)).toISOString();
+      const creditsTimestampIso = new Date(this.jitteredOffset(baseMs, 45_000, 75_000)).toISOString();
 
-      const vladSent = await this.sendVladResetEmail(meAddress, timestampIso, elapsedMs);
-      const outcomeResult = await this.sendOutcomeEmail(meAddress, months, timestampIso, triggeredAt, resetAt);
+      const vladSent = await this.sendVladResetEmail(meAddress, vladTimestampIso, elapsedMs);
+      if (vladSent) await this.delayMs(800, 1500);
+
+      const outcomeResult = await this.sendOutcomeEmail(
+        meAddress,
+        months,
+        outcomeTimestampIso,
+        triggeredAt,
+        resetAt
+      );
+      if (outcomeResult.sent) await this.delayMs(800, 1500);
+
       const creditsStats = await this.buildCreditsStats(data, outcomeResult.outcomeStatus);
       const creditsSent = creditsStats
-        ? await this.sendCreditsEmail(meAddress, timestampIso, creditsStats)
+        ? await this.sendCreditsEmail(meAddress, creditsTimestampIso, creditsStats)
         : false;
 
       if (vladSent || outcomeResult.sent || creditsSent) {
@@ -776,6 +789,21 @@ export class EndgameService implements OnDestroy {
   private parseTime(value: any): number | undefined {
     const n = Number(value);
     return Number.isFinite(n) ? n : undefined;
+  }
+
+  private jitteredOffset(baseMs: number, minOffset: number, maxOffset: number): number {
+    const min = Math.max(0, minOffset);
+    const span = Math.max(0, maxOffset - min);
+    const jitter = Math.floor(Math.random() * (span + 1));
+    return baseMs + min + jitter;
+  }
+
+  private delayMs(minMs: number, maxMs: number): Promise<void> {
+    const min = Math.max(0, minMs);
+    const span = Math.max(0, maxMs - min);
+    const jitter = Math.floor(Math.random() * (span + 1));
+    const duration = min + jitter;
+    return new Promise((resolve) => setTimeout(resolve, duration));
   }
 
   private cleanup(): void {

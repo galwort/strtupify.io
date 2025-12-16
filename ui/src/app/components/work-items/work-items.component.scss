@@ -149,7 +149,6 @@
       width: 42px;
       height: 42px;
       border-radius: 50%;
-      border: 2px solid var(--theme-primary);
       background: rgba(63, 140, 255, 0.06);
       display: inline-flex;
       align-items: center;
@@ -165,7 +164,6 @@
       }
 
       &.fallback {
-        border-style: dashed;
         background: rgba(63, 140, 255, 0.04);
       }
 

@@ -15,8 +15,17 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
-import { AvatarMood, buildAvatarUrl, burnoutMood, normalizeOutcomeStatus, outcomeMood } from 'src/app/utils/avatar';
-import { fallbackEmployeeColor, normalizeEmployeeColor } from 'src/app/utils/employee-colors';
+import {
+  AvatarMood,
+  buildAvatarUrl,
+  burnoutMood,
+  normalizeOutcomeStatus,
+  outcomeMood,
+} from 'src/app/utils/avatar';
+import {
+  fallbackEmployeeColor,
+  normalizeEmployeeColor,
+} from 'src/app/utils/employee-colors';
 
 interface EmployeeSkill {
   id: string;
@@ -42,7 +51,9 @@ interface EmployeeProfile {
   skills: EmployeeSkill[];
 }
 
-const fbApp = getApps().length ? getApps()[0] : initializeApp(environment.firebase);
+const fbApp = getApps().length
+  ? getApps()[0]
+  : initializeApp(environment.firebase);
 const db = getFirestore(fbApp);
 
 @Component({
@@ -65,10 +76,13 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
   spending = false;
   refreshingRates = false;
   endgameOutcomeMood: AvatarMood | null = null;
-  private tempAvatarMoods = new Map<string, { mood: AvatarMood; timeout?: any }>();
+  private tempAvatarMoods = new Map<
+    string,
+    { mood: AvatarMood; timeout?: any }
+  >();
   private avatarColorCache = new Map<string, string>();
   private pendingAvatarFetches = new Map<string, Promise<void>>();
-  readonly skillPointCost = 1000;
+  readonly skillPointCost = 10;
 
   ngOnInit(): void {
     if (!this.companyId) return;
@@ -76,7 +90,9 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
     this.unsubCompany = onSnapshot(companyRef, (snap) => {
       const data = (snap && (snap.data() as any)) || {};
       const pts = Number(data.focusPoints || 0);
-      this.focusPoints = Number.isFinite(pts) ? Math.max(0, Math.round(pts)) : 0;
+      this.focusPoints = Number.isFinite(pts)
+        ? Math.max(0, Math.round(pts))
+        : 0;
       const mood = this.extractOutcomeMood(data);
       if (mood !== this.endgameOutcomeMood) {
         this.endgameOutcomeMood = mood;
@@ -92,15 +108,26 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
         .map((d) => {
           const data = (d.data() as any) || {};
           const stress = Math.max(0, Math.min(100, Number(data.stress || 0)));
-          const status: 'Active' | 'Burnout' = String(data.status || 'Active') === 'Burnout' ? 'Burnout' : 'Active';
+          const status: 'Active' | 'Burnout' =
+            String(data.status || 'Active') === 'Burnout'
+              ? 'Burnout'
+              : 'Active';
           const burnout = burnoutMood(stress, status) === 'sad';
           const load = Math.max(0, Number(data.load || 0));
           const salaryRaw = Number(data.salary || 0);
-          const salary = Number.isFinite(salaryRaw) ? Math.max(0, salaryRaw) : 0;
-          const description = String(data.description || data.personality || '');
-          const avatarName = String(data.avatar || data.photo || data.photoUrl || data.image || '');
+          const salary = Number.isFinite(salaryRaw)
+            ? Math.max(0, salaryRaw)
+            : 0;
+          const description = String(
+            data.description || data.personality || ''
+          );
+          const avatarName = String(
+            data.avatar || data.photo || data.photoUrl || data.image || ''
+          );
           const gender = String(data.gender || '').toLowerCase() || undefined;
-          const color = normalizeEmployeeColor(data.calendarColor || data.color) || fallbackEmployeeColor(d.id);
+          const color =
+            normalizeEmployeeColor(data.calendarColor || data.color) ||
+            fallbackEmployeeColor(d.id);
           const base: EmployeeProfile = {
             id: d.id,
             name: String(data.name || ''),
@@ -165,13 +192,29 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
     const cacheKey = this.avatarCacheKey(emp, avatarMood, color || undefined);
     const cached = color ? this.avatarColorCache.get(cacheKey) : undefined;
     if (color && baseUrl && !cached) {
-      void this.fetchAndColorAvatar(cacheKey, baseUrl, color, emp.id, avatarMood);
+      void this.fetchAndColorAvatar(
+        cacheKey,
+        baseUrl,
+        color,
+        emp.id,
+        avatarMood
+      );
     }
     const avatarUrl = cached || baseUrl;
-    return { ...emp, avatarMood, avatarUrl, burnout, color: color || emp.color };
+    return {
+      ...emp,
+      avatarMood,
+      avatarUrl,
+      burnout,
+      color: color || emp.color,
+    };
   }
 
-  private avatarCacheKey(emp: EmployeeProfile, mood: AvatarMood, color?: string): string {
+  private avatarCacheKey(
+    emp: EmployeeProfile,
+    mood: AvatarMood,
+    color?: string
+  ): string {
     return `${emp.avatarName || ''}|${mood}|${color || ''}`;
   }
 
@@ -182,7 +225,8 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
     empId: string,
     mood: AvatarMood
   ): Promise<void> {
-    if (this.pendingAvatarFetches.has(cacheKey)) return this.pendingAvatarFetches.get(cacheKey)!;
+    if (this.pendingAvatarFetches.has(cacheKey))
+      return this.pendingAvatarFetches.get(cacheKey)!;
     const task = (async () => {
       try {
         const resp = await fetch(url);
@@ -236,7 +280,11 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
     );
   }
 
-  private setTemporaryAvatarMood(empId: string, mood: AvatarMood, durationMs = 1400): void {
+  private setTemporaryAvatarMood(
+    empId: string,
+    mood: AvatarMood,
+    durationMs = 1400
+  ): void {
     const existing = this.tempAvatarMoods.get(empId);
     if (existing?.timeout) clearTimeout(existing.timeout);
     const timeout = setTimeout(() => {
@@ -248,11 +296,15 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
   }
 
   private extractOutcomeMood(data: any): AvatarMood | null {
-    const rawMood = this.normalizeMoodValue(data?.endgameOutcomeMood || data?.avatarMood);
+    const rawMood = this.normalizeMoodValue(
+      data?.endgameOutcomeMood || data?.avatarMood
+    );
     if (rawMood) return rawMood;
     const normalizedOutcome = normalizeOutcomeStatus(
       data?.endgameOutcome || data?.outcomeStatus || '',
-      typeof data?.estimatedRevenue === 'number' ? data.estimatedRevenue : undefined
+      typeof data?.estimatedRevenue === 'number'
+        ? data.estimatedRevenue
+        : undefined
     );
     const mood = outcomeMood(normalizedOutcome);
     return mood === 'neutral' ? null : mood;
@@ -261,11 +313,20 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
   private normalizeMoodValue(value: any): AvatarMood | null {
     if (typeof value !== 'string') return null;
     const raw = value.trim().toLowerCase();
-    if (raw === 'happy' || raw === 'sad' || raw === 'angry' || raw === 'neutral') return raw as AvatarMood;
+    if (
+      raw === 'happy' ||
+      raw === 'sad' ||
+      raw === 'angry' ||
+      raw === 'neutral'
+    )
+      return raw as AvatarMood;
     return null;
   }
 
-  async upgradeSkill(emp: EmployeeProfile, skill: EmployeeSkill): Promise<void> {
+  async upgradeSkill(
+    emp: EmployeeProfile,
+    skill: EmployeeSkill
+  ): Promise<void> {
     if (!this.companyId) return;
     if (this.spending) return;
     this.spendError = '';
@@ -288,34 +349,51 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
       await this.refreshRatesAfterSpend(emp, { ...skill, level: nextLevel });
     } catch (err: any) {
       const msg = typeof err?.message === 'string' ? err.message : '';
-      if (msg === 'insufficient') this.spendError = 'Not enough focus points to spend.';
-      else if (msg === 'max_level') this.spendError = `${skill.name} is already at max level.`;
+      if (msg === 'insufficient')
+        this.spendError = 'Not enough focus points to spend.';
+      else if (msg === 'max_level')
+        this.spendError = `${skill.name} is already at max level.`;
       else this.spendError = 'Could not spend focus points right now.';
     } finally {
       this.spending = false;
     }
   }
 
-  private bumpLocalSkill(empId: string, skillId: string, skillName: string, level: number): void {
+  private bumpLocalSkill(
+    empId: string,
+    skillId: string,
+    skillName: string,
+    level: number
+  ): void {
     this.employees = this.employees.map((emp) => {
       if (emp.id !== empId) return emp;
       const found = emp.skills?.some((s) => s.id === skillId);
       const skills = (emp.skills || []).map((s) =>
         s.id === skillId ? { ...s, level } : s
       );
-      if (!found) skills.push({ id: skillId, name: skillName || 'Skill', level });
+      if (!found)
+        skills.push({ id: skillId, name: skillName || 'Skill', level });
       return { ...emp, skills };
     });
   }
 
-  private async applySkillUpgrade(emp: EmployeeProfile, skill: EmployeeSkill): Promise<number> {
+  private async applySkillUpgrade(
+    emp: EmployeeProfile,
+    skill: EmployeeSkill
+  ): Promise<number> {
     if (!this.companyId) throw new Error('missing_company');
     const skillDocId =
       skill.id ||
-      skill.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') ||
+      skill.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') ||
       'skill';
     const companyRef = doc(db, `companies/${this.companyId}`);
-    const skillRef = doc(db, `companies/${this.companyId}/employees/${emp.id}/skills/${skillDocId}`);
+    const skillRef = doc(
+      db,
+      `companies/${this.companyId}/employees/${emp.id}/skills/${skillDocId}`
+    );
     const nextLevel = await runTransaction(db, async (tx) => {
       const companySnap = await tx.get(companyRef);
       const data = (companySnap && (companySnap.data() as any)) || {};
@@ -355,7 +433,10 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
     return nextLevel;
   }
 
-  private async refreshRatesAfterSpend(emp: EmployeeProfile, skill: EmployeeSkill): Promise<void> {
+  private async refreshRatesAfterSpend(
+    emp: EmployeeProfile,
+    skill: EmployeeSkill
+  ): Promise<void> {
     if (!this.companyId) return;
     this.refreshingRates = true;
     try {
@@ -366,11 +447,14 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
         skill_id: skill.id || '',
         skill_name: skill.name,
       };
-      const resp = await fetch('https://fa-strtupifyio.azurewebsites.net/api/focus_rates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const resp = await fetch(
+        'https://fa-strtupifyio.azurewebsites.net/api/focus_rates',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }
+      );
       let ok = false;
       if (resp.ok) {
         try {
@@ -381,13 +465,19 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
         }
       }
       if (ok) {
-        this.spendMessage = `${this.spendMessage || 'Upgrade applied.'} Work item rates are updating.`;
+        this.spendMessage = `${
+          this.spendMessage || 'Upgrade applied.'
+        } Work item rates are updating.`;
       } else {
-        this.spendMessage = `${this.spendMessage || 'Upgrade applied.'} Work item rates will refresh shortly.`;
+        this.spendMessage = `${
+          this.spendMessage || 'Upgrade applied.'
+        } Work item rates will refresh shortly.`;
       }
     } catch (err) {
       console.error('Failed to refresh rates after focus spend', err);
-      this.spendError = this.spendError || 'Skill applied but work rates may take longer to update.';
+      this.spendError =
+        this.spendError ||
+        'Skill applied but work rates may take longer to update.';
     } finally {
       this.refreshingRates = false;
     }
@@ -399,12 +489,19 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
     const results = await Promise.all(
       list.map(async (emp) => {
         try {
-          const snap = await getDocs(collection(db, `companies/${this.companyId}/employees/${emp.id}/skills`));
+          const snap = await getDocs(
+            collection(
+              db,
+              `companies/${this.companyId}/employees/${emp.id}/skills`
+            )
+          );
           const skills: EmployeeSkill[] = snap.docs
             .map((d) => {
               const data = (d.data() as any) || {};
               const levelRaw = Number(data.level || 0);
-              const level = Number.isFinite(levelRaw) ? Math.max(1, Math.min(10, levelRaw)) : 1;
+              const level = Number.isFinite(levelRaw)
+                ? Math.max(1, Math.min(10, levelRaw))
+                : 1;
               const name = String(data.skill || '').trim();
               return name
                 ? {

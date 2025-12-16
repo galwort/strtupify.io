@@ -92,7 +92,6 @@
       height: 52px;
       border-radius: 50%;
       background: rgba(63, 140, 255, 0.06);
-      border: 2px solid var(--theme-primary);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -106,7 +105,6 @@
 
       &.fallback {
         background: rgba(63, 140, 255, 0.04);
-        border-style: dashed;
       }
 
       .material-symbols-outlined {

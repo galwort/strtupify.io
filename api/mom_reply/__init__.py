@@ -161,7 +161,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     grant_state = company_ref.get()
     already_granted = False
     if grant_state.exists:
-        already_granted = bool(grant_state.get("momGiftGranted"))
+        grant_data = grant_state.to_dict() or {}
+        already_granted = bool(grant_data.get("momGiftGranted"))
 
     try:
         evaluation = evaluate_request(message)

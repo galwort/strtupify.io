@@ -72,7 +72,6 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
   private skillsToken = 0;
   focusPoints = 0;
   spendError = '';
-  spendMessage = '';
   spending = false;
   refreshingRates = false;
   endgameOutcomeMood: AvatarMood | null = null;
@@ -82,6 +81,7 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
   >();
   private avatarColorCache = new Map<string, string>();
   private pendingAvatarFetches = new Map<string, Promise<void>>();
+  private upgradingSkillKey: string | null = null;
   readonly skillPointCost = 10;
 
   ngOnInit(): void {
@@ -280,6 +280,10 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
     );
   }
 
+  get isUpdating(): boolean {
+    return this.spending || this.refreshingRates || !!this.upgradingSkillKey;
+  }
+
   private setTemporaryAvatarMood(
     empId: string,
     mood: AvatarMood,
@@ -330,7 +334,6 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
     if (!this.companyId) return;
     if (this.spending) return;
     this.spendError = '';
-    this.spendMessage = '';
     if (skill.level >= 10) {
       this.spendError = `${skill.name} is already at max level.`;
       return;
@@ -339,13 +342,14 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
       this.spendError = `You need ${this.skillPointCost.toLocaleString()} focus points to add a skill level.`;
       return;
     }
+    const skillKey = this.buildSkillKey(emp.id, skill);
+    this.upgradingSkillKey = skillKey;
     this.setTemporaryAvatarMood(emp.id, 'happy', 1800);
     this.spending = true;
     try {
       const nextLevel = await this.applySkillUpgrade(emp, skill);
       this.bumpLocalSkill(emp.id, skill.id, skill.name, nextLevel);
       this.focusPoints = Math.max(0, this.focusPoints - this.skillPointCost);
-      this.spendMessage = `Upgraded ${skill.name} for ${emp.name} to level ${nextLevel}.`;
       await this.refreshRatesAfterSpend(emp, { ...skill, level: nextLevel });
     } catch (err: any) {
       const msg = typeof err?.message === 'string' ? err.message : '';
@@ -355,6 +359,7 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
         this.spendError = `${skill.name} is already at max level.`;
       else this.spendError = 'Could not spend focus points right now.';
     } finally {
+      this.upgradingSkillKey = null;
       this.spending = false;
     }
   }
@@ -455,24 +460,7 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
           body: JSON.stringify(payload),
         }
       );
-      let ok = false;
-      if (resp.ok) {
-        try {
-          const data = await resp.json();
-          ok = !!data?.ok;
-        } catch {
-          ok = resp.ok;
-        }
-      }
-      if (ok) {
-        this.spendMessage = `${
-          this.spendMessage || 'Upgrade applied.'
-        } Work item rates are updating.`;
-      } else {
-        this.spendMessage = `${
-          this.spendMessage || 'Upgrade applied.'
-        } Work item rates will refresh shortly.`;
-      }
+      await resp.json().catch(() => undefined);
     } catch (err) {
       console.error('Failed to refresh rates after focus spend', err);
       this.spendError =
@@ -524,5 +512,20 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
       const skills = skillsById.get(emp.id);
       return skills ? { ...emp, skills } : emp;
     });
+  }
+
+  isSkillUpdating(emp: EmployeeProfile, skill: EmployeeSkill): boolean {
+    return this.upgradingSkillKey === this.buildSkillKey(emp.id, skill);
+  }
+
+  private buildSkillKey(empId: string, skill: EmployeeSkill): string {
+    const skillId =
+      skill.id ||
+      skill.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') ||
+      'skill';
+    return `${empId}|${skillId}`;
   }
 }

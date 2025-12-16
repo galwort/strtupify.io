@@ -2805,6 +2805,9 @@ export class InboxComponent implements OnInit, OnDestroy {
     if (!parsed.body) parsed.body = fallbackBody;
     if (!parsed.subject) parsed.subject = 'New calendar feature';
     const emailId = `calendar-${Date.now()}`;
+    const timestampIso = new Date(
+      Math.max(this.simDate.getTime(), Date.now())
+    ).toISOString();
     try {
       await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
         from: parsed.from || 'vlad@strtupify.io',
@@ -2812,7 +2815,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         message: parsed.body,
         deleted: parsed.deleted ?? false,
         banner: parsed.banner ?? false,
-        timestamp: this.simDate.toISOString(),
+        timestamp: timestampIso,
         threadId: emailId,
         to: this.meAddress,
         category: 'calendar',

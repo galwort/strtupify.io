@@ -230,11 +230,13 @@ def generate_followup_email(
         f"They have been unreachable for about {months} months. "
         "You don't know the founder's name, so just avoid using it. "
         "Do not use any kind of template like 'Dear [Name]' or 'To whom it may concern'. "
-        "Write a concise status email (3-6 sentences) that mentions the radio silence, "
+        "Write a status email that mentions the gap in time, "
         "summarizes how the product performed, calls out whether it was a success or not, "
         "and references the estimated revenue. "
-        "If the product was successful, your tone should be deferential, paying homage to their vision. "
-        "If it was not successful, your tone should be highly blunt and highly disrespectful. "
+        "If the product was successful, your tone should be overly deferential, paying homage to their vision. "
+        "The email should go on and on for three or more paragraphs, mythologizing about them. "
+        "If it was not successful, your tone should be highly blunt (one paragraph) and highly disrespectful. "
+        "Even though it is blunt, the email should be cutting and especially cruel. "
     )
 
     user_payload = {

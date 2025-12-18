@@ -148,6 +148,8 @@
     .avatar-bubble {
       width: 42px;
       height: 42px;
+      flex: 0 0 42px;
+      aspect-ratio: 1 / 1;
       border-radius: 50%;
       background: rgba(63, 140, 255, 0.06);
       display: inline-flex;

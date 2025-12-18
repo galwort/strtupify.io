@@ -209,7 +209,7 @@ export class ReplyRouterService {
       } catch (err) {
         console.error('assist review failed', err);
       }
-      if (!review || !review.ok) return;
+      if (!review) return;
 
       const multiplier = Number(review.multiplier);
       if (!Number.isFinite(multiplier) || multiplier <= 0) return;

@@ -26,6 +26,19 @@ db = firestore.client()
 
 MIN_MULTIPLIER = 0.20
 MAX_MULTIPLIER = 1.50
+NO_REPLY_PHRASES = [
+    "let me know",
+    "let us know",
+    "please advise",
+    "could you",
+    "can you",
+    "would you",
+    "please reply",
+    "please respond",
+    "get back to me",
+    "awaiting your response",
+    "any questions",
+]
 
 
 class ProductInfo(BaseModel):
@@ -98,11 +111,34 @@ class AssistReviewResult(BaseModel):
     follow_up: WorkerFollowUp
 
 
+def sanitize_follow_up(body: str, workitem_title: str) -> str:
+    text = (body or "").strip()
+    lowered = text.lower()
+    if "?" in text:
+        text = ""
+    else:
+        for phrase in NO_REPLY_PHRASES:
+            if phrase in lowered:
+                text = ""
+                break
+    if text:
+        return text
+    fallback = "Thanks for the direction. I'm applying it now and will keep things moving."
+    if workitem_title:
+        fallback = (
+            f"Thanks for the direction on {workitem_title}. "
+            "I'm applying it now and will keep things moving."
+        )
+    return fallback
+
+
 def _call_llm(payload: Dict[str, Any]) -> AssistReviewResult:
     system_message = (
         "You review a founder's reply to a teammate's help request. "
         "Score the reply, decide a speed multiplier between 0.20 and 1.50, "
         "and craft the teammate's appreciative follow-up email. "
+        "The follow-up must never ask for more information or a response; "
+        "it should be a brief acknowledgement that they're applying the guidance and moving forward. "
         "Return only JSON that matches the schema."
     )
     completion = client.beta.chat.completions.parse(
@@ -208,9 +244,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         )
 
     multiplier = max(MIN_MULTIPLIER, min(MAX_MULTIPLIER, float(parsed.multiplier)))
+    follow_body = sanitize_follow_up(parsed.follow_up.body, workitem.title)
 
     response_payload = {
-        "ok": True,
         "helpfulness": parsed.helpfulness,
         "reasoning": parsed.reasoning,
         "multiplier": round(multiplier, 4),
@@ -218,7 +254,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         "improvements": parsed.improvements,
         "follow_up": {
             "subject": base_subject,
-            "body": parsed.follow_up.body,
+            "body": follow_body,
             "tone": parsed.follow_up.tone,
         },
     }

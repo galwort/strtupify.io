@@ -115,9 +115,7 @@
               id="send-compose-btn"
               type="button"
               (click)="sendCompose()"
-              [class.sending]="sendingCompose"
               [class.clicked]="composeClicked"
-              [disabled]="sendingCompose"
             >
               <span class="material-symbols-outlined">send</span>
               <span>Send</span>
@@ -154,9 +152,7 @@
               class="btn btn-primary"
               id="send-reply-btn"
               (click)="sendReply()"
-              [class.sending]="sendingReply"
               [class.clicked]="clickedSend"
-              [disabled]="sendingReply"
             >
               <span class="material-symbols-outlined">send</span>
               <span>Send</span>

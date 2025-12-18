@@ -88,6 +88,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   done: WorkItem[] = [];
   simTime = Date.now();
   hires: HireSummary[] = [];
+  hiresLoading = true;
 
   private speed = 8;
   private tickMs = 150;
@@ -789,6 +790,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   }
 
   private async loadHires() {
+    this.hiresLoading = true;
     try {
       const snap = await getDocs(
         query(collection(db, `companies/${this.companyId}/employees`), where('hired', '==', true))
@@ -841,6 +843,8 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       this.recomputeStress();
     } catch (err) {
       console.error('Failed to load hires', err);
+    } finally {
+      this.hiresLoading = false;
     }
   }
 

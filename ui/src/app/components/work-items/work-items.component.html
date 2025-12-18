@@ -5,20 +5,25 @@
 
   <div class="content-body">
     <ng-template #avatarBubble let-item>
-      <ng-container *ngIf="assigneeFor(item) as assignee; else avatarUnassigned">
-        <div
-          class="avatar-bubble"
-          [class.fallback]="!assignee.avatarUrl"
-          [attr.title]="assignee.name + (assignee.title ? ' - ' + assignee.title : '')"
-        >
-          <img
-            *ngIf="assignee.avatarUrl"
-            [src]="assignee.avatarUrl"
-            [alt]="assignee.name + ' avatar'"
-          />
-          <span *ngIf="!assignee.avatarUrl">{{ assignee.initials }}</span>
-        </div>
+      <ng-container *ngIf="hiresLoading; else avatarResolved">
+        <div class="avatar-bubble skeleton" title="Loading assignee"></div>
       </ng-container>
+      <ng-template #avatarResolved>
+        <ng-container *ngIf="assigneeFor(item) as assignee; else avatarUnassigned">
+          <div
+            class="avatar-bubble"
+            [class.fallback]="!assignee.avatarUrl"
+            [attr.title]="assignee.name + (assignee.title ? ' - ' + assignee.title : '')"
+          >
+            <img
+              *ngIf="assignee.avatarUrl"
+              [src]="assignee.avatarUrl"
+              [alt]="assignee.name + ' avatar'"
+            />
+            <span *ngIf="!assignee.avatarUrl">{{ assignee.initials }}</span>
+          </div>
+        </ng-container>
+      </ng-template>
       <ng-template #avatarUnassigned>
         <div class="avatar-bubble fallback" title="Unassigned">
           <span class="material-symbols-outlined">person</span>
@@ -28,7 +33,10 @@
 
     <ng-template #assignSelect let-item>
       <div class="assign">
-        <select (change)="reassign(item, $any($event.target).value)" [disabled]="item.status === 'done'">
+        <select
+          (change)="reassign(item, $any($event.target).value)"
+          [disabled]="item.status === 'done' || hiresLoading"
+        >
           <option value="" [selected]="!item.assignee_id">Unassigned</option>
           <option *ngFor="let e of hires" [value]="e.id" [selected]="e.id === item.assignee_id">
             {{ e.name }}{{ e.title ? ' - ' + e.title : '' }}

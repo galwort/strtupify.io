@@ -124,6 +124,8 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   private companySnapshotSeen = false;
   private avatarColorCache = new Map<string, string>();
   private pendingAvatarFetches = new Map<string, Promise<void>>();
+  private readonly workdayStartHour = 8;
+  private readonly workdayEndHour = 17;
 
   constructor(private ui: UiStateService, private endgame: EndgameService) {}
 
@@ -348,10 +350,46 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     const worker = emp || (it.assignee_id ? this.empById.get(it.assignee_id) : null);
     const burnedOut = worker ? isBurnedOut(worker.status) : false;
     if (!burnedOut && it.status === 'doing' && it.started_at) {
-      const delta = Math.max(0, this.simTime - it.started_at);
+      const delta = this.workingMillisBetween(it.started_at, this.simTime);
       return base + delta;
     }
     return base;
+  }
+
+  private workingMillisBetween(startMs: number, endMs: number): number {
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
+      return 0;
+    }
+    const startHour = this.workdayStartHour;
+    const endHour = this.workdayEndHour;
+    let total = 0;
+    let cursor = startMs;
+    while (cursor < endMs) {
+      const d = new Date(cursor);
+      const dayStart = new Date(d.getTime());
+      dayStart.setHours(startHour, 0, 0, 0);
+      const dayEnd = new Date(d.getTime());
+      dayEnd.setHours(endHour, 0, 0, 0);
+      const day = d.getDay();
+      const isWorkday = day >= 1 && day <= 5;
+      if (!isWorkday || cursor >= dayEnd.getTime()) {
+        const nextDay = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+        cursor = nextDay.getTime();
+        continue;
+      }
+      if (cursor < dayStart.getTime()) {
+        cursor = dayStart.getTime();
+        continue;
+      }
+      const sliceEnd = Math.min(endMs, dayEnd.getTime());
+      if (sliceEnd > cursor) {
+        total += sliceEnd - cursor;
+        cursor = sliceEnd;
+      } else {
+        cursor = sliceEnd;
+      }
+    }
+    return total;
   }
 
   private startLocalClock() {

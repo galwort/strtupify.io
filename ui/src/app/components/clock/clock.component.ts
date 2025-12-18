@@ -82,6 +82,8 @@ export class ClockComponent implements OnChanges, OnDestroy {
     string,
     { stress: number; status: 'Active' | 'Burnout'; multiplier: number }
   >();
+  private readonly workdayStartHour = 8;
+  private readonly workdayEndHour = 17;
 
   ngOnChanges(changes: SimpleChanges): void {
     if ('companyId' in changes) {
@@ -364,7 +366,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
     const startedAt = Number(it.started_at || 0);
     let totalWorkedMs = baseWorked;
     if (it.status === 'doing' && startedAt) {
-      totalWorkedMs += Math.max(0, this.simTime - startedAt);
+      totalWorkedMs += this.workingMillisBetween(startedAt, this.simTime);
     }
     const hours = totalWorkedMs / 3_600_000;
     const emp = it.assignee_id
@@ -376,6 +378,42 @@ export class ClockComponent implements OnChanges, OnDestroy {
     if (!needed || !isFinite(needed)) return 0;
     const pct = Math.min(100, Math.max(0, (hours / needed) * 100));
     return Math.round(pct);
+  }
+
+  private workingMillisBetween(startMs: number, endMs: number): number {
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
+      return 0;
+    }
+    const startHour = this.workdayStartHour;
+    const endHour = this.workdayEndHour;
+    let total = 0;
+    let cursor = startMs;
+    while (cursor < endMs) {
+      const d = new Date(cursor);
+      const dayStart = new Date(d.getTime());
+      dayStart.setHours(startHour, 0, 0, 0);
+      const dayEnd = new Date(d.getTime());
+      dayEnd.setHours(endHour, 0, 0, 0);
+      const day = d.getDay();
+      const isWorkday = day >= 1 && day <= 5;
+      if (!isWorkday || cursor >= dayEnd.getTime()) {
+        const nextDay = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+        cursor = nextDay.getTime();
+        continue;
+      }
+      if (cursor < dayStart.getTime()) {
+        cursor = dayStart.getTime();
+        continue;
+      }
+      const sliceEnd = Math.min(endMs, dayEnd.getTime());
+      if (sliceEnd > cursor) {
+        total += sliceEnd - cursor;
+        cursor = sliceEnd;
+      } else {
+        cursor = sliceEnd;
+      }
+    }
+    return total;
   }
 
   private getEffectiveSpeed(): number {

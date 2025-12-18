@@ -22,6 +22,7 @@ type RoleEntry = {
   count: number;
   skills?: string[];
   isCustom?: boolean;
+  aiGenerated?: boolean;
 };
 
 const PART_ONE_OPTIONS = ['Senior', 'Associate', 'Executive'];
@@ -102,6 +103,8 @@ export class RolesComponent implements OnInit {
       id: docSnap.id,
       title: String(docSnap.data()['title'] || ''),
       count: 0,
+      aiGenerated:
+        Boolean(docSnap.data()['aiGenerated']) || docSnap.id.startsWith('ai-'),
     }));
   }
 
@@ -160,6 +163,7 @@ export class RolesComponent implements OnInit {
     const timestamp = new Date().toISOString();
     for (const role of filtered) {
       role.title = (role.title || '').trim();
+      const aiGenerated = !!role.aiGenerated;
       await this.delayStep(async () => {
         role.skills = await this.fetchSkills(role.title);
       });
@@ -170,6 +174,7 @@ export class RolesComponent implements OnInit {
           {
             title: role.title,
             openings: role.count,
+            aiGenerated,
           },
           { merge: true }
         );
@@ -181,6 +186,7 @@ export class RolesComponent implements OnInit {
           {
             title: role.title,
             skills: role.skills,
+            aiGenerated,
           },
           { merge: true }
         );
@@ -192,6 +198,7 @@ export class RolesComponent implements OnInit {
           {
             title: role.title,
             updated: timestamp,
+            aiGenerated,
           },
           { merge: true }
         );
@@ -273,6 +280,7 @@ export class RolesComponent implements OnInit {
         title,
         count: 0,
         isCustom: true,
+        aiGenerated: true,
       },
     ];
   }

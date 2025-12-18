@@ -19,6 +19,7 @@ import {
   AvatarMood,
   buildAvatarUrl,
   burnoutMood,
+  normalizeAvatarMood,
   normalizeOutcomeStatus,
   outcomeMood,
 } from 'src/app/utils/avatar';
@@ -186,7 +187,8 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
 
   private applyAvatarMood(emp: EmployeeProfile): EmployeeProfile {
     const burnout = burnoutMood(emp.stress, emp.status) === 'sad';
-    const avatarMood = this.computeAvatarMood(emp);
+    const desiredMood = this.computeAvatarMood(emp);
+    const avatarMood = normalizeAvatarMood(emp.avatarName, desiredMood);
     const color = normalizeEmployeeColor(emp.color);
     const baseUrl = buildAvatarUrl(emp.avatarName, avatarMood);
     const cacheKey = this.avatarCacheKey(emp, avatarMood, color || undefined);

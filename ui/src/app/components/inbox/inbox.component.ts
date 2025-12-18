@@ -24,7 +24,14 @@ import {
 import { environment } from 'src/environments/environment';
 import { EndgameService, EndgameStatus } from '../../services/endgame.service';
 import { UiStateService } from '../../services/ui-state.service';
-import { AvatarMood, buildAvatarUrl, burnoutMood, normalizeOutcomeStatus, outcomeMood } from 'src/app/utils/avatar';
+import {
+  AvatarMood,
+  buildAvatarUrl,
+  burnoutMood,
+  normalizeAvatarMood,
+  normalizeOutcomeStatus,
+  outcomeMood,
+} from 'src/app/utils/avatar';
 import { fallbackEmployeeColor, normalizeEmployeeColor } from 'src/app/utils/employee-colors';
 
 const fbApp = getApps().length
@@ -332,14 +339,15 @@ export class InboxComponent implements OnInit, OnDestroy {
     const baseMood =
       this.normalizeMoodValue(moodOverride || record.mood) || this.endgameOutcomeMood || 'neutral';
     const mood: AvatarMood = record.burnout ? 'sad' : baseMood;
+    const safeMood = normalizeAvatarMood(record.avatarName || '', mood);
     const color = normalizeEmployeeColor(record.color);
-    const baseUrl = record.avatarName ? buildAvatarUrl(record.avatarName, mood) : '';
-    const cacheKey = color && baseUrl ? this.avatarCacheKey(record, mood, color) : null;
+    const baseUrl = record.avatarName ? buildAvatarUrl(record.avatarName, safeMood) : '';
+    const cacheKey = color && baseUrl ? this.avatarCacheKey(record, safeMood, color) : null;
     const cached = cacheKey ? this.avatarColorCache.get(cacheKey) : undefined;
     if (!cached && cacheKey && baseUrl && color) {
-      void this.fetchAndColorAvatar(cacheKey, baseUrl, color, nameKey, mood);
+      void this.fetchAndColorAvatar(cacheKey, baseUrl, color, nameKey, safeMood);
     }
-    const preferMood = record.burnout || mood !== 'neutral';
+    const preferMood = record.burnout || safeMood !== 'neutral';
     const moodUrl = cached || baseUrl || null;
     const fallback = record.directUrl;
     return preferMood ? moodUrl || fallback || record.url : fallback || moodUrl || record.url;

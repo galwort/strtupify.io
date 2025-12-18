@@ -27,8 +27,10 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 
-def pull_name():
+def pull_name(male_only: bool = False):
     url = "https://randomuser.me/api/?nat=us"
+    if male_only:
+        url += "&gender=male"
     try:
         r = get(url, timeout=5)
         r.raise_for_status()
@@ -36,9 +38,9 @@ def pull_name():
         name_data = result.get("name", {}) if isinstance(result, dict) else {}
         first = name_data.get("first")
         last = name_data.get("last")
-        gender = str(result.get("gender") or "").lower()
+        gender = "male" if male_only else str(result.get("gender") or "").lower()
         if not gender or gender not in ("male", "female"):
-            gender = choice(["male", "female"])
+            gender = "male" if male_only else choice(["male", "female"])
         if first and last:
             return f"{first} {last}", gender
     except Exception:
@@ -67,7 +69,8 @@ def pull_name():
         "Martinez",
         "Hernandez",
     ]
-    return f"{choice(first)} {choice(last)}", choice(["male", "female"])
+    fallback_gender = "male" if male_only else choice(["male", "female"])
+    return f"{choice(first)} {choice(last)}", fallback_gender
 
 
 def pull_skills(company, job_title):
@@ -81,6 +84,12 @@ def pull_skills(company, job_title):
 def get_skill_levels():
     for i in range(5):
         yield max(1, min(10, round(gauss(5, 2))))
+
+
+def build_skill_level(multiplier: float = 1.0) -> int:
+    base_level = max(1, min(10, round(gauss(5, 2))))
+    boosted = int(round(base_level * multiplier))
+    return max(1, min(10, boosted))
 
 
 def gen_personality(name):
@@ -157,6 +166,10 @@ def generate_avatar_filename(gender: str) -> str:
     return f"{prefix}_{padded_number}_{glasses}_{facialhair}"
 
 
+def generate_consultant_avatar_filename() -> str:
+    return f"consultants/consultant_{randint(0, 62)}"
+
+
 def main(req: func.HttpRequest) -> func.HttpResponse:
     req_body = req.get_json()
     company = req_body["company"]
@@ -176,13 +189,35 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             status_code=400,
         )
 
-    skills = docs[0].to_dict().get("skills", [])
-    name, gender = pull_name()
+    role_data = docs[0].to_dict() or {}
+    role_id = docs[0].id
+    is_ai_generated = bool(role_data.get("aiGenerated")) or str(role_id).startswith(
+        "ai-"
+    )
+
+    skills = role_data.get("skills", [])
+    name, gender = pull_name(male_only=is_ai_generated)
     personality = gen_personality(name)
     skill_data = []
     for s in skills:
-        skill_data.append({"skill": s, "level": max(1, min(10, round(gauss(5, 2))))})
+        skill_data.append(
+            {
+                "skill": s,
+                "level": build_skill_level(1.25 if is_ai_generated else 1.0),
+            }
+        )
+
     salary = gen_salary(job_title, skill_data)
+    if is_ai_generated:
+        try:
+            salary = int(round(float(salary) * (5 / 3)))
+        except Exception:
+            salary = int(round(float(salary))) if salary else 0
+    elif not isinstance(salary, (int, float)):
+        try:
+            salary = int(round(float(salary)))
+        except Exception:
+            salary = 0
     ref = db.collection("companies").document(company).collection("employees")
     docs_employee = ref.get()
     if not docs_employee:
@@ -190,15 +225,23 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     else:
         employee_id = max(int(d.id) for d in docs_employee if d.id.isdigit()) + 1
     new_employee = ref.document(str(employee_id))
+    avatar_container = "consultants" if is_ai_generated else "avatars"
+    avatar_name = (
+        generate_consultant_avatar_filename()
+        if is_ai_generated
+        else generate_avatar_filename(gender)
+    )
     new_employee.set(
         {
             "name": name,
             "title": job_title,
             "gender": gender,
-            "avatar": generate_avatar_filename(gender),
+            "avatar": avatar_name,
+            "avatarContainer": avatar_container,
             "salary": salary,
             "personality": personality,
             "hired": False,
+            "aiRole": is_ai_generated,
             "created": firestore.SERVER_TIMESTAMP,
             "updated": firestore.SERVER_TIMESTAMP,
         }

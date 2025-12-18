@@ -12,11 +12,22 @@ const MAX_STRESS = 100;
 const BASE_STRESS = 5;
 const STRESS_PER_TASK = 20;
 
-export function computeStressMetrics(taskCount: number): StressMetrics {
+export interface StressOptions {
+  baseStress?: number;
+  stressPerTask?: number;
+  burnoutThreshold?: number;
+  maxStress?: number;
+}
+
+export function computeStressMetrics(taskCount: number, opts: StressOptions = {}): StressMetrics {
   const load = Math.max(0, Math.floor(taskCount || 0));
-  const stressRaw = load <= 0 ? 0 : BASE_STRESS + STRESS_PER_TASK * load;
-  const stress = Math.min(MAX_STRESS, Math.max(0, stressRaw));
-  const status: EmployeeStatus = stress >= BURNOUT_THRESHOLD ? 'Burnout' : 'Active';
+  const base = Number.isFinite(opts.baseStress) ? Number(opts.baseStress) : BASE_STRESS;
+  const perTask = Number.isFinite(opts.stressPerTask) ? Number(opts.stressPerTask) : STRESS_PER_TASK;
+  const burnoutThreshold = Number.isFinite(opts.burnoutThreshold) ? Number(opts.burnoutThreshold) : BURNOUT_THRESHOLD;
+  const maxStress = Number.isFinite(opts.maxStress) ? Number(opts.maxStress) : MAX_STRESS;
+  const stressRaw = load <= 0 ? 0 : base + perTask * load;
+  const stress = Math.min(maxStress, Math.max(0, stressRaw));
+  const status: EmployeeStatus = stress >= burnoutThreshold ? 'Burnout' : 'Active';
   const multiplier = status === 'Burnout' ? Number.POSITIVE_INFINITY : 1 + stress / 100;
 
   return { load, stress, status, multiplier };

@@ -80,7 +80,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
   private unsubEmployees: (() => void) | null = null;
   private employeeStress = new Map<
     string,
-    { stress: number; status: 'Active' | 'Burnout'; multiplier: number }
+    { stress: number; status: 'Active' | 'Burnout'; multiplier: number; offHoursAllowed?: boolean }
   >();
   private readonly workdayStartHour = 8;
   private readonly workdayEndHour = 17;
@@ -176,7 +176,8 @@ export class ClockComponent implements OnChanges, OnDestroy {
               ? 'Burnout'
               : 'Active';
           const multiplier = getStressMultiplier(stress, status);
-          this.employeeStress.set(d.id, { stress, status, multiplier });
+          const offHoursAllowed = !!(data.offHoursAllowed ?? data.off_hours_allowed);
+          this.employeeStress.set(d.id, { stress, status, multiplier, offHoursAllowed });
         });
       }
     );
@@ -364,14 +365,15 @@ export class ClockComponent implements OnChanges, OnDestroy {
   }): number {
     const baseWorked = Number(it.worked_ms || 0);
     const startedAt = Number(it.started_at || 0);
-    let totalWorkedMs = baseWorked;
-    if (it.status === 'doing' && startedAt) {
-      totalWorkedMs += this.workingMillisBetween(startedAt, this.simTime);
-    }
-    const hours = totalWorkedMs / 3_600_000;
     const emp = it.assignee_id
       ? this.employeeStress.get(it.assignee_id)
       : undefined;
+    const allowOffHours = emp ? !!emp.offHoursAllowed : false;
+    let totalWorkedMs = baseWorked;
+    if (it.status === 'doing' && startedAt) {
+      totalWorkedMs += this.workingMillisBetween(startedAt, this.simTime, allowOffHours);
+    }
+    const hours = totalWorkedMs / 3_600_000;
     if (emp && isBurnedOut(emp.status)) return 0;
     const multiplier = emp ? emp.multiplier : 1;
     const needed = it.estimated_hours * multiplier;
@@ -380,9 +382,12 @@ export class ClockComponent implements OnChanges, OnDestroy {
     return Math.round(pct);
   }
 
-  private workingMillisBetween(startMs: number, endMs: number): number {
+  private workingMillisBetween(startMs: number, endMs: number, allowOffHours = false): number {
     if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
       return 0;
+    }
+    if (allowOffHours) {
+      return Math.max(0, endMs - startMs);
     }
     const startHour = this.workdayStartHour;
     const endHour = this.workdayEndHour;

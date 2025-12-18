@@ -58,6 +58,9 @@ type HireSummary = {
   status: 'Active' | 'Burnout';
   load: number;
   multiplier: number;
+  stressBase: number;
+  stressPerTask: number;
+  offHoursAllowed: boolean;
   avatarUrl?: string;
   avatarName?: string;
   initials: string;
@@ -124,6 +127,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   private companySnapshotSeen = false;
   private avatarColorCache = new Map<string, string>();
   private pendingAvatarFetches = new Map<string, Promise<void>>();
+  private unsubEmployees: (() => void) | null = null;
   private readonly workdayStartHour = 8;
   private readonly workdayEndHour = 17;
 
@@ -221,13 +225,14 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       this.startLocalClock();
     });
 
-    void this.loadHires();
+    this.subscribeToHires();
     void this.ensureProductInfo();
   }
 
   ngOnDestroy(): void {
     if (this.unsubItems) this.unsubItems();
     if (this.unsubCompany) this.unsubCompany();
+    if (this.unsubEmployees) this.unsubEmployees();
     this.stopLocalClock();
     if (this.endgameSub) {
       try {
@@ -349,16 +354,20 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     const base = Number(it.worked_ms || 0);
     const worker = emp || (it.assignee_id ? this.empById.get(it.assignee_id) : null);
     const burnedOut = worker ? isBurnedOut(worker.status) : false;
+    const allowOffHours = worker ? !!worker.offHoursAllowed : false;
     if (!burnedOut && it.status === 'doing' && it.started_at) {
-      const delta = this.workingMillisBetween(it.started_at, this.simTime);
+      const delta = this.workingMillisBetween(it.started_at, this.simTime, allowOffHours);
       return base + delta;
     }
     return base;
   }
 
-  private workingMillisBetween(startMs: number, endMs: number): number {
+  private workingMillisBetween(startMs: number, endMs: number, allowOffHours = false): number {
     if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
       return 0;
+    }
+    if (allowOffHours) {
+      return Math.max(0, endMs - startMs);
     }
     const startHour = this.workdayStartHour;
     const endHour = this.workdayEndHour;
@@ -829,12 +838,26 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     this.recomputeStress();
   }
 
-  private async loadHires() {
+  private subscribeToHires(): void {
+    if (!this.companyId) return;
+    if (this.unsubEmployees) {
+      this.unsubEmployees();
+      this.unsubEmployees = null;
+    }
     this.hiresLoading = true;
+    const ref = query(collection(db, `companies/${this.companyId}/employees`), where('hired', '==', true));
+    this.unsubEmployees = onSnapshot(ref, (snap: QuerySnapshot<DocumentData>) => {
+      void this.hydrateHiresFromSnapshot(snap);
+    });
+  }
+
+  private async hydrateHiresFromSnapshot(snap: QuerySnapshot<DocumentData>): Promise<void> {
+    this.hiresLoading = true;
+    if (!this.companyId) {
+      this.hiresLoading = false;
+      return;
+    }
     try {
-      const snap = await getDocs(
-        query(collection(db, `companies/${this.companyId}/employees`), where('hired', '==', true))
-      );
       const hires = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
       const list: HireSummary[] = [];
       for (const h of hires) {
@@ -849,7 +872,6 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
         const persistedStress = Number(h.stress || 0);
         const statusRaw = String(h.status || 'Active');
         const status: 'Active' | 'Burnout' = statusRaw === 'Burnout' ? 'Burnout' : 'Active';
-        const multiplier = getStressMultiplier(persistedStress, status);
         const directAvatarUrl = String(h.avatarUrl || h.avatar_url || '').trim();
         const avatarName = String(h.avatar || h.photo || h.photoUrl || h.image || '').trim();
         const avatarUrl = directAvatarUrl || buildAvatarUrl(avatarName, 'neutral');
@@ -857,6 +879,12 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
         const name = String(h.name || '');
         const title = String(h.title || '');
         const color = normalizeEmployeeColor(h.calendarColor || h.color) || fallbackEmployeeColor(h.id);
+        const stressBaseRaw = Number(h.stressBase ?? h.stress_base ?? 5);
+        const stressBase = Number.isFinite(stressBaseRaw) ? Math.max(0, Math.min(100, stressBaseRaw)) : 5;
+        const stressPerTaskRaw = Number(h.stressPerTask ?? h.stress_per_task ?? 20);
+        const stressPerTask = Number.isFinite(stressPerTaskRaw) ? Math.max(1, Math.min(100, stressPerTaskRaw)) : 20;
+        const offHoursAllowed = !!(h.offHoursAllowed ?? h.off_hours_allowed);
+        const multiplier = getStressMultiplier(persistedStress, status);
         list.push({
           id: h.id,
           name,
@@ -870,6 +898,9 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
           avatarUrl,
           initials,
           color,
+          stressBase,
+          stressPerTask,
+          offHoursAllowed,
         });
         this.lastPersistedStress.set(h.id, { stress: persistedStress, status });
       }
@@ -903,7 +934,10 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     const updates: Array<Promise<void>> = [];
 
     for (const hire of this.hires) {
-      const metrics: StressMetrics = computeStressMetrics(loadByEmployee.get(hire.id) || 0);
+      const metrics: StressMetrics = computeStressMetrics(loadByEmployee.get(hire.id) || 0, {
+        baseStress: hire.stressBase,
+        stressPerTask: hire.stressPerTask,
+      });
       anyLoad = anyLoad || metrics.load > 0;
       const wasBurnedOut = hire.status === 'Burnout';
       const nowBurnedOut = metrics.status === 'Burnout';

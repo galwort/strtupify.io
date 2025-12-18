@@ -360,6 +360,20 @@ export class ReplyRouterService {
       });
       return;
     }
+    const employee = await this.matchEmployeeRecipient(opts.companyId, to);
+    if (employee) {
+      await this.handleEmployeeEmail({
+        companyId: opts.companyId,
+        to,
+        subject: opts.subject,
+        message: opts.message,
+        threadId: opts.threadId,
+        parentId: opts.parentId,
+        timestamp: opts.timestamp,
+        employee,
+      });
+      return;
+    }
     await this.sendMailerDaemonBounce({
       companyId: opts.companyId,
       to: opts.to,
@@ -819,6 +833,104 @@ export class ReplyRouterService {
       return `${days} business day${days === 1 ? '' : 's'}`;
     }
     return `${rounded} hours`;
+  }
+
+  private normalizeLocalPart(source: string): string {
+    const normalized = (source || 'teammate').toLowerCase().replace(/[^a-z0-9]+/g, '.');
+    const trimmed = normalized.replace(/^\.+|\.+$/g, '');
+    return trimmed || 'teammate';
+  }
+
+  private async employeeDomain(companyId: string): Promise<string> {
+    try {
+      const me = await this.getMeAddress(companyId);
+      const parts = me.split('@');
+      if (parts.length === 2 && parts[1]) return parts[1].toLowerCase();
+    } catch {}
+    const base = (companyId || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    return `${base || 'strtupify'}.com`;
+  }
+
+  private async matchEmployeeRecipient(
+    companyId: string,
+    address: string
+  ): Promise<{ id: string; name: string; title: string; email: string } | null> {
+    const normalized = this.normalizeAddress(address);
+    if (!normalized || !normalized.includes('@')) return null;
+    const domain = await this.employeeDomain(companyId);
+    try {
+      const snap = await getDocs(
+        query(collection(db, `companies/${companyId}/employees`), where('hired', '==', true))
+      );
+      for (const d of snap.docs) {
+        const data = (d.data() as any) || {};
+        const name = String(data.name || d.id);
+        const title = String(data.title || '');
+        const predicted = `${this.normalizeLocalPart(name)}@${domain}`;
+        const idAlias = `${this.normalizeLocalPart(d.id)}@${domain}`;
+        if (normalized === predicted || normalized === idAlias) {
+          return { id: d.id, name, title, email: predicted };
+        }
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
+  private async handleEmployeeEmail(opts: {
+    companyId: string;
+    to: string;
+    subject: string;
+    message: string;
+    threadId: string;
+    parentId?: string;
+    timestamp?: string;
+    employee: { id: string; name: string; title?: string; email?: string };
+  }): Promise<void> {
+    const payload = {
+      company: opts.companyId,
+      to: opts.to,
+      subject: opts.subject || '(no subject)',
+      message: opts.message || '',
+      threadId: opts.threadId,
+      parentId: opts.parentId,
+      employee_id: opts.employee.id,
+    };
+    let res: any = null;
+    try {
+      res = await this.http
+        .post<any>('https://fa-strtupifyio.azurewebsites.net/api/employee_email', payload)
+        .toPromise();
+    } catch (err) {
+      console.error('employee email evaluation failed', err);
+      return;
+    }
+    const reply = res?.reply;
+    if (!reply || !reply.body) return;
+    const meAddress = await this.getMeAddress(opts.companyId);
+    const from =
+      reply.from || opts.employee.email || this.buildWorkerAddress(opts.employee.name, opts.companyId);
+    const subject = reply.subject || `Re: ${opts.subject || '(no subject)'}`;
+    const timestamp =
+      opts.timestamp && new Date(opts.timestamp).toString() !== 'Invalid Date'
+        ? new Date(opts.timestamp).toISOString()
+        : new Date().toISOString();
+    const emailId = `employee-reply-${Date.now()}`;
+    await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), {
+      from,
+      to: meAddress,
+      subject,
+      message: reply.body,
+      deleted: false,
+      banner: false,
+      timestamp,
+      threadId: opts.threadId,
+      parentId: opts.parentId,
+      category: 'employee',
+      employeeId: opts.employee.id,
+      employeeIntent: res?.intent || 'neutral',
+    });
   }
 
   private async sendMailerDaemonBounce(opts: {

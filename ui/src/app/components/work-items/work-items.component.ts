@@ -332,20 +332,22 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   progress(it: WorkItem): number {
     if (!it.assignee_id || !it.estimated_hours) return 0;
     const emp = this.empById.get(it.assignee_id);
-    if (emp && isBurnedOut(emp.status)) return 0;
-    const totalMs = this.totalWorkedMs(it);
+    const burnedOut = emp ? isBurnedOut(emp.status) : false;
+    const totalMs = this.totalWorkedMs(it, emp || undefined);
     if (!totalMs) return 0;
     const hours = totalMs / 3_600_000;
-    const multiplier = emp ? emp.multiplier : 1;
+    const multiplier = emp ? (burnedOut ? 1 : emp.multiplier) : 1;
     const adjustedHoursNeeded = it.estimated_hours * multiplier;
     if (!adjustedHoursNeeded || !isFinite(adjustedHoursNeeded)) return 0;
     const pct = Math.min(100, Math.max(0, (hours / adjustedHoursNeeded) * 100));
     return Math.round(pct);
   }
 
-  private totalWorkedMs(it: WorkItem): number {
+  private totalWorkedMs(it: WorkItem, emp?: HireSummary | null): number {
     const base = Number(it.worked_ms || 0);
-    if (it.status === 'doing' && it.started_at) {
+    const worker = emp || (it.assignee_id ? this.empById.get(it.assignee_id) : null);
+    const burnedOut = worker ? isBurnedOut(worker.status) : false;
+    if (!burnedOut && it.status === 'doing' && it.started_at) {
       const delta = Math.max(0, this.simTime - it.started_at);
       return base + delta;
     }
@@ -865,6 +867,13 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     for (const hire of this.hires) {
       const metrics: StressMetrics = computeStressMetrics(loadByEmployee.get(hire.id) || 0);
       anyLoad = anyLoad || metrics.load > 0;
+      const wasBurnedOut = hire.status === 'Burnout';
+      const nowBurnedOut = metrics.status === 'Burnout';
+      if (nowBurnedOut && !wasBurnedOut) {
+        void this.pauseWorkitemsForAssignee(hire.id);
+      } else if (!nowBurnedOut && wasBurnedOut) {
+        void this.resumeWorkitemsForAssignee(hire.id);
+      }
       const changed =
         hire.stress !== metrics.stress ||
         hire.status !== metrics.status ||
@@ -904,6 +913,47 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
 
     if (anyLoad) {
       this.activateHrModuleOnce();
+    }
+  }
+
+  private async pauseWorkitemsForAssignee(empId: string): Promise<void> {
+    if (!this.companyId) return;
+    const targets = this.items.filter((it) => it.assignee_id === empId && it.status === 'doing');
+    if (!targets.length) return;
+    const updates: Array<Promise<void>> = [];
+    for (const it of targets) {
+      const workedMs = this.totalWorkedMs(it, null);
+      it.worked_ms = workedMs;
+      it.started_at = 0;
+      updates.push(
+        updateDoc(doc(db, `companies/${this.companyId}/workitems/${it.id}`), {
+          worked_ms: workedMs,
+          started_at: 0,
+        }).catch(() => {})
+      );
+    }
+    if (updates.length) {
+      await Promise.all(updates);
+    }
+  }
+
+  private async resumeWorkitemsForAssignee(empId: string): Promise<void> {
+    if (!this.companyId) return;
+    const targets = this.items.filter(
+      (it) => it.assignee_id === empId && it.status === 'doing' && !it.started_at
+    );
+    if (!targets.length) return;
+    const updates: Array<Promise<void>> = [];
+    for (const it of targets) {
+      it.started_at = this.simTime;
+      updates.push(
+        updateDoc(doc(db, `companies/${this.companyId}/workitems/${it.id}`), {
+          started_at: this.simTime,
+        }).catch(() => {})
+      );
+    }
+    if (updates.length) {
+      await Promise.all(updates);
     }
   }
 

@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="strtupify.io certified badge">
+  <defs>
+    <path id="shieldPath" d="M170 70
+      H342
+      Q380 70 380 98
+      V258
+      C380 336 324 402 256 452
+      C188 402 132 336 132 258
+      V98
+      Q132 70 170 70
+      Z" />
+    <clipPath id="clipShield">
+      <use href="#shieldPath" />
+    </clipPath>
+
+    <path id="ribbonOuter" d="M96 214
+      H416
+      Q444 214 444 242
+      V290
+      Q444 318 416 318
+      H96
+      Q68 318 68 290
+      V242
+      Q68 214 96 214
+      Z" />
+
+    <path id="ribbonInner" d="M106 224
+      H406
+      Q434 224 434 252
+      V280
+      Q434 308 406 308
+      H106
+      Q78 308 78 280
+      V252
+      Q78 224 106 224
+      Z" />
+  </defs>
+
+  <g clip-path="url(#clipShield)">
+    <rect x="0" y="0" width="512" height="512" fill="#1673c6"/>
+    <path d="M0 0 H512 V230 C380 286 132 286 0 230 Z" fill="#062a54"/>
+  </g>
+
+  <use href="#shieldPath" fill="none" stroke="#062a54" stroke-width="14" stroke-linejoin="round"/>
+
+  <use href="#ribbonOuter" fill="#062a54"/>
+  <use href="#ribbonOuter" fill="none" stroke="#062a54" stroke-width="2"/>
+
+  <use href="#ribbonInner" fill="#f5f7fa"/>
+  <use href="#ribbonInner" fill="none" stroke="#ffffff" stroke-width="4"/>
+
+  <text x="256" y="138" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif" font-size="30" font-weight="700" fill="#ffffff">
+    strtupify.io
+  </text>
+  <text x="256" y="172" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif" font-size="20" font-weight="700" letter-spacing="4" fill="#ffffff">
+    CERTIFIED
+  </text>
+
+  <foreignObject x="106" y="224" width="300" height="84">
+    <div xmlns="http://www.w3.org/1999/xhtml"
+      id="badgeRibbonText"
+      style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 14px;box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;font-size:26px;font-weight:900;line-height:1.05;color:#333333;overflow:hidden;word-break:break-word;">
+      ACHIEVEMENT
+    </div>
+  </foreignObject>
+
+  <polygon points="215.0,340.0 220.9,355.9 237.8,356.6 224.5,367.1 229.1,383.4 215.0,374.0 200.9,383.4 205.5,367.1 192.2,356.6 209.1,355.9" fill="#ffffff"/>
+  <polygon points="256.0,354.0 261.9,369.9 278.8,370.6 265.5,381.1 270.1,397.4 256.0,388.0 241.9,397.4 246.5,381.1 233.2,370.6 250.1,369.9" fill="#ffffff"/>
+  <polygon points="297.0,340.0 302.9,355.9 319.8,356.6 306.5,367.1 311.1,383.4 297.0,374.0 282.9,383.4 287.5,367.1 274.2,356.6 291.1,355.9" fill="#ffffff"/>
+</svg>

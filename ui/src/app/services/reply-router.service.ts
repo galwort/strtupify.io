@@ -301,10 +301,11 @@ export class ReplyRouterService {
     subject: string;
     message: string;
     threadId: string;
-    parentId: string;
-    timestamp?: string;
-  }): Promise<void> {
-    const normalized = this.normalizeAddress(opts.to);
+  parentId: string;
+  timestamp?: string;
+}): Promise<void> {
+    const to = opts.to || '';
+    const normalized = this.normalizeAddress(to);
     if (!normalized) return;
     if (normalized === 'vlad@strtupify.io') {
       await this.handleReply({

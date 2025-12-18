@@ -21,12 +21,12 @@
             <div class="row">
               <div class="label">Display Name</div>
               <div class="value">
-                {{ vm.user.displayName || vm.profile?.loginUsername || '—' }}
+                {{ vm.user.displayName || vm.profile?.loginUsername || '--' }}
               </div>
             </div>
             <div class="row">
               <div class="label">Email</div>
-              <div class="value">{{ vm.user.email || '—' }}</div>
+              <div class="value">{{ vm.user.email || '--' }}</div>
             </div>
             <div class="row">
               <div class="label">Account Created</div>
@@ -47,6 +47,23 @@
           </div>
         </section>
 
+        <section class="section certifications" *ngIf="achievements.length">
+          <div class="section-header">
+            <div class="label">Certifications</div>
+            <div class="value">{{ achievements.length }}</div>
+          </div>
+          <div class="badge-grid">
+            <div class="badge-card" *ngFor="let badge of achievements">
+              <img
+                [src]="badge.imageUrl"
+                [alt]="badge.description || badge.name"
+                loading="lazy"
+              />
+              <div class="badge-name">{{ badge.name }}</div>
+            </div>
+          </div>
+        </section>
+
         <div class="actions">
           <p *ngIf="errorMessage" class="error">{{ errorMessage }}</p>
           <button
@@ -55,7 +72,7 @@
             (click)="signOut()"
             [disabled]="signingOut"
           >
-            {{ signingOut ? 'Signing out…' : 'Sign out' }}
+            {{ signingOut ? 'Signing out...' : 'Sign out' }}
           </button>
         </div>
       </div>
@@ -65,9 +82,10 @@
   <ng-template #accountState>
     <div class="account-state">
       <div class="spinner" *ngIf="loading"></div>
-      <p *ngIf="loading">Loading your account…</p>
+      <p *ngIf="loading">Loading your account...</p>
       <p *ngIf="!loading">No account information available.</p>
       <p *ngIf="errorMessage" class="error">{{ errorMessage }}</p>
     </div>
   </ng-template>
 </ion-content>
+

@@ -6,9 +6,30 @@
   color: var(--theme-text);
   border: 1.5px solid var(--theme-primary);
   border-radius: 4px;
-  padding: 4px 10px;
-  font-size: 16px;
+  padding: 6px 12px;
+  font-size: 15px;
   z-index: 1000;
   pointer-events: none;
-}
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
 
+  .clock-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 2px;
+  }
+
+  .clock-weekday {
+    font-weight: 700;
+    color: var(--theme-primary);
+  }
+
+  .clock-date {
+    color: #555;
+  }
+
+  .clock-time {
+    font-size: 17px;
+    font-weight: 600;
+  }
+}

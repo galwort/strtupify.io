@@ -43,6 +43,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
 
   displayDate = '';
   displayTime = '';
+  displayWeekday = '';
 
   private readonly speedBoost = 3; // TESTING: reset to 3
   private readonly speedMultiplier = 10;
@@ -365,7 +366,12 @@ export class ClockComponent implements OnChanges, OnDestroy {
 
   private applyDisplay(): void {
     const d = new Date(this.displaySimMs);
-    this.displayDate = d.toLocaleDateString();
+    this.displayDate = d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+    this.displayWeekday = d.toLocaleDateString('en-US', { weekday: 'short' });
     this.displayTime = d.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',

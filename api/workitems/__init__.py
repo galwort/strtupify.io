@@ -393,7 +393,7 @@ def llm_plan(ctx):
         "Use employees names and titles to assign appropriately, matching skills and seniority. "
         "Cover cross functional needs. "
         "Ground the plan in the boardroom_history transcript so the tasks reflect the ideas, objections, and decisions the team discussed. "
-        "Aim for a complete plan rather than a starter list. Return between 2 and 3 items based on scope and team size. "  # 15 and 40
+        "Aim for a complete plan rather than a starter list. Return between 15 and 40 items based on scope and team size. "
         "If funding or loan details are provided, explicitly include early revenue generation work so the company can make money quickly. "
         "Keep titles concise and descriptions actionable. No commentary outside the JSON."
     )

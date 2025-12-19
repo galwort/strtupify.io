@@ -5,6 +5,17 @@
   padding: 20px;
   margin-left: 50px;
   background-color: var(--theme-background);
+  align-items: stretch;
+  justify-content: flex-start;
+
+  &.empty {
+    justify-content: center;
+    align-items: center;
+
+    .header {
+      display: none;
+    }
+  }
 
   .header {
     display: flex;
@@ -122,23 +133,19 @@ ion-fab-button {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 32px 24px;
+  gap: 8px;
+  padding: 16px 12px;
   text-align: center;
-  background: linear-gradient(135deg, #ffffff 0%, #f5f7fb 100%);
-  border: 1px dashed var(--theme-primary);
-  border-radius: 12px;
-  color: var(--theme-text);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.05);
+  color: #7a7a7a;
 
   .empty-title {
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 700;
   }
 
   .empty-text {
-    font-size: 16px;
-    max-width: 360px;
+    font-size: 15px;
+    max-width: 420px;
     line-height: 1.5;
   }
 }

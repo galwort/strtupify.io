@@ -1,6 +1,6 @@
 <ion-content [fullscreen]="true">
-  <div class="page-container">
-    <div class="header">
+  <div class="page-container" [class.empty]="companies.length === 0">
+    <div class="header" *ngIf="companies.length > 0">
       <div class="title">Companies</div>
     </div>
     <div class="content" *ngIf="companies.length > 0; else emptyState">

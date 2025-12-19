@@ -424,7 +424,8 @@ export class AppComponent implements OnDestroy {
       const allowed =
         id.startsWith('vlad-reset-') ||
         category === 'kickoff-outcome' ||
-        category === 'calendar';
+        category === 'calendar' ||
+        category === 'credits';
       if (!allowed) return false;
     }
     return true;

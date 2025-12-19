@@ -41,6 +41,7 @@ type EndgameCreditsStats = {
   burnoutCount: number;
   supereatsSpend: number;
   jeffLevel: number | null;
+  ttmMs: number;
 };
 
 type LedgerTotals = {
@@ -206,7 +207,7 @@ export class EndgameService implements OnDestroy {
       );
       if (outcomeResult.sent) await this.delayMs(800, 1500);
 
-      const creditsStats = await this.buildCreditsStats(data, outcomeResult.outcomeStatus);
+      const creditsStats = await this.buildCreditsStats(data, outcomeResult.outcomeStatus, resetAt);
       const creditsSent = creditsStats
         ? await this.sendCreditsEmail(meAddress, creditsTimestampIso, creditsStats)
         : false;
@@ -359,7 +360,11 @@ export class EndgameService implements OnDestroy {
     }
   }
 
-  private async buildCreditsStats(companyData: any, outcomeHint: EndgameOutcome): Promise<EndgameCreditsStats | null> {
+  private async buildCreditsStats(
+    companyData: any,
+    outcomeHint: EndgameOutcome,
+    resetAtMs?: number
+  ): Promise<EndgameCreditsStats | null> {
     if (!this.companyId) return null;
     const companyName =
       (companyData && typeof companyData.company_name === 'string' && companyData.company_name.trim()) ||
@@ -402,6 +407,13 @@ export class EndgameService implements OnDestroy {
       });
     } catch {}
 
+    const startMs =
+      this.parseTime(companyData?.founded_at) ??
+      this.parseTime(companyData?.endgameTriggeredAt) ??
+      undefined;
+    const resetMs = this.parseTime(resetAtMs);
+    const ttmMs = startMs && resetMs ? Math.max(0, resetMs - startMs) : 0;
+
     const ledger = await this.loadLedgerTotals();
     const momGifts = this.safeNumber(ledger.momGifts);
     const netProfit = fundingAmount + momGifts - ledger.payroll - ledger.supereats - ledger.cadabra;
@@ -436,6 +448,7 @@ export class EndgameService implements OnDestroy {
       burnoutCount,
       supereatsSpend: ledger.supereats,
       jeffLevel,
+      ttmMs,
     };
   }
 
@@ -502,6 +515,7 @@ export class EndgameService implements OnDestroy {
       `Focus Points Earned: ${this.formatNumber(stats.focusPoints)}`,
       `Employees Burnt Out: ${this.formatNumber(stats.burnoutCount)}`,
       `Money Spent on Food Delivery: ${this.formatCurrency(stats.supereatsSpend)}`,
+      `TTM: ${this.formatElapsedText(stats.ttmMs)}`,
     ];
     if (stats.jeffLevel !== null) {
       lines.push(`Jeff Unhinged Level: ${Math.min(100, Math.round(stats.jeffLevel))}%`);
@@ -768,12 +782,21 @@ export class EndgameService implements OnDestroy {
   }
 
   private formatElapsedText(elapsedMs?: number): string {
-    if (!elapsedMs || !Number.isFinite(elapsedMs)) return 'a long while';
-    const days = Math.max(1, Math.round(elapsedMs / (1000 * 60 * 60 * 24)));
-    if (days >= 200) return `about ${Math.round(days / 30)} months`;
-    if (days >= 60) return `around ${Math.round(days / 30)} months`;
-    if (days >= 14) return `${Math.round(days / 7)} weeks`;
-    return `${days} days`;
+    if (!elapsedMs || !Number.isFinite(elapsedMs) || elapsedMs < 0) return 'a long while';
+    const totalDays = Math.max(0, Math.floor(elapsedMs / (1000 * 60 * 60 * 24)));
+    const years = Math.floor(totalDays / 365);
+    const remainingAfterYears = totalDays % 365;
+    const months = Math.floor(remainingAfterYears / 30);
+    const days = remainingAfterYears % 30;
+
+    const parts: string[] = [];
+    if (years > 0) parts.push(`${years} year${years === 1 ? '' : 's'}`);
+    if (months > 0) parts.push(`${months} month${months === 1 ? '' : 's'}`);
+    if (days > 0 || parts.length === 0) parts.push(`${days} day${days === 1 ? '' : 's'}`);
+
+    // If under a month, just show days.
+    if (years === 0 && months === 0) return `${days} day${days === 1 ? '' : 's'}`;
+    return parts.join(', ');
   }
 
   private extractNameFromAddress(address: string): string {
@@ -787,8 +810,14 @@ export class EndgameService implements OnDestroy {
   }
 
   private parseTime(value: any): number | undefined {
+    if (value === null || value === undefined) return undefined;
     const n = Number(value);
-    return Number.isFinite(n) ? n : undefined;
+    if (Number.isFinite(n)) return n;
+    if (typeof value === 'string') {
+      const t = new Date(value).getTime();
+      return Number.isFinite(t) ? t : undefined;
+    }
+    return undefined;
   }
 
   private jitteredOffset(baseMs: number, minOffset: number, maxOffset: number): number {

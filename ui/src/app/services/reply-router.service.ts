@@ -908,21 +908,27 @@ export class ReplyRouterService {
       return;
     }
     const reply = res?.reply;
-    if (!reply || !reply.body) return;
+    if (!reply) return;
     const meAddress = await this.getMeAddress(opts.companyId);
     const from =
       reply.from || opts.employee.email || this.buildWorkerAddress(opts.employee.name, opts.companyId);
     const subject = reply.subject || `Re: ${opts.subject || '(no subject)'}`;
-    const timestamp =
+    const messageBody = this.appendOriginalMessage(String(reply.body || ''), opts.message || '');
+    if (!messageBody.trim()) return;
+
+    const baseTs =
       opts.timestamp && new Date(opts.timestamp).toString() !== 'Invalid Date'
-        ? new Date(opts.timestamp).toISOString()
-        : new Date().toISOString();
+        ? new Date(opts.timestamp).getTime()
+        : Date.now();
+    const delayMs = this.randomInt(20_000, 60_000);
+    const sendAt = Math.max(baseTs + 1, Date.now() + delayMs);
+    const timestamp = new Date(sendAt).toISOString();
     const emailId = `employee-reply-${Date.now()}`;
-    await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), {
+    const docPayload = {
       from,
       to: meAddress,
       subject,
-      message: reply.body,
+      message: messageBody,
       deleted: false,
       banner: false,
       timestamp,
@@ -931,7 +937,17 @@ export class ReplyRouterService {
       category: 'employee',
       employeeId: opts.employee.id,
       employeeIntent: res?.intent || 'neutral',
-    });
+    };
+    const sendReply = async () => {
+      try {
+        await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), docPayload);
+      } catch (err) {
+        console.error('failed to send employee reply', err);
+      }
+    };
+    setTimeout(() => {
+      void sendReply();
+    }, Math.max(0, sendAt - Date.now()));
   }
 
   private async sendMailerDaemonBounce(opts: {
@@ -1047,6 +1063,18 @@ export class ReplyRouterService {
 
   private randomInt(min: number, max: number): number {
     return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  private appendOriginalMessage(replyBody: string, original: string): string {
+    const base = typeof replyBody === 'string' ? replyBody : '';
+    const originalText = typeof original === 'string' ? original.trim() : '';
+    if (!originalText) return base;
+    const divider = '----- Original message -----';
+    const alreadyHasOriginal =
+      base.includes(originalText) || base.toLowerCase().includes(divider.toLowerCase());
+    if (alreadyHasOriginal) return base;
+    const needsGap = base.trim().length > 0;
+    return `${base}${needsGap ? '\n\n' : ''}${divider}\n${originalText}`;
   }
 
   private async getAcceptedProduct(

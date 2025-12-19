@@ -1835,7 +1835,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       }, delay);
       this.pendingReplyTimers.push(timer);
       if (category === 'kickoff') {
-        await this.scheduleCalendarAfterKickoffReply();
+        await this.scheduleCalendarAfterKickoffReply(this.simDate.getTime());
       }
       try {
         const ref = doc(db, `companies/${this.companyId}`);
@@ -1956,7 +1956,8 @@ export class InboxComponent implements OnInit, OnDestroy {
     if (alreadySent) return;
     const parsed = await this.loadCalendarTemplate();
     const emailId = `calendar-${Date.now()}`;
-    const timestampIso = new Date(simTimestamp).toISOString();
+    const timestampMs = Math.max(simTimestamp, this.simDate.getTime(), Date.now());
+    const timestampIso = new Date(timestampMs).toISOString();
     try {
       await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
         from: parsed.from || 'vlad@strtupify.io',
@@ -1973,7 +1974,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         calendarEmailSent: true,
         calendarEmailInProgress: false,
         calendarEnabled: true,
-        calendarEmailAt: simTimestamp,
+        calendarEmailAt: timestampMs,
       });
       this.calendarEmailAt = null;
     } catch {
@@ -2017,15 +2018,16 @@ export class InboxComponent implements OnInit, OnDestroy {
     return fallback;
   }
 
-  private async scheduleCalendarAfterKickoffReply(): Promise<void> {
+  private async scheduleCalendarAfterKickoffReply(replyTimestampMs?: number): Promise<void> {
     try {
       const simNow = await this.getCompanySimTime();
-      const target = simNow + this.kickoffDelayMs;
-      const realDelay = Math.max(
-        250,
-        Math.floor(this.kickoffDelayMs / Math.max(1, this.speed))
-      );
+      const replyMs = Number.isFinite(replyTimestampMs)
+        ? Number(replyTimestampMs)
+        : this.simDate.getTime();
+      const baseMs = Math.max(replyMs, simNow, this.simDate.getTime());
+      const target = baseMs + this.kickoffDelayMs;
       const ref = doc(db, `companies/${this.companyId}`);
+      let nextAt = target;
       await runTransaction(db, async (tx) => {
         const snap = await tx.get(ref);
         const data = (snap && (snap.data() as any)) || {};
@@ -2034,24 +2036,33 @@ export class InboxComponent implements OnInit, OnDestroy {
           typeof data.calendarEmailAt === 'number'
             ? data.calendarEmailAt
             : null;
-        if (existing && simNow <= existing + this.kickoffDelayMs) {
-          this.calendarEmailAt = existing;
-          return;
+        if (typeof existing === 'number') {
+          if (existing >= target) {
+            nextAt = existing;
+          } else {
+            nextAt = Math.max(existing, target);
+          }
         }
         tx.set(
           ref,
           {
-            calendarEmailAt: target,
+            calendarEmailAt: nextAt,
             calendarEmailSent: false,
             calendarEmailInProgress: false,
             calendarEnabled: false,
           },
           { merge: true }
         );
-        this.calendarEmailAt = target;
+        this.calendarEmailAt = nextAt;
       });
+      const realDelay = Math.max(
+        250,
+        Math.floor(
+          Math.max(0, nextAt - this.simDate.getTime()) / Math.max(1, this.speed)
+        )
+      );
       setTimeout(() => {
-        void this.sendCalendarEmailNow(target);
+        void this.sendCalendarEmailNow(nextAt);
       }, realDelay);
     } catch {}
   }

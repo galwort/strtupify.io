@@ -96,20 +96,20 @@ const ACHIEVEMENT_DEFINITIONS: Record<
   toxic: { name: 'Toxic', description: 'Burnout an employee' },
   marketFitted: {
     name: 'Market Fitted',
-    description: 'Have a successful company, defined in the endgame section',
+    description: 'Have a successful company',
   },
   eol: {
     name: 'EOL',
-    description: 'Have a failed company, defined in the endgame section',
+    description: 'Have a failed company',
   },
   aiIdeation: {
     name: 'AI Ideation',
-    description: 'Create an "AI Idea" using the high-impact generator',
+    description: 'Submit an AI generated idea',
   },
   headhunter: { name: 'Headhunter', description: 'Hire an AI employee' },
   integrityProblem: {
     name: 'The Integrity Problem',
-    description: 'Max out the insanity of Jeff on cadabra emails',
+    description: 'Max out the insanity of Jeff',
   },
   banned: { name: 'Banned', description: 'Cancel SuperEats' },
   transcendentalist: {
@@ -149,6 +149,7 @@ export class AccountPage implements OnInit, OnDestroy {
   signingOut = false;
   achievements: AchievementBadge[] = [];
   achievementsLoading = false;
+  activeBadge: AchievementBadge | null = null;
 
   private authSub: Subscription | null = null;
   private profileSub: Subscription | null = null;
@@ -178,6 +179,7 @@ export class AccountPage implements OnInit, OnDestroy {
         this.viewModel = null;
         this.errorMessage = '';
         this.achievements = [];
+        this.activeBadge = null;
         this.achievementLoadToken++;
         this.teardownProfile();
         this.router.navigate(['/login']);
@@ -211,6 +213,14 @@ export class AccountPage implements OnInit, OnDestroy {
     } finally {
       this.signingOut = false;
     }
+  }
+
+  openBadgeModal(badge: AchievementBadge): void {
+    this.activeBadge = badge;
+  }
+
+  closeBadgeModal(): void {
+    this.activeBadge = null;
   }
 
   private bindProfile(user: firebase.User) {
@@ -254,6 +264,7 @@ export class AccountPage implements OnInit, OnDestroy {
   ): Promise<void> {
     if (!user) {
       this.achievements = [];
+      this.activeBadge = null;
       this.achievementLoadToken++;
       return;
     }

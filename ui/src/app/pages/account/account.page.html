@@ -53,14 +53,20 @@
             <div class="value">{{ achievements.length }}</div>
           </div>
           <div class="badge-grid">
-            <div class="badge-card" *ngFor="let badge of achievements">
+            <button
+              type="button"
+              class="badge-card"
+              *ngFor="let badge of achievements"
+              (click)="openBadgeModal(badge)"
+              [attr.aria-label]="'View ' + badge.name + ' badge'"
+            >
               <img
                 [src]="badge.imageUrl"
                 [alt]="badge.description || badge.name"
                 loading="lazy"
               />
               <div class="badge-name">{{ badge.name }}</div>
-            </div>
+            </button>
           </div>
         </section>
 
@@ -78,6 +84,38 @@
       </div>
     </div>
   </ng-container>
+
+  <div
+    class="badge-modal-backdrop"
+    *ngIf="activeBadge"
+    (click)="closeBadgeModal()"
+  >
+    <div
+      class="badge-modal"
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-label]="activeBadge?.name"
+      (click)="$event.stopPropagation()"
+    >
+      <button
+        type="button"
+        class="badge-modal-close"
+        (click)="closeBadgeModal()"
+        aria-label="Close badge details"
+      >
+        <span class="material-symbols-outlined"> close </span>
+      </button>
+      <img
+        class="badge-modal-image"
+        [src]="activeBadge?.imageUrl"
+        [alt]="activeBadge?.description || activeBadge?.name"
+      />
+      <div class="badge-modal-title">{{ activeBadge?.name }}</div>
+      <div class="badge-modal-description">
+        {{ activeBadge?.description }}
+      </div>
+    </div>
+  </div>
 
   <ng-template #accountState>
     <div class="account-state">

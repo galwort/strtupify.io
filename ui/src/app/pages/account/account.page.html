@@ -87,14 +87,14 @@
 
   <div
     class="badge-modal-backdrop"
-    *ngIf="activeBadge"
+    *ngIf="activeBadge as badge"
     (click)="closeBadgeModal()"
   >
     <div
       class="badge-modal"
       role="dialog"
       aria-modal="true"
-      [attr.aria-label]="activeBadge?.name"
+      [attr.aria-label]="badge.name"
       (click)="$event.stopPropagation()"
     >
       <button
@@ -107,12 +107,12 @@
       </button>
       <img
         class="badge-modal-image"
-        [src]="activeBadge?.imageUrl"
-        [alt]="activeBadge?.description || activeBadge?.name"
+        [src]="badge.imageUrl"
+        [alt]="badge.description || badge.name"
       />
-      <div class="badge-modal-title">{{ activeBadge?.name }}</div>
+      <div class="badge-modal-title">{{ badge.name }}</div>
       <div class="badge-modal-description">
-        {{ activeBadge?.description }}
+        {{ badge.description }}
       </div>
     </div>
   </div>

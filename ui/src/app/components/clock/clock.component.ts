@@ -7,6 +7,7 @@
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { initializeApp, getApps } from 'firebase/app';
+import { Subscription } from 'rxjs';
 import {
   getFirestore,
   doc,
@@ -23,6 +24,7 @@ import {
   getStressMultiplier,
   isBurnedOut,
 } from '../../services/stress.service';
+import { EndgameService, EndgameStatus } from '../../services/endgame.service';
 
 const fbApp = getApps().length
   ? getApps()[0]
@@ -84,9 +86,14 @@ export class ClockComponent implements OnChanges, OnDestroy {
   >();
   private readonly workdayStartHour = 8;
   private readonly workdayEndHour = 17;
+  private endgameStatus: EndgameStatus = 'idle';
+  private endgameSub: Subscription | null = null;
+
+  constructor(private endgame: EndgameService) {}
 
   ngOnChanges(changes: SimpleChanges): void {
     if ('companyId' in changes) {
+      this.subscribeToEndgame();
       this.resubscribe();
     }
   }
@@ -96,6 +103,35 @@ export class ClockComponent implements OnChanges, OnDestroy {
     this.stopClock();
     if (this.unsubItems) this.unsubItems();
     if (this.unsubEmployees) this.unsubEmployees();
+    if (this.endgameSub) {
+      try {
+        this.endgameSub.unsubscribe();
+      } catch {}
+      this.endgameSub = null;
+    }
+  }
+
+  private subscribeToEndgame(): void {
+    if (this.endgameSub) {
+      try {
+        this.endgameSub.unsubscribe();
+      } catch {}
+      this.endgameSub = null;
+    }
+    if (!this.companyId) {
+      this.endgameStatus = 'idle';
+      return;
+    }
+    this.endgame.setCompany(this.companyId);
+    this.endgameSub = this.endgame.state$.subscribe((state) => {
+      this.endgameStatus = state.status;
+      if (this.endgameStatus !== 'idle') {
+        this.stopClock();
+      } else if (this.clockActive && !this.tickTimer && !this.tickInFlight) {
+        this.scheduleNextTick();
+      }
+      this.checkEndgameCondition();
+    });
   }
 
   private resubscribe(): void {
@@ -157,6 +193,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
         this.completedIds.clear();
 
         this.checkAutoComplete();
+        this.checkEndgameCondition();
       }
     );
 
@@ -233,6 +270,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
 
     this.setDisplayTime(this.simTime, false);
     this.checkAutoComplete();
+    this.checkEndgameCondition();
 
     this.elapsedSinceSave += realElapsed;
     if (this.elapsedSinceSave >= this.saveEveryMs) {
@@ -332,6 +370,15 @@ export class ClockComponent implements OnChanges, OnDestroy {
       hour: 'numeric',
       minute: '2-digit',
     });
+  }
+
+  private checkEndgameCondition(): void {
+    if (!this.companyId) return;
+    if (this.endgameStatus === 'triggered' || this.endgameStatus === 'resolved') return;
+    if (!this.items.length) return;
+    const allDone = this.items.every((it) => (it.status || '').toLowerCase() === 'done');
+    if (!allDone) return;
+    void this.endgame.triggerEndgame('all-workitems-complete', this.simTime);
   }
 
   private checkAutoComplete(): void {

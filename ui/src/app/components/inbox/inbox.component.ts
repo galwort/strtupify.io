@@ -907,8 +907,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     if (!this.selectedEmail || this.deleteInFlight) return;
     this.deleteInFlight = true;
     const currentId = this.selectedEmail.id;
-    const nextId = this.nextSelectableId(currentId, this.inbox);
-    this.pendingSelectionId = nextId;
+    this.pendingSelectionId = null;
     this.inboxService
       .deleteEmail(this.companyId, this.selectedEmail.id)
       .then(() => {})
@@ -934,17 +933,14 @@ export class InboxComponent implements OnInit, OnDestroy {
       ? this.inboxService.deleteEmail
       : this.inboxService.undeleteEmail;
 
+    this.pendingSelectionId = null;
     updateMethod
       .call(this.inboxService, this.companyId, this.selectedEmail.id)
       .then(() => {
         const currentId = this.selectedEmail ? this.selectedEmail.id : null;
-        const nextId = currentId
-          ? this.nextSelectableId(currentId, this.inbox)
-          : null;
         if (newDeletedState && currentId) {
           this.suppressedIds.set(currentId, Date.now() + this.suppressMs);
         }
-        this.pendingSelectionId = nextId;
       })
       .finally(() => {
         this.deleteInFlight = false;
@@ -2074,11 +2070,12 @@ export class InboxComponent implements OnInit, OnDestroy {
       const id = String(e.id || '');
       if (id.startsWith('vlad-reset-')) return true;
       if (category === 'kickoff-outcome') return true;
-      if (category === 'calendar') return true;
+      if (category === 'credits') return true;
       return false;
     };
     const cutoff = this.endgameTriggeredAtMs;
     const shouldHideForEndgame = (e: InboxEmail): boolean => {
+      if (endgameEngaged && !allowEndgameEmail(e)) return true;
       if (allowEndgameEmail(e)) return false;
       if (this.isEndgameFlagged(e)) return true;
       if (cutoff !== null) {

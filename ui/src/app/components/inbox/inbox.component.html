@@ -2,7 +2,7 @@
   <div class="header">
     <div class="title">Inbox</div>
   </div>
-  <div class="filter-container">
+  <div class="filter-container" *ngIf="showInboxControls">
     <button class="filter-btn" (click)="openCompose()">
       <span class="material-symbols-outlined">add</span>
       <span class="label">NEW EMAIL</span>

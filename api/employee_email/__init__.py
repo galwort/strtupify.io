@@ -95,7 +95,9 @@ def classify_email(subject: str, message: str) -> Evaluation:
     return parsed
 
 
-def find_employee(company_id: str, target_email: str, explicit_id: Optional[str]) -> Dict[str, Any] | None:
+def find_employee(
+    company_id: str, target_email: str, explicit_id: Optional[str]
+) -> Dict[str, Any] | None:
     company_ref = db.collection("companies").document(company_id)
     company_doc = company_ref.get()
     company_data = company_doc.to_dict() if company_doc.exists else {}
@@ -148,7 +150,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     message = str((body or {}).get("message") or "").strip()
     thread_id = str((body or {}).get("threadId") or body.get("thread_id") or "").strip()
     parent_id = str((body or {}).get("parentId") or body.get("parent_id") or "").strip()
-    explicit_emp_id = str((body or {}).get("employee_id") or body.get("employeeId") or "").strip()
+    explicit_emp_id = str(
+        (body or {}).get("employee_id") or body.get("employeeId") or ""
+    ).strip()
 
     if not to_addr or not message:
         return func.HttpResponse(
@@ -168,7 +172,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     emp_name = str(employee.get("name") or employee.get("id") or "Teammate")
     emp_title = str(employee.get("title") or "").strip()
     emp_email = str(employee.get("email") or "")
-    current_base = clamp(employee.get("stressBase") or employee.get("stress_base") or 5, 0, 100)
+    current_base = clamp(
+        employee.get("stressBase") or employee.get("stress_base") or 5, 0, 100
+    )
     current_per_task = clamp(
         employee.get("stressPerTask") or employee.get("stress_per_task") or 20,
         1,
@@ -190,9 +196,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         updates["offHoursAllowed"] = True
         updates["stressPerTask"] = 30
         next_per_task = 30
-        reply_body = (
-            f"I'll start working off hours, but heads up it will increase my stress level."
-        )
+        reply_body = f"I'll start working off hours, but heads up it will increase my stress level."
         reply = {
             "subject": f"Re: {subject}" if subject else "Re: your note",
             "body": reply_body,
@@ -203,7 +207,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         updates["stressBase"] = next_base
         reply = {
             "subject": f"Re: {subject}" if subject else "Re: thanks",
-            "body": "Thanks for the encouragement! :)",
+            "body": ":)",
             "from": emp_email or f"{emp_name.replace(' ', '').lower()}@strtupify.io",
         }
     elif intent == "discouraging":
@@ -211,20 +215,24 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         updates["stressBase"] = next_base
         reply = {
             "subject": f"Re: {subject}" if subject else "Re:",
-            "body": "Understood. I'll keep at it, but that stings. :(",
+            "body": ":(",
             "from": emp_email or f"{emp_name.replace(' ', '').lower()}@strtupify.io",
         }
 
     if updates:
         updates["updated"] = firestore.SERVER_TIMESTAMP
-        db.collection("companies").document(company_id).collection("employees").document(employee["id"]).set(
-            updates, merge=True
-        )
+        db.collection("companies").document(company_id).collection(
+            "employees"
+        ).document(employee["id"]).set(updates, merge=True)
 
     off_hours_allowed = (
         updates["offHoursAllowed"]
         if "offHoursAllowed" in updates
-        else bool(employee.get("offHoursAllowed") or employee.get("off_hours_allowed") or False)
+        else bool(
+            employee.get("offHoursAllowed")
+            or employee.get("off_hours_allowed")
+            or False
+        )
     )
 
     response_payload = {

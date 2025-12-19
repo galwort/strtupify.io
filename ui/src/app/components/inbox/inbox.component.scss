@@ -423,6 +423,15 @@
             background: #fff;
           }
 
+          input:-webkit-autofill,
+          textarea:-webkit-autofill {
+            box-shadow: 0 0 0 1000px #fff inset !important;
+            -webkit-box-shadow: 0 0 0 1000px #fff inset !important;
+            -webkit-text-fill-color: #111 !important;
+            border: 1px solid #cfd8e3 !important;
+            background: #fff !important;
+          }
+
           textarea {
             min-height: 140px;
             resize: vertical;

@@ -81,7 +81,7 @@ def build_error_response(message: str, status: int = 400) -> func.HttpResponse:
     )
 
 
-def run(req: func.HttpRequest) -> func.HttpResponse:
+def main(req: func.HttpRequest) -> func.HttpResponse:
     try:
         raw = req.get_json()
     except ValueError:

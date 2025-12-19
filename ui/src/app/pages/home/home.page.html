@@ -3,7 +3,7 @@
     <div class="header">
       <div class="title">Companies</div>
     </div>
-    <div class="content">
+    <div class="content" *ngIf="companies.length > 0; else emptyState">
       <div
         *ngFor="let company of companies"
         class="company-card"
@@ -24,6 +24,15 @@
         ></ion-icon>
       </div>
     </div>
+
+    <ng-template #emptyState>
+      <div class="empty-state">
+        <div class="empty-title">No companies yet</div>
+        <div class="empty-text">
+          Create your first company by clicking the <strong>+</strong> in the bottom right.
+        </div>
+      </div>
+    </ng-template>
   </div>
 
   <ion-fab vertical="bottom" horizontal="end" slot="fixed">

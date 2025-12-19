@@ -569,9 +569,11 @@ export class ReplyRouterService {
     };
 
     // Fire-and-forget the delayed send so the UI isn't blocked while we wait.
+    // Use the short human-like delay, not the simulated timestamp delta, so replies
+    // still show up even if the sim clock is far in the future.
     setTimeout(() => {
       void sendReply();
-    }, Math.max(0, sendAt - Date.now()));
+    }, Math.max(0, delayMs));
   }
 
   private supereatsTemplateForStage(stage: number): string {

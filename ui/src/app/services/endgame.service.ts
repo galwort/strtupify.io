@@ -18,7 +18,12 @@ import {
   where,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
-import { buildAvatarUrl, EndgameOutcome, normalizeOutcomeStatus, outcomeMood } from '../utils/avatar';
+import {
+  buildAvatarUrl,
+  EndgameOutcome,
+  normalizeOutcomeStatus,
+  outcomeMood,
+} from '../utils/avatar';
 import { STRESS_BURNOUT_THRESHOLD } from './stress.service';
 
 export type EndgameStatus = 'idle' | 'triggered' | 'resolved';
@@ -56,7 +61,9 @@ type LedgerTotals = {
 @Injectable({ providedIn: 'root' })
 export class EndgameService implements OnDestroy {
   private readonly focusPointCost = 1000;
-  private fbApp = getApps().length ? getApps()[0] : initializeApp(environment.firebase);
+  private fbApp = getApps().length
+    ? getApps()[0]
+    : initializeApp(environment.firebase);
   private db = getFirestore(this.fbApp);
   private companyId = '';
   private unsub: Unsubscribe | null = null;
@@ -86,7 +93,10 @@ export class EndgameService implements OnDestroy {
       const state: EndgameState = {
         status: resolved ? 'resolved' : triggered ? 'triggered' : 'idle',
         active: triggered && !resolved,
-        reason: typeof data.endgameReason === 'string' ? data.endgameReason : undefined,
+        reason:
+          typeof data.endgameReason === 'string'
+            ? data.endgameReason
+            : undefined,
         triggeredAt: this.parseTime(data.endgameTriggeredAt),
         resetAt: this.parseTime(data.endgameResetAt),
       };
@@ -174,7 +184,10 @@ export class EndgameService implements OnDestroy {
     this.cleanup();
   }
 
-  private async dispatchPostResetEmails(simTime?: number, monthsHint: number = 6): Promise<void> {
+  private async dispatchPostResetEmails(
+    simTime?: number,
+    monthsHint: number = 6
+  ): Promise<void> {
     if (!this.companyId || this.emailInFlight) return;
     this.emailInFlight = true;
     const ref = doc(this.db, 'companies', this.companyId);
@@ -184,18 +197,29 @@ export class EndgameService implements OnDestroy {
       if (data.endgameEmailsSent) return;
 
       const triggeredAt = this.parseTime(data.endgameTriggeredAt);
-      const resetAt = this.parseTime(data.endgameResetAt) || simTime || Date.now();
-      const elapsedMs = triggeredAt ? Math.max(0, resetAt - triggeredAt) : undefined;
+      const resetAt =
+        this.parseTime(data.endgameResetAt) || simTime || Date.now();
+      const elapsedMs = triggeredAt
+        ? Math.max(0, resetAt - triggeredAt)
+        : undefined;
       const months = this.deriveMonths(elapsedMs, monthsHint);
       const meAddress = this.buildFounderAddress(data);
       const emailDate = new Date(resetAt);
       emailDate.setMonth(emailDate.getMonth() + 6);
       const baseMs = emailDate.getTime();
       const vladTimestampIso = new Date(baseMs).toISOString();
-      const outcomeTimestampIso = new Date(this.jitteredOffset(baseMs, 20_000, 45_000)).toISOString();
-      const creditsTimestampIso = new Date(this.jitteredOffset(baseMs, 45_000, 75_000)).toISOString();
+      const outcomeTimestampIso = new Date(
+        this.jitteredOffset(baseMs, 20_000, 45_000)
+      ).toISOString();
+      const creditsTimestampIso = new Date(
+        this.jitteredOffset(baseMs, 45_000, 75_000)
+      ).toISOString();
 
-      const vladSent = await this.sendVladResetEmail(meAddress, vladTimestampIso, elapsedMs);
+      const vladSent = await this.sendVladResetEmail(
+        meAddress,
+        vladTimestampIso,
+        elapsedMs
+      );
       if (vladSent) await this.delayMs(800, 1500);
 
       const outcomeResult = await this.sendOutcomeEmail(
@@ -207,9 +231,17 @@ export class EndgameService implements OnDestroy {
       );
       if (outcomeResult.sent) await this.delayMs(800, 1500);
 
-      const creditsStats = await this.buildCreditsStats(data, outcomeResult.outcomeStatus, resetAt);
+      const creditsStats = await this.buildCreditsStats(
+        data,
+        outcomeResult.outcomeStatus,
+        resetAt
+      );
       const creditsSent = creditsStats
-        ? await this.sendCreditsEmail(meAddress, creditsTimestampIso, creditsStats)
+        ? await this.sendCreditsEmail(
+            meAddress,
+            creditsTimestampIso,
+            creditsStats
+          )
         : false;
 
       if (vladSent || outcomeResult.sent || creditsSent) {
@@ -231,26 +263,42 @@ export class EndgameService implements OnDestroy {
   }
 
   private buildFounderAddress(data: any): string {
-    const source = (data && typeof data.company_name === 'string' && data.company_name.trim())
-      ? data.company_name
-      : this.companyId || 'strtupify';
-    const normalized = source.replace(/[^a-z0-9]/gi, '').toLowerCase() || 'strtupify';
+    const source =
+      data && typeof data.company_name === 'string' && data.company_name.trim()
+        ? data.company_name
+        : this.companyId || 'strtupify';
+    const normalized =
+      source.replace(/[^a-z0-9]/gi, '').toLowerCase() || 'strtupify';
     return `me@${normalized}.com`;
   }
 
-  private async sendVladResetEmail(to: string, timestampIso: string, elapsedMs?: number): Promise<boolean> {
+  private async sendVladResetEmail(
+    to: string,
+    timestampIso: string,
+    elapsedMs?: number
+  ): Promise<boolean> {
     const ctx = {
       ELAPSED: this.formatElapsedText(elapsedMs),
       ELAPSED_TIME: this.formatElapsedText(elapsedMs),
       COMPANY: this.companyId,
     };
-    let tpl: { from?: string; subject?: string; banner?: boolean; body: string } = { body: '' };
+    let tpl: {
+      from?: string;
+      subject?: string;
+      banner?: boolean;
+      body: string;
+    } = { body: '' };
     try {
-      const text = await firstValueFrom(this.http.get('emails/vlad-reset.md', { responseType: 'text' }));
+      const text = await firstValueFrom(
+        this.http.get('emails/vlad-reset.md', { responseType: 'text' })
+      );
       tpl = this.parseMarkdownEmail(text);
     } catch {}
     const from = tpl.from || 'vlad@strtupify.io';
-    const subject = this.renderTemplate(tpl.subject || 'System restored, kind of', ctx);
+    const subject = this.renderTemplate(
+      tpl.subject || 'System restored, kind of',
+      ctx
+    );
     const body = this.renderTemplate(
       tpl.body ||
         `Hello,\n\nIt's Vlad. The system decided to blue-screen itself after you finished everything. It's back now, after ${ctx.ELAPSED}. Please try not to complete all the work at once next time.\n\nThanks,\nVlad`,
@@ -258,17 +306,20 @@ export class EndgameService implements OnDestroy {
     );
     const emailId = `vlad-reset-${Date.now()}`;
     try {
-      await setDoc(doc(this.db, `companies/${this.companyId}/inbox/${emailId}`), {
-        from,
-        to,
-        subject,
-        message: body,
-        deleted: false,
-        banner: tpl.banner ?? false,
-        timestamp: timestampIso,
-        threadId: emailId,
-        category: 'vlad',
-      });
+      await setDoc(
+        doc(this.db, `companies/${this.companyId}/inbox/${emailId}`),
+        {
+          from,
+          to,
+          subject,
+          message: body,
+          deleted: false,
+          banner: tpl.banner ?? false,
+          timestamp: timestampIso,
+          threadId: emailId,
+          category: 'vlad',
+        }
+      );
       return true;
     } catch {
       return false;
@@ -281,7 +332,11 @@ export class EndgameService implements OnDestroy {
     timestampIso: string,
     triggeredAt?: number,
     resetAt?: number
-  ): Promise<{ sent: boolean; outcomeStatus: EndgameOutcome; estimatedRevenue: number | null }> {
+  ): Promise<{
+    sent: boolean;
+    outcomeStatus: EndgameOutcome;
+    estimatedRevenue: number | null;
+  }> {
     const companyRef = doc(this.db, 'companies', this.companyId);
     const sender = await this.resolveKickoffSender();
     const product = await this.loadAcceptedProduct();
@@ -302,8 +357,11 @@ export class EndgameService implements OnDestroy {
 
     const status = typeof response?.status === 'string' ? response.status : '';
     const estRevenueRaw = Number(response?.estimated_revenue);
-    const estimatedRevenue = Number.isFinite(estRevenueRaw) ? estRevenueRaw : null;
-    const summary = typeof response?.summary === 'string' ? response.summary : '';
+    const estimatedRevenue = Number.isFinite(estRevenueRaw)
+      ? estRevenueRaw
+      : null;
+    const summary =
+      typeof response?.summary === 'string' ? response.summary : '';
     const outcomeStatus = normalizeOutcomeStatus(status, estimatedRevenue);
     const outcomeAvatarMood = outcomeMood(outcomeStatus);
 
@@ -317,37 +375,48 @@ export class EndgameService implements OnDestroy {
         : [
             `Hi, this is ${sender.name || 'your kickoff lead'}.`,
             `You went dark for about ${months} months after we shipped ${product.name}.`,
-            `Quick pulse check: ${summary || 'we kept the lights on and shipped what we could.'}`,
+            `Quick pulse check: ${
+              summary || 'we kept the lights on and shipped what we could.'
+            }`,
             estimatedRevenue !== null
-              ? `Ballpark revenue: ~$${estimatedRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}.`
+              ? `Ballpark revenue: ~$${estimatedRevenue.toLocaleString(
+                  undefined,
+                  { maximumFractionDigits: 0 }
+                )}.`
               : 'Revenue projection: let’s call it break-even plus some snacks.',
             'The system is back up and the team is still standing. Want to weigh in or keep ghosting?',
             `– ${sender.name || sender.from}`,
           ].join('\n\n');
-    const from = typeof response?.from === 'string' && response.from ? response.from : sender.from;
+    const from =
+      typeof response?.from === 'string' && response.from
+        ? response.from
+        : sender.from;
     const avatarName = sender.name || this.extractNameFromAddress(from) || '';
     const avatarUrl = buildAvatarUrl(avatarName, outcomeAvatarMood);
 
     const emailId = `outcome-${Date.now()}`;
     try {
-      await setDoc(doc(this.db, `companies/${this.companyId}/inbox/${emailId}`), {
-        from,
-        to,
-        subject,
-        message: body,
-        deleted: false,
-        banner: false,
-        timestamp: timestampIso,
-        threadId: emailId,
-        category: 'kickoff-outcome',
-        outcomeStatus: status || null,
-        avatarName: avatarName || null,
-        avatarMood: outcomeAvatarMood,
-        avatarUrl: avatarUrl || null,
-        estimatedRevenue,
-        timeframeMonths: months,
-        productName: product.name,
-      });
+      await setDoc(
+        doc(this.db, `companies/${this.companyId}/inbox/${emailId}`),
+        {
+          from,
+          to,
+          subject,
+          message: body,
+          deleted: false,
+          banner: false,
+          timestamp: timestampIso,
+          threadId: emailId,
+          category: 'kickoff-outcome',
+          outcomeStatus: status || null,
+          avatarName: avatarName || null,
+          avatarMood: outcomeAvatarMood,
+          avatarUrl: avatarUrl || null,
+          estimatedRevenue,
+          timeframeMonths: months,
+          productName: product.name,
+        }
+      );
       try {
         await updateDoc(companyRef, {
           endgameOutcome: outcomeStatus,
@@ -367,41 +436,64 @@ export class EndgameService implements OnDestroy {
   ): Promise<EndgameCreditsStats | null> {
     if (!this.companyId) return null;
     const companyName =
-      (companyData && typeof companyData.company_name === 'string' && companyData.company_name.trim()) ||
+      (companyData &&
+        typeof companyData.company_name === 'string' &&
+        companyData.company_name.trim()) ||
       this.companyId;
     const focusPointsRaw = Number(companyData?.focusPoints ?? 0);
-    const focusPointsAvailable = Number.isFinite(focusPointsRaw) ? Math.max(0, Math.round(focusPointsRaw)) : 0;
-    const focusPointsSpentRecorded = Math.max(0, this.safeNumber(companyData?.focusPointsSpent));
+    const focusPointsAvailable = Number.isFinite(focusPointsRaw)
+      ? Math.max(0, Math.round(focusPointsRaw))
+      : 0;
+    const focusPointsSpentRecorded = Math.max(
+      0,
+      this.safeNumber(companyData?.focusPointsSpent)
+    );
     const fundingApproved = !!companyData?.funding?.approved;
-    const fundingAmount = fundingApproved ? this.safeNumber(companyData?.funding?.amount) : 0;
+    const fundingAmount = fundingApproved
+      ? this.safeNumber(companyData?.funding?.amount)
+      : 0;
 
     let companySize = 0;
     let burnoutCount = 0;
     let focusPointsSpentCalculated = 0;
     try {
       const employeesSnap = await getDocs(
-        query(collection(this.db, `companies/${this.companyId}/employees`), where('hired', '==', true))
+        query(
+          collection(this.db, `companies/${this.companyId}/employees`),
+          where('hired', '==', true)
+        )
       );
       for (const docSnap of employeesSnap.docs) {
         const data = (docSnap.data() as any) || {};
         companySize += 1;
         const stress = this.safeNumber(data.stress);
         const status = String(data.status || '').toLowerCase();
-        const burnedOut = status === 'burnout' || stress >= STRESS_BURNOUT_THRESHOLD;
+        const burnedOut =
+          status === 'burnout' || stress >= STRESS_BURNOUT_THRESHOLD;
         if (burnedOut) burnoutCount += 1;
         const spend = await this.sumEmployeeFocusSpend(docSnap.id);
         if (spend > 0) focusPointsSpentCalculated += spend;
       }
     } catch {}
-    const focusPointsSpent = Math.max(focusPointsSpentRecorded, focusPointsSpentCalculated);
-    const focusPointsTotal = Math.max(0, focusPointsAvailable + focusPointsSpent);
+    const focusPointsSpent = Math.max(
+      focusPointsSpentRecorded,
+      focusPointsSpentCalculated
+    );
+    const focusPointsTotal = Math.max(
+      0,
+      focusPointsAvailable + focusPointsSpent
+    );
 
     let tasksTotal = 0;
     let tasksDone = 0;
     try {
-      const workSnap = await getDocs(collection(this.db, `companies/${this.companyId}/workitems`));
+      const workSnap = await getDocs(
+        collection(this.db, `companies/${this.companyId}/workitems`)
+      );
       workSnap.forEach((docSnap) => {
-        const status = String((docSnap.data() as any)?.status || '').toLowerCase();
+        const status = String(
+          (docSnap.data() as any)?.status || ''
+        ).toLowerCase();
         tasksTotal += 1;
         if (status === 'done') tasksDone += 1;
       });
@@ -416,16 +508,26 @@ export class EndgameService implements OnDestroy {
 
     const ledger = await this.loadLedgerTotals();
     const momGifts = this.safeNumber(ledger.momGifts);
-    const netProfit = fundingAmount + momGifts - ledger.payroll - ledger.supereats - ledger.cadabra;
+    const netProfit =
+      fundingAmount +
+      momGifts -
+      ledger.payroll -
+      ledger.supereats -
+      ledger.cadabra;
 
     const jeffCountCandidates = [
       ledger.jeffAttempts,
       this.safeInt(companyData?.cadabraReplyCount),
       this.safeInt(companyData?.cadabraJeffCount),
     ];
-    const maxJeffAttempt = Math.max(0, ...jeffCountCandidates.filter((n) => Number.isFinite(n)));
+    const maxJeffAttempt = Math.max(
+      0,
+      ...jeffCountCandidates.filter((n) => Number.isFinite(n))
+    );
     const sawJeff = ledger.sawJeff || maxJeffAttempt > 0;
-    const jeffLevel = sawJeff ? Math.min(5, Math.max(1, maxJeffAttempt || 1)) * 20 : null;
+    const jeffLevel = sawJeff
+      ? Math.min(5, Math.max(1, maxJeffAttempt || 1)) * 20
+      : null;
 
     const fallbackOutcome = normalizeOutcomeStatus(
       companyData?.endgameOutcome || companyData?.outcomeStatus || '',
@@ -465,7 +567,10 @@ export class EndgameService implements OnDestroy {
     try {
       const inboxRef = collection(this.db, `companies/${this.companyId}/inbox`);
       const snap = await getDocs(
-        query(inboxRef, where('category', 'in', ['bank', 'supereats', 'mom-gift', 'cadabra']))
+        query(
+          inboxRef,
+          where('category', 'in', ['bank', 'supereats', 'mom-gift', 'cadabra'])
+        )
       );
       snap.forEach((docSnap) => {
         const data = (docSnap.data() as any) || {};
@@ -477,7 +582,10 @@ export class EndgameService implements OnDestroy {
         } else if (category === 'cadabra') {
           totals.cadabra += this.parseCadabraTotal(data);
           const attempt = this.safeInt(
-            data.cadabraReplyAttempt ?? data.cadabraAttempt ?? data.cadabraJeffAttempt ?? data.cadabraReplyCount
+            data.cadabraReplyAttempt ??
+              data.cadabraAttempt ??
+              data.cadabraJeffAttempt ??
+              data.cadabraReplyCount
           );
           if (attempt > totals.jeffAttempts) totals.jeffAttempts = attempt;
           const from = String(data.from || '').toLowerCase();
@@ -497,7 +605,11 @@ export class EndgameService implements OnDestroy {
     return totals;
   }
 
-  private async sendCreditsEmail(to: string, timestampIso: string, stats: EndgameCreditsStats): Promise<boolean> {
+  private async sendCreditsEmail(
+    to: string,
+    timestampIso: string,
+    stats: EndgameCreditsStats
+  ): Promise<boolean> {
     const subject = 'Thank you!';
     const outcomeLabel = this.formatOutcomeLabel(stats.outcome);
     const tasksCount = stats.tasksCompleted.total || stats.tasksCompleted.done;
@@ -510,15 +622,19 @@ export class EndgameService implements OnDestroy {
       'STATS',
       `${stats.companyName} - ${outcomeLabel}`,
       `Net Profit: ${this.formatCurrency(stats.netProfit)}`,
+      `TTM: ${this.formatElapsedText(stats.ttmMs)}`,
       `Company Size: ${this.formatNumber(stats.companySize)}`,
       `Tasks Completed: ${tasksLabel}`,
       `Focus Points Earned: ${this.formatNumber(stats.focusPoints)}`,
       `Employees Burnt Out: ${this.formatNumber(stats.burnoutCount)}`,
-      `Money Spent on Food Delivery: ${this.formatCurrency(stats.supereatsSpend)}`,
-      `TTM: ${this.formatElapsedText(stats.ttmMs)}`,
+      `Money Spent on Food Delivery: ${this.formatCurrency(
+        stats.supereatsSpend
+      )}`,
     ];
     if (stats.jeffLevel !== null) {
-      lines.push(`Jeff Unhinged Level: ${Math.min(100, Math.round(stats.jeffLevel))}%`);
+      lines.push(
+        `Jeff Unhinged Level: ${Math.min(100, Math.round(stats.jeffLevel))}%`
+      );
     }
     lines.push(
       '',
@@ -531,43 +647,53 @@ export class EndgameService implements OnDestroy {
     const body = lines.join('\n');
     const emailId = `credits-${Date.now()}`;
     try {
-      await setDoc(doc(this.db, `companies/${this.companyId}/inbox/${emailId}`), {
-        from: 'hello@tomgorbett.com',
-        to,
-        subject,
-        message: body,
-        deleted: false,
-        banner: false,
-        timestamp: timestampIso,
-        threadId: emailId,
-        category: 'credits',
-        avatarUrl: 'assets/profile.svg',
-        stats: {
-          outcome: stats.outcome,
-          netProfit: stats.netProfit,
-          companySize: stats.companySize,
-          tasksDone: stats.tasksCompleted.done,
-          tasksTotal: stats.tasksCompleted.total,
-          focusPoints: stats.focusPoints,
-          burnoutCount: stats.burnoutCount,
-          supereatsSpend: stats.supereatsSpend,
-          jeffLevel: stats.jeffLevel,
-        },
-      });
+      await setDoc(
+        doc(this.db, `companies/${this.companyId}/inbox/${emailId}`),
+        {
+          from: 'hello@tomgorbett.com',
+          to,
+          subject,
+          message: body,
+          deleted: false,
+          banner: false,
+          timestamp: timestampIso,
+          threadId: emailId,
+          category: 'credits',
+          avatarUrl: 'assets/profile.svg',
+          stats: {
+            outcome: stats.outcome,
+            netProfit: stats.netProfit,
+            companySize: stats.companySize,
+            tasksDone: stats.tasksCompleted.done,
+            tasksTotal: stats.tasksCompleted.total,
+            focusPoints: stats.focusPoints,
+            burnoutCount: stats.burnoutCount,
+            supereatsSpend: stats.supereatsSpend,
+            jeffLevel: stats.jeffLevel,
+          },
+        }
+      );
       return true;
     } catch {
       return false;
     }
   }
 
-  private async resolveKickoffSender(): Promise<{ from: string; name: string; title: string }> {
-    const fallbackDomain = this.buildFounderAddress({}).split('@')[1] || 'strtupify.io';
+  private async resolveKickoffSender(): Promise<{
+    from: string;
+    name: string;
+    title: string;
+  }> {
+    const fallbackDomain =
+      this.buildFounderAddress({}).split('@')[1] || 'strtupify.io';
     let from = `kickoff@${fallbackDomain}`;
     let name = 'Kickoff Lead';
     let title = 'Product Lead';
     try {
       const inboxRef = collection(this.db, `companies/${this.companyId}/inbox`);
-      const snap = await getDocs(query(inboxRef, where('category', '==', 'kickoff'), limit(1)));
+      const snap = await getDocs(
+        query(inboxRef, where('category', '==', 'kickoff'), limit(1))
+      );
       if (!snap.empty) {
         const data = (snap.docs[0].data() as any) || {};
         if (typeof data.from === 'string' && data.from.trim()) {
@@ -579,7 +705,10 @@ export class EndgameService implements OnDestroy {
     return { from, name, title };
   }
 
-  private async loadAcceptedProduct(): Promise<{ name: string; description: string }> {
+  private async loadAcceptedProduct(): Promise<{
+    name: string;
+    description: string;
+  }> {
     try {
       const snap = await getDocs(
         query(
@@ -617,7 +746,11 @@ export class EndgameService implements OnDestroy {
   }
 
   private parsePayrollTotal(entry: any): number {
-    const candidates = [entry?.payrollTotal, entry?.ledgerAmount, entry?.ledger?.amount];
+    const candidates = [
+      entry?.payrollTotal,
+      entry?.ledgerAmount,
+      entry?.ledger?.amount,
+    ];
     for (const raw of candidates) {
       const n = this.safeNumber(raw);
       if (n > 0) return n;
@@ -640,7 +773,8 @@ export class EndgameService implements OnDestroy {
     } catch {}
     if (total > 0) return total;
     const msg = String(entry?.message || '');
-    const pattern = /^\s*\$([0-9,.]+)\s+[\u2013\u2014-]\s+Payment for\s+(.+)\s*$/i;
+    const pattern =
+      /^\s*\$([0-9,.]+)\s+[\u2013\u2014-]\s+Payment for\s+(.+)\s*$/i;
     for (const line of msg.split(/\r?\n/)) {
       const match = line.match(pattern);
       if (match && match[1]) {
@@ -652,13 +786,19 @@ export class EndgameService implements OnDestroy {
   }
 
   private parseSuperEatsTotal(entry: any): number {
-    const candidates = [entry?.ledgerAmount, entry?.supereatsTotal, entry?.supereats?.total, entry?.ledger?.amount];
+    const candidates = [
+      entry?.ledgerAmount,
+      entry?.supereatsTotal,
+      entry?.supereats?.total,
+      entry?.ledger?.amount,
+    ];
     for (const raw of candidates) {
       const n = this.safeNumber(raw);
       if (n > 0) return n;
     }
     const msg = String(entry?.message || '');
-    const match = msg.match(/Total:\s*\$([0-9,.]+)/i) || msg.match(/\$([0-9,.]+)\s+total/i);
+    const match =
+      msg.match(/Total:\s*\$([0-9,.]+)/i) || msg.match(/\$([0-9,.]+)\s+total/i);
     if (match && match[1]) {
       const n = this.safeNumber(match[1].replace(/,/g, ''));
       if (n > 0) return n;
@@ -667,7 +807,12 @@ export class EndgameService implements OnDestroy {
   }
 
   private parseCadabraTotal(entry: any): number {
-    const candidates = [entry?.ledgerAmount, entry?.cadabraTotal, entry?.cadabra?.total, entry?.ledger?.amount];
+    const candidates = [
+      entry?.ledgerAmount,
+      entry?.cadabraTotal,
+      entry?.cadabra?.total,
+      entry?.ledger?.amount,
+    ];
     for (const raw of candidates) {
       const n = this.safeNumber(raw);
       if (n > 0) return n;
@@ -684,7 +829,11 @@ export class EndgameService implements OnDestroy {
   }
 
   private parseMomGiftAmount(entry: any): number {
-    const candidates = [entry?.ledgerAmount, entry?.momGiftAmount, entry?.ledger?.amount];
+    const candidates = [
+      entry?.ledgerAmount,
+      entry?.momGiftAmount,
+      entry?.ledger?.amount,
+    ];
     for (const raw of candidates) {
       const n = this.safeNumber(raw);
       if (n > 0) return n;
@@ -717,7 +866,10 @@ export class EndgameService implements OnDestroy {
     const n = Number.isFinite(amount) ? amount : 0;
     const sign = n < 0 ? '-' : '';
     const abs = Math.abs(n);
-    return `${sign}$${abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `${sign}$${abs.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
   }
 
   private formatNumber(value: number): string {
@@ -729,7 +881,10 @@ export class EndgameService implements OnDestroy {
     if (!this.companyId || !employeeId) return 0;
     try {
       const snap = await getDocs(
-        collection(this.db, `companies/${this.companyId}/employees/${employeeId}/skills`)
+        collection(
+          this.db,
+          `companies/${this.companyId}/employees/${employeeId}/skills`
+        )
       );
       let spent = 0;
       snap.forEach((docSnap) => {
@@ -775,15 +930,22 @@ export class EndgameService implements OnDestroy {
   }
 
   private renderTemplate(body: string, ctx: Record<string, string>): string {
-    return (body || '').replace(/\[\[\s*([A-Za-z0-9_]+)\s*\]\]/g, (_, key: string) => {
-      const normalized = key.trim().toUpperCase();
-      return ctx[normalized] ?? '';
-    });
+    return (body || '').replace(
+      /\[\[\s*([A-Za-z0-9_]+)\s*\]\]/g,
+      (_, key: string) => {
+        const normalized = key.trim().toUpperCase();
+        return ctx[normalized] ?? '';
+      }
+    );
   }
 
   private formatElapsedText(elapsedMs?: number): string {
-    if (!elapsedMs || !Number.isFinite(elapsedMs) || elapsedMs < 0) return 'a long while';
-    const totalDays = Math.max(0, Math.floor(elapsedMs / (1000 * 60 * 60 * 24)));
+    if (!elapsedMs || !Number.isFinite(elapsedMs) || elapsedMs < 0)
+      return 'a long while';
+    const totalDays = Math.max(
+      0,
+      Math.floor(elapsedMs / (1000 * 60 * 60 * 24))
+    );
     const years = Math.floor(totalDays / 365);
     const remainingAfterYears = totalDays % 365;
     const months = Math.floor(remainingAfterYears / 30);
@@ -792,10 +954,12 @@ export class EndgameService implements OnDestroy {
     const parts: string[] = [];
     if (years > 0) parts.push(`${years} year${years === 1 ? '' : 's'}`);
     if (months > 0) parts.push(`${months} month${months === 1 ? '' : 's'}`);
-    if (days > 0 || parts.length === 0) parts.push(`${days} day${days === 1 ? '' : 's'}`);
+    if (days > 0 || parts.length === 0)
+      parts.push(`${days} day${days === 1 ? '' : 's'}`);
 
     // If under a month, just show days.
-    if (years === 0 && months === 0) return `${days} day${days === 1 ? '' : 's'}`;
+    if (years === 0 && months === 0)
+      return `${days} day${days === 1 ? '' : 's'}`;
     return parts.join(', ');
   }
 
@@ -804,9 +968,7 @@ export class EndgameService implements OnDestroy {
     const local = address.split('@')[0] || '';
     const parts = local.split(/[.\-_]+/).filter(Boolean);
     if (!parts.length) return local;
-    return parts
-      .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-      .join(' ');
+    return parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
   }
 
   private parseTime(value: any): number | undefined {
@@ -820,7 +982,11 @@ export class EndgameService implements OnDestroy {
     return undefined;
   }
 
-  private jitteredOffset(baseMs: number, minOffset: number, maxOffset: number): number {
+  private jitteredOffset(
+    baseMs: number,
+    minOffset: number,
+    maxOffset: number
+  ): number {
     const min = Math.max(0, minOffset);
     const span = Math.max(0, maxOffset - min);
     const jitter = Math.floor(Math.random() * (span + 1));

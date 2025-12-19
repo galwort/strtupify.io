@@ -83,7 +83,7 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
   private avatarColorCache = new Map<string, string>();
   private pendingAvatarFetches = new Map<string, Promise<void>>();
   private upgradingSkillKey: string | null = null;
-  readonly skillPointCost = 10;
+  readonly skillPointCost = 1000;
 
   ngOnInit(): void {
     if (!this.companyId) return;

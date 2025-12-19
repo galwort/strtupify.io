@@ -45,7 +45,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
   displayTime = '';
   displayWeekday = '';
 
-  private readonly speedBoost = 3; // TESTING: reset to 3
+  private readonly speedBoost = 3;
   private readonly speedMultiplier = 10;
   private readonly baseSpeed = this.speedMultiplier;
   private readonly minSpeed = 1;
@@ -83,7 +83,12 @@ export class ClockComponent implements OnChanges, OnDestroy {
   private unsubEmployees: (() => void) | null = null;
   private employeeStress = new Map<
     string,
-    { stress: number; status: 'Active' | 'Burnout'; multiplier: number; offHoursAllowed?: boolean }
+    {
+      stress: number;
+      status: 'Active' | 'Burnout';
+      multiplier: number;
+      offHoursAllowed?: boolean;
+    }
   >();
   private readonly workdayStartHour = 8;
   private readonly workdayEndHour = 17;
@@ -214,8 +219,15 @@ export class ClockComponent implements OnChanges, OnDestroy {
               ? 'Burnout'
               : 'Active';
           const multiplier = getStressMultiplier(stress, status);
-          const offHoursAllowed = !!(data.offHoursAllowed ?? data.off_hours_allowed);
-          this.employeeStress.set(d.id, { stress, status, multiplier, offHoursAllowed });
+          const offHoursAllowed = !!(
+            data.offHoursAllowed ?? data.off_hours_allowed
+          );
+          this.employeeStress.set(d.id, {
+            stress,
+            status,
+            multiplier,
+            offHoursAllowed,
+          });
         });
       }
     );
@@ -380,9 +392,12 @@ export class ClockComponent implements OnChanges, OnDestroy {
 
   private checkEndgameCondition(): void {
     if (!this.companyId) return;
-    if (this.endgameStatus === 'triggered' || this.endgameStatus === 'resolved') return;
+    if (this.endgameStatus === 'triggered' || this.endgameStatus === 'resolved')
+      return;
     if (!this.items.length) return;
-    const allDone = this.items.every((it) => (it.status || '').toLowerCase() === 'done');
+    const allDone = this.items.every(
+      (it) => (it.status || '').toLowerCase() === 'done'
+    );
     if (!allDone) return;
     void this.endgame.triggerEndgame('all-workitems-complete', this.simTime);
   }
@@ -424,7 +439,11 @@ export class ClockComponent implements OnChanges, OnDestroy {
     const allowOffHours = emp ? !!emp.offHoursAllowed : false;
     let totalWorkedMs = baseWorked;
     if (it.status === 'doing' && startedAt) {
-      totalWorkedMs += this.workingMillisBetween(startedAt, this.simTime, allowOffHours);
+      totalWorkedMs += this.workingMillisBetween(
+        startedAt,
+        this.simTime,
+        allowOffHours
+      );
     }
     const hours = totalWorkedMs / 3_600_000;
     if (emp && isBurnedOut(emp.status)) return 0;
@@ -435,8 +454,16 @@ export class ClockComponent implements OnChanges, OnDestroy {
     return Math.round(pct);
   }
 
-  private workingMillisBetween(startMs: number, endMs: number, allowOffHours = false): number {
-    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
+  private workingMillisBetween(
+    startMs: number,
+    endMs: number,
+    allowOffHours = false
+  ): number {
+    if (
+      !Number.isFinite(startMs) ||
+      !Number.isFinite(endMs) ||
+      endMs <= startMs
+    ) {
       return 0;
     }
     if (allowOffHours) {

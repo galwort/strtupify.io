@@ -37,6 +37,15 @@
     border-bottom: 1px solid #e0e0e0;
     width: 120%;
     background: #fff;
+    flex-wrap: wrap;
+
+    .filter-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      flex: 1 1 auto;
+    }
 
     .filter-btn {
       display: flex;
@@ -59,6 +68,34 @@
       &:hover {
         background: #eef3fb;
         border-color: #d6deea;
+      }
+    }
+
+    .filter-search {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #f7f9fc;
+      min-width: 220px;
+      max-width: 360px;
+      flex: 1 1 240px;
+
+      .material-symbols-outlined {
+        font-size: 20px;
+        color: #6b7280;
+      }
+
+      input {
+        border: none;
+        outline: none;
+        background: transparent;
+        width: 100%;
+        font-size: 16px;
+        color: var(--theme-text);
       }
     }
   }

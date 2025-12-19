@@ -3,42 +3,53 @@
     <div class="title">Inbox</div>
   </div>
   <div class="filter-container" *ngIf="showInboxControls">
-    <button class="filter-btn" (click)="openCompose()">
-      <span class="material-symbols-outlined">add</span>
-      <span class="label">NEW EMAIL</span>
-    </button>
-    <button
-      class="filter-btn"
-      (click)="openReply()"
-      [disabled]="!selectedEmail"
-    >
-      <span class="material-symbols-outlined">reply</span>
-      <span class="label">REPLY</span>
-    </button>
-    <button class="filter-btn" (click)="toggleDelete()">
-      <span class="material-symbols-outlined">{{
-        showDeleted ? "restore" : "delete"
-      }}</span>
-      <span class="label">{{ showDeleted ? "UNDELETE" : "DELETE" }}</span>
-    </button>
-    <button
-      class="filter-btn"
-      (click)="toggleDelete()"
-      [disabled]="!selectedEmail || deleteInFlight"
-      *ngIf="aiDeleteEnabled"
-    >
-      <span class="material-symbols-outlined">auto_awesome</span>
-      <span class="label">AI DELETE</span>
-    </button>
-    <button class="filter-btn" (click)="toggleSent()">
-      <span class="material-symbols-outlined">outbox</span>
-      <span class="label">{{ showSent ? "INBOX" : "SENT" }}</span>
-    </button>
-    <button class="filter-btn" (click)="archiveEmails()">
-      <span class="material-symbols-outlined">{{
-        showDeleted ? "inbox" : "archive"
-      }}</span>
-    </button>
+    <div class="filter-actions">
+      <button class="filter-btn" (click)="openCompose()">
+        <span class="material-symbols-outlined">add</span>
+        <span class="label">NEW EMAIL</span>
+      </button>
+      <button
+        class="filter-btn"
+        (click)="openReply()"
+        [disabled]="!selectedEmail"
+      >
+        <span class="material-symbols-outlined">reply</span>
+        <span class="label">REPLY</span>
+      </button>
+      <button class="filter-btn" (click)="toggleDelete()">
+        <span class="material-symbols-outlined">{{
+          showDeleted ? "restore" : "delete"
+        }}</span>
+        <span class="label">{{ showDeleted ? "UNDELETE" : "DELETE" }}</span>
+      </button>
+      <button
+        class="filter-btn"
+        (click)="toggleDelete()"
+        [disabled]="!selectedEmail || deleteInFlight"
+        *ngIf="aiDeleteEnabled"
+      >
+        <span class="material-symbols-outlined">auto_awesome</span>
+        <span class="label">AI DELETE</span>
+      </button>
+      <button class="filter-btn" (click)="toggleSent()">
+        <span class="material-symbols-outlined">outbox</span>
+        <span class="label">{{ showSent ? "INBOX" : "SENT" }}</span>
+      </button>
+      <button class="filter-btn" (click)="archiveEmails()">
+        <span class="material-symbols-outlined">{{
+          showDeleted ? "inbox" : "archive"
+        }}</span>
+      </button>
+    </div>
+    <div class="filter-search">
+      <span class="material-symbols-outlined">search</span>
+      <input
+        type="text"
+        [(ngModel)]="searchQuery"
+        (ngModelChange)="onSearchChange()"
+        placeholder="Search mail"
+      />
+    </div>
   </div>
   <div class="inbox-body">
     <div class="email-list">

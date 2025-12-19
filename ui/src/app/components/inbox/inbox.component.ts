@@ -727,6 +727,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   showDeleted = false;
   meAddress = '';
   showSent = false;
+  searchQuery = '';
 
   get aiDeleteEnabled(): boolean {
     return this.aiDeleteEmailSent;
@@ -945,6 +946,12 @@ export class InboxComponent implements OnInit, OnDestroy {
       .finally(() => {
         this.deleteInFlight = false;
       });
+  }
+
+  onSearchChange(): void {
+    this.updateInboxView(this.allEmails, {
+      preferredId: this.selectedEmail?.id ?? null,
+    });
   }
 
   private sortEmails(emails: InboxEmail[]): InboxEmail[] {
@@ -2099,7 +2106,28 @@ export class InboxComponent implements OnInit, OnDestroy {
       base = base.filter((e) => (e as any).sender !== this.meAddress);
     }
 
+    const needle = this.searchQuery.trim().toLowerCase();
+    if (needle) {
+      base = base.filter((e) => this.emailMatchesSearch(e, needle));
+    }
+
     return base;
+  }
+
+  private emailMatchesSearch(email: InboxEmail, needle: string): boolean {
+    const fields = [
+      email.subject,
+      email.preview,
+      email.body,
+      (email as any).message,
+      email.sender,
+      email.displaySender,
+      (email as any).senderName,
+      (email as any).senderTitle,
+    ];
+    return fields
+      .map((f) => String(f || '').toLowerCase())
+      .some((text) => text.includes(needle));
   }
 
   private nextSelectableId(

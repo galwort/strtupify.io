@@ -43,7 +43,7 @@ MAX_SKILLS_PER_EMPLOYEE = 12
 MAX_WORKITEMS = 60
 MIN_RATE = 0.1
 MAX_RATE = 5.0
-ASSIST_PROBABILITY = 0.2
+ASSIST_PROBABILITY = 0.1
 ASSIST_PROGRESS_MAX = 85
 
 logger = logging.getLogger("workitems_llm")
@@ -80,7 +80,7 @@ def _assist_trigger_value(
     company: str, workitem_id: str, assignee_id: str = ""
 ) -> int | None:
     """
-    Randomly pick ~20% of work items to receive an assist email,
+    Randomly pick ~10% of work items to receive an assist email,
     and assign a progress percentage (1-85%) at which the assist triggers.
     """
     chance = secrets.randbelow(10**9) / 10**9

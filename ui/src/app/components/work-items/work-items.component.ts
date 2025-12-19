@@ -119,9 +119,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   private assistFailureCooldownMs = 5 * 60 * 1000;
   private assistStartedSim = new Map<string, number>();
   private assistMinSimMs = 20_000;
-  private assistChanceTarget = 0.2;
   private assistTriggerById = new Map<string, number | null>();
-  private assistTriggerPersisted = new Set<string>();
   private endgameStatus: EndgameStatus = 'idle';
   private endgameSub: Subscription | null = null;
   private companySnapshotSeen = false;
@@ -280,15 +278,6 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     return rounded;
   }
 
-  private randomFraction(): number {
-    if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
-      const buf = new Uint32Array(1);
-      crypto.getRandomValues(buf);
-      return buf[0] / 0xffffffff;
-    }
-    return Math.random();
-  }
-
   private getAssistTriggerPct(it: WorkItem): number | null {
     if (!it || !it.id) return null;
     const stored = this.parseAssistTrigger((it as any).assist_trigger_pct);
@@ -300,40 +289,8 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       const cached = this.assistTriggerById.get(it.id);
       return cached === undefined ? null : cached;
     }
-    const chance = this.randomFraction();
-    if (chance >= this.assistChanceTarget) {
-      this.assistTriggerById.set(it.id, null);
-      void this.persistAssistSkip(it.id);
-      return null;
-    }
-    const pct = Math.floor(this.randomFraction() * this.assistProgressCeiling) + 1;
-    this.assistTriggerById.set(it.id, pct);
-    void this.persistAssistTrigger(it.id, pct);
-    return pct;
-  }
-
-  private async persistAssistTrigger(workitemId: string, targetPct: number): Promise<void> {
-    if (!this.companyId || this.assistTriggerPersisted.has(workitemId)) return;
-    this.assistTriggerPersisted.add(workitemId);
-    try {
-      await updateDoc(doc(db, `companies/${this.companyId}/workitems/${workitemId}`), {
-        assist_trigger_pct: targetPct,
-      });
-    } catch {
-      // best-effort; ignore failures
-    }
-  }
-
-  private async persistAssistSkip(workitemId: string): Promise<void> {
-    if (!this.companyId || this.assistTriggerPersisted.has(workitemId)) return;
-    this.assistTriggerPersisted.add(workitemId);
-    try {
-      await updateDoc(doc(db, `companies/${this.companyId}/workitems/${workitemId}`), {
-        assist_trigger_pct: 0,
-      });
-    } catch {
-      // best-effort; ignore failures
-    }
+    this.assistTriggerById.set(it.id, null);
+    return null;
   }
 
   progress(it: WorkItem): number {

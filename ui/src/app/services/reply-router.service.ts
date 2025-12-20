@@ -994,9 +994,9 @@ export class ReplyRouterService {
     const simLag = Math.max(0, clampedTargetSim - simState.simTime);
     const speed = Number.isFinite(simState.speed) && simState.speed > 0 ? simState.speed : 1;
     const approxDelay = simLag > 0 ? simLag / speed : 0;
-    const jitter = this.randomInt(3_000, 10_000);
-    const minDelay = allowOffHours ? 5_000 : 10_000;
-    const maxDelay = 90_000;
+    const jitter = this.randomInt(10_000, 40_000);
+    const minDelay = allowOffHours ? 60_000 : 120_000; // mimic human response lag
+    const maxDelay = allowOffHours ? 240_000 : 420_000; // cap to a few minutes
     const sendDelayMs = Math.min(maxDelay, Math.max(minDelay, Math.round(approxDelay + jitter)));
     const timestamp = new Date(clampedTargetSim).toISOString();
     const emailId = `employee-reply-${Date.now()}`;

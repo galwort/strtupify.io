@@ -27,7 +27,7 @@ import {
   StressMetrics,
 } from '../../services/stress.service';
 import { EndgameService, EndgameStatus } from '../../services/endgame.service';
-import { AvatarMood, buildAvatarUrl } from '../../utils/avatar';
+import { AvatarMood, buildAvatarUrl, burnoutMood, normalizeAvatarMood } from '../../utils/avatar';
 import { fallbackEmployeeColor, normalizeEmployeeColor } from '../../utils/employee-colors';
 
 type WorkItem = {
@@ -63,6 +63,8 @@ type HireSummary = {
   offHoursAllowed: boolean;
   avatarUrl?: string;
   avatarName?: string;
+  avatarMood?: AvatarMood;
+  burnout?: boolean;
   initials: string;
   color?: string;
 };
@@ -842,7 +844,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
         const stressPerTask = Number.isFinite(stressPerTaskRaw) ? Math.max(1, Math.min(100, stressPerTaskRaw)) : 20;
         const offHoursAllowed = !!(h.offHoursAllowed ?? h.off_hours_allowed);
         const multiplier = getStressMultiplier(persistedStress, status);
-        list.push({
+        const base: HireSummary = {
           id: h.id,
           name,
           title,
@@ -858,15 +860,13 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
           stressBase,
           stressPerTask,
           offHoursAllowed,
-        });
+        };
+        list.push(this.applyHireAvatarMood(base));
         this.lastPersistedStress.set(h.id, { stress: persistedStress, status });
       }
       this.hires = list;
       this.empById.clear();
       for (const e of list) this.empById.set(e.id, e);
-      this.hires.forEach((hire) => {
-        if (hire.avatarName && hire.color) void this.colorizeAvatar(hire);
-      });
       this.scheduleRateGeneration();
       this.recomputeStress();
     } catch (err) {
@@ -912,6 +912,8 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       hire.status = metrics.status;
       hire.load = metrics.load;
       hire.multiplier = isBurnedOut(metrics.status) ? Number.POSITIVE_INFINITY : metrics.multiplier;
+      const updated = this.applyHireAvatarMood({ ...hire });
+      Object.assign(hire, updated);
       this.empById.set(hire.id, { ...hire });
 
       const last = this.lastPersistedStress.get(hire.id);
@@ -984,6 +986,21 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     if (updates.length) {
       await Promise.all(updates);
     }
+  }
+
+  private hireAvatarMood(hire: HireSummary): AvatarMood {
+    const mood = burnoutMood(hire.stress, hire.status);
+    return normalizeAvatarMood(hire.avatarName || '', mood || 'neutral');
+  }
+
+  private applyHireAvatarMood(hire: HireSummary): HireSummary {
+    const avatarMood = this.hireAvatarMood(hire);
+    const burnout = avatarMood === 'sad';
+    const builtUrl = hire.avatarName ? buildAvatarUrl(hire.avatarName, avatarMood) : '';
+    const avatarUrl = builtUrl || hire.avatarUrl || '';
+    const updated: HireSummary = { ...hire, avatarMood, burnout, avatarUrl };
+    if (updated.avatarName && updated.color) void this.colorizeAvatar(updated, avatarMood);
+    return updated;
   }
 
   private avatarCacheKey(hire: HireSummary, mood: AvatarMood, color: string): string {

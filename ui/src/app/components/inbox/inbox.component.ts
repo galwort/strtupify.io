@@ -480,8 +480,6 @@ export class InboxComponent implements OnInit, OnDestroy {
   private resolveSenderAvatar(email: Email, displayName: string): string | null {
     const special = this.resolveSpecialAvatar(email);
     if (special) return special;
-    const existing = (email as any).senderAvatarUrl;
-    if (typeof existing === 'string' && existing.trim()) return existing;
     const moodOverride = this.normalizeMoodValue((email as any).avatarMood);
     const names: string[] = [];
     if ((email as any).senderName) names.push(String((email as any).senderName));
@@ -515,6 +513,8 @@ export class InboxComponent implements OnInit, OnDestroy {
       const found = this.avatarForName(name, moodOverride);
       if (found) return found;
     }
+    const existing = (email as any).senderAvatarUrl;
+    if (typeof existing === 'string' && existing.trim()) return existing;
     return null;
   }
 

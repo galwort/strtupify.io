@@ -119,8 +119,35 @@ export class ReplyRouterService {
     }
     if (cat === 'kickoff') {
       const meAddress = await this.getMeAddress(opts.companyId);
-      const replyText = await this.getReplyBody(opts.companyId, opts.parentId || '');
+      const replyDoc = await this.getReplyDoc(opts.companyId, opts.parentId);
+      const replyText =
+        (replyDoc && typeof replyDoc.message === 'string' && replyDoc.message) ||
+        (await this.getReplyBody(opts.companyId, opts.parentId || ''));
       if (!replyText) return;
+
+      const kickoffComplete = await this.kickoffLoopFinished(opts.companyId);
+      if (kickoffComplete) {
+        const recipientRaw =
+          (replyDoc && typeof replyDoc.to === 'string' && replyDoc.to) || '';
+        const recipient = this.normalizeAddress(recipientRaw);
+        const employee = recipient
+          ? await this.matchEmployeeRecipient(opts.companyId, recipient)
+          : null;
+        if (employee) {
+          await this.handleEmployeeEmail({
+            companyId: opts.companyId,
+            to: recipient || recipientRaw,
+            subject: opts.subject,
+            message: replyText,
+            threadId: opts.threadId,
+            parentId: opts.parentId,
+            timestamp: opts.timestamp,
+            employee,
+          });
+          return;
+        }
+      }
+
       const res = await this.http
         .post<any>('https://fa-strtupifyio.azurewebsites.net/api/kickoff_reply', {
           name: opts.companyId,
@@ -156,6 +183,7 @@ export class ReplyRouterService {
       await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), payload);
       await this.scheduleCalendarUnlock(opts.companyId);
       if (status === 'approved') {
+        await this.markKickoffLoopDone(opts.companyId, opts.threadId, status);
         try {
           await this.http
             .post<any>('https://fa-strtupifyio.azurewebsites.net/api/workitems', {
@@ -1473,6 +1501,46 @@ export class ReplyRouterService {
     } catch {
       return '';
     }
+  }
+
+  private async getReplyDoc(
+    companyId: string,
+    replyId?: string | null
+  ): Promise<any | null> {
+    if (!replyId) return null;
+    try {
+      const snap = await getDoc(doc(db, `companies/${companyId}/inbox/${replyId}`));
+      if (!snap.exists()) return null;
+      return (snap.data() as any) || null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async kickoffLoopFinished(companyId: string): Promise<boolean> {
+    try {
+      const snap = await getDoc(doc(db, `companies/${companyId}`));
+      const data = (snap.data() as any) || {};
+      if (data.kickoffLoopDone === true) return true;
+      if (data.work_enabled === true || data.workEnabled === true) return true;
+    } catch {}
+    return false;
+  }
+
+  private async markKickoffLoopDone(
+    companyId: string,
+    threadId?: string,
+    status?: string
+  ): Promise<void> {
+    try {
+      const payload: any = {
+        kickoffLoopDone: true,
+        kickoffLoopUpdatedAt: new Date().toISOString(),
+      };
+      if (threadId) payload.kickoffLoopThreadId = threadId;
+      if (status) payload.kickoffLoopStatus = status;
+      await setDoc(doc(db, `companies/${companyId}`), payload, { merge: true });
+    } catch {}
   }
 
   private async getThreadItems(companyId: string, threadId: string): Promise<any[]> {

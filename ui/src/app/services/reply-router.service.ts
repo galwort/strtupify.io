@@ -27,6 +27,8 @@ export class ReplyRouterService {
   private readonly kickoffLeadMs = 5 * 60_000; // mirror the kickoff send lead time
   private readonly historyDivider = '----- Previous messages -----';
   private readonly historyRegex = /-----\s*(previous messages?|previous emails?|original (message|email))\s*-----/i;
+  private readonly workdayStartHour = 8;
+  private readonly workdayEndHour = 17;
 
   async handleReply(opts: {
     companyId: string;
@@ -913,7 +915,7 @@ export class ReplyRouterService {
   private async matchEmployeeRecipient(
     companyId: string,
     address: string
-  ): Promise<{ id: string; name: string; title: string; email: string } | null> {
+  ): Promise<{ id: string; name: string; title: string; email: string; offHoursAllowed?: boolean } | null> {
     const normalized = this.normalizeAddress(address);
     if (!normalized || !normalized.includes('@')) return null;
     const domain = await this.employeeDomain(companyId);
@@ -925,10 +927,11 @@ export class ReplyRouterService {
         const data = (d.data() as any) || {};
         const name = String(data.name || d.id);
         const title = String(data.title || '');
+        const offHoursAllowed = data.offHoursAllowed === true || data.off_hours_allowed === true;
         const predicted = `${this.normalizeLocalPart(name)}@${domain}`;
         const idAlias = `${this.normalizeLocalPart(d.id)}@${domain}`;
         if (normalized === predicted || normalized === idAlias) {
-          return { id: d.id, name, title, email: predicted };
+          return { id: d.id, name, title, email: predicted, offHoursAllowed };
         }
       }
     } catch {
@@ -945,7 +948,7 @@ export class ReplyRouterService {
     threadId: string;
     parentId?: string;
     timestamp?: string;
-    employee: { id: string; name: string; title?: string; email?: string };
+    employee: { id: string; name: string; title?: string; email?: string; offHoursAllowed?: boolean };
   }): Promise<void> {
     const payload = {
       company: opts.companyId,
@@ -978,13 +981,24 @@ export class ReplyRouterService {
     });
     if (!messageBody.trim()) return;
 
-    const baseTs =
+    const simState = await this.getCompanySimState(opts.companyId);
+    const parsedBase =
       opts.timestamp && new Date(opts.timestamp).toString() !== 'Invalid Date'
-        ? new Date(opts.timestamp).getTime()
-        : Date.now();
-    const delayMs = this.randomInt(20_000, 60_000);
-    const sendAt = Math.max(baseTs + 1, Date.now() + delayMs);
-    const timestamp = new Date(sendAt).toISOString();
+        ? new Date(opts.timestamp)
+        : null;
+    const baseSimMs = parsedBase ? parsedBase.getTime() : simState.simTime;
+    const allowOffHours =
+      res?.offHoursAllowed === true || opts.employee.offHoursAllowed === true;
+    const targetSimMs = this.scheduleEmployeeSimReply(baseSimMs, allowOffHours);
+    const clampedTargetSim = Math.max(targetSimMs, simState.simTime + 1);
+    const simLag = Math.max(0, clampedTargetSim - simState.simTime);
+    const speed = Number.isFinite(simState.speed) && simState.speed > 0 ? simState.speed : 1;
+    const approxDelay = simLag > 0 ? simLag / speed : 0;
+    const jitter = this.randomInt(3_000, 10_000);
+    const minDelay = allowOffHours ? 5_000 : 10_000;
+    const maxDelay = 90_000;
+    const sendDelayMs = Math.min(maxDelay, Math.max(minDelay, Math.round(approxDelay + jitter)));
+    const timestamp = new Date(clampedTargetSim).toISOString();
     const emailId = `employee-reply-${Date.now()}`;
     const docPayload = {
       from,
@@ -999,6 +1013,7 @@ export class ReplyRouterService {
       category: 'employee',
       employeeId: opts.employee.id,
       employeeIntent: res?.intent || 'neutral',
+      offHoursAllowed: allowOffHours,
     };
     const sendReply = async () => {
       try {
@@ -1009,7 +1024,7 @@ export class ReplyRouterService {
     };
     setTimeout(() => {
       void sendReply();
-    }, Math.max(0, sendAt - Date.now()));
+    }, Math.max(0, sendDelayMs));
   }
 
   private async sendMailerDaemonBounce(opts: {
@@ -1133,6 +1148,86 @@ export class ReplyRouterService {
 
   private randomInt(min: number, max: number): number {
     return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  private minutesIntoDay(date: Date): number {
+    return date.getHours() * 60 + date.getMinutes();
+  }
+
+  private isWorkday(date: Date): boolean {
+    const day = date.getDay();
+    return day >= 1 && day <= 5;
+  }
+
+  private isWithinWorkHours(date: Date): boolean {
+    const minutes = this.minutesIntoDay(date);
+    return minutes >= this.workdayStartHour * 60 && minutes <= this.workdayEndHour * 60;
+  }
+
+  private endOfWorkday(date: Date): Date {
+    return new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      this.workdayEndHour,
+      0,
+      0,
+      0
+    );
+  }
+
+  private nextWorkMorning(base: Date): Date {
+    const candidate = new Date(base.getTime());
+    candidate.setSeconds(0, 0);
+    if (this.isWorkday(candidate) && this.minutesIntoDay(candidate) < this.workdayStartHour * 60) {
+      return new Date(
+        candidate.getFullYear(),
+        candidate.getMonth(),
+        candidate.getDate(),
+        this.workdayStartHour,
+        0,
+        0,
+        0
+      );
+    }
+    const next = new Date(candidate.getTime());
+    do {
+      next.setDate(next.getDate() + 1);
+    } while (!this.isWorkday(next));
+    return new Date(next.getFullYear(), next.getMonth(), next.getDate(), this.workdayStartHour, 0, 0, 0);
+  }
+
+  private scheduleMorningReply(base: Date): Date {
+    const morning = this.nextWorkMorning(base);
+    const minuteOffset = this.randomInt(0, 59);
+    const secondOffset = this.randomInt(0, 59);
+    return new Date(
+      morning.getFullYear(),
+      morning.getMonth(),
+      morning.getDate(),
+      morning.getHours(),
+      minuteOffset,
+      secondOffset,
+      0
+    );
+  }
+
+  private scheduleEmployeeSimReply(baseMs: number, allowOffHours: boolean): number {
+    const safeBaseMs = Number.isFinite(baseMs) ? baseMs : Date.now();
+    const baseDate = new Date(safeBaseMs);
+    const withinHours = this.isWorkday(baseDate) && this.isWithinWorkHours(baseDate);
+    if (allowOffHours) {
+      return safeBaseMs + this.randomInt(20_000, 60_000);
+    }
+    const endOfDay = this.endOfWorkday(baseDate).getTime();
+    if (!withinHours) {
+      return this.scheduleMorningReply(baseDate).getTime();
+    }
+    const candidate = safeBaseMs + this.randomInt(20_000, 60_000);
+    if (candidate <= endOfDay) {
+      return candidate;
+    }
+    return this.scheduleMorningReply(baseDate).getTime();
   }
 
   private normalizeHistoryDivider(text: string): string {
@@ -1345,6 +1440,20 @@ export class ReplyRouterService {
       return Number.isFinite(value) && value > 0 ? value : Date.now();
     } catch {
       return Date.now();
+    }
+  }
+
+  private async getCompanySimState(companyId: string): Promise<{ simTime: number; speed: number }> {
+    try {
+      const snap = await getDoc(doc(db, `companies/${companyId}`));
+      const data = (snap.data() as any) || {};
+      const simTime = Number(data.simTime || Date.now());
+      const speed = Number(data.speed || 1);
+      const safeSim = Number.isFinite(simTime) && simTime > 0 ? simTime : Date.now();
+      const safeSpeed = Number.isFinite(speed) && speed > 0 ? speed : 1;
+      return { simTime: safeSim, speed: safeSpeed };
+    } catch {
+      return { simTime: Date.now(), speed: 1 };
     }
   }
 

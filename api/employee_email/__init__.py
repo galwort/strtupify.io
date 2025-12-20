@@ -66,7 +66,75 @@ def clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, num))
 
 
+def heuristic_intent(subject: str, message: str) -> Optional[str]:
+    text = f"{subject or ''} {message or ''}".lower()
+    if not text.strip():
+        return None
+
+    off_hours_terms = [
+        "weekend",
+        "weekends",
+        "saturday",
+        "sunday",
+        "after hours",
+        "after-hours",
+        "after work",
+        "late tonight",
+        "tonight",
+        "overtime",
+        "off hours",
+        "off-hours",
+        "past 5",
+        "past five",
+        "8pm",
+        "9pm",
+        "10pm",
+        "midnight",
+    ]
+    if any(term in text for term in off_hours_terms):
+        return "off_hours"
+
+    encouraging_terms = [
+        "thank you",
+        "thanks",
+        "appreciate",
+        "great job",
+        "well done",
+        "awesome",
+        "nice work",
+        "amazing",
+        "proud of",
+        "kudos",
+        "good job",
+    ]
+    discouraging_terms = [
+        "disappointed",
+        "frustrated",
+        "angry",
+        "upset",
+        "unacceptable",
+        "furious",
+        "mad",
+        "bad job",
+        "awful",
+        "terrible",
+        "horrible",
+        "useless",
+        "sucks",
+        "let down",
+    ]
+    pos_hits = sum(1 for term in encouraging_terms if term in text)
+    neg_hits = sum(1 for term in discouraging_terms if term in text)
+
+    if pos_hits and pos_hits >= neg_hits:
+        return "encouraging"
+    if neg_hits and neg_hits > pos_hits:
+        return "discouraging"
+    return None
+
+
 def classify_email(subject: str, message: str) -> Evaluation:
+    quick_guess = heuristic_intent(subject, message)
     system = (
         "Classify the founder's email to an employee. "
         "Return JSON with fields intent (off_hours | encouraging | discouraging | neutral) and confidence (0..1). "
@@ -92,6 +160,12 @@ def classify_email(subject: str, message: str) -> Evaluation:
     parsed = completion.choices[0].message.parsed
     if not isinstance(parsed, Evaluation):
         raise ValueError("LLM parsing failure")
+
+    if quick_guess and parsed.intent == "neutral":
+        return Evaluation(intent=quick_guess, confidence=clamp(parsed.confidence or 0.55, 0.0, 1.0))
+    if quick_guess and quick_guess != parsed.intent:
+        if parsed.confidence is None or parsed.confidence < 0.5:
+            return Evaluation(intent=quick_guess, confidence=clamp(parsed.confidence or 0.55, 0.0, 1.0))
     return parsed
 
 
@@ -185,7 +259,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         evaluation = classify_email(subject, message)
         intent = evaluation.intent
     except Exception:
-        intent = "neutral"
+        intent = heuristic_intent(subject, message) or "neutral"
 
     updates: Dict[str, Any] = {}
     reply: Optional[Dict[str, Any]] = None

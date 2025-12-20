@@ -281,7 +281,8 @@ def _apply_assignments(
             "updated": firestore.SERVER_TIMESTAMP,
             "rates": {k: round(v, 4) for k, v in normalized.items()},
         }
-        if wi.get("status") != "done":
+        current_assignee = str(wi.get("assignee_id") or "").strip()
+        if wi.get("status") != "done" and not current_assignee:
             update_doc.update(
                 {
                     "assignee_id": best_emp,

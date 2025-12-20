@@ -275,7 +275,8 @@ def _apply_assignments(
             "rates_source": "focus_rates",
             "rates_reason": trigger,
         }
-        if wi.get("status") != "done":
+        current_assignee = str(wi.get("assignee_id") or "").strip()
+        if wi.get("status") != "done" and not current_assignee:
             update_doc.update({"assignee_id": best_emp})
         try:
             work_ref.update(update_doc)

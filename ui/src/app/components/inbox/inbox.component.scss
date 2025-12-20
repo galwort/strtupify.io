@@ -193,6 +193,15 @@
             white-space: nowrap;
           }
 
+          .to-line {
+            font-size: 11px;
+            color: #4b5563;
+            margin: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
           .preview-text {
             font-size: 12px;
             color: #666;

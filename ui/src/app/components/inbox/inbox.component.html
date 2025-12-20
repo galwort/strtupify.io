@@ -74,6 +74,9 @@
             <div class="timestamp">{{ email.timestamp | date : "short" }}</div>
           </div>
           <div class="subject">{{ email.subject }}</div>
+          <div class="to-line" *ngIf="showSent && email.to">
+            To: {{ email.to }}
+          </div>
           <div class="preview-text">{{ email.preview }}</div>
         </div>
       </div>
@@ -173,7 +176,7 @@
               <span>Cancel</span>
             </button>
           </div>
-          <div class="original-sep">----- Original message -----</div>
+          <div class="original-sep">----- Previous messages -----</div>
         </div>
 
         <div class="email-content">

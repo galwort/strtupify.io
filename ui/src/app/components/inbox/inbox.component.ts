@@ -89,6 +89,8 @@ export class InboxComponent implements OnInit, OnDestroy {
   private readonly replyDelayMinMs = 3000;
   private readonly replyDelayMaxMs = 12000;
   private readonly kickoffDelayMs = 5 * 60_000;
+  private readonly historyDivider = '----- Previous messages -----';
+  private readonly historyRegex = /-----\s*(previous messages?|previous emails?|original (message|email))\s*-----/i;
   get replySubject(): string {
     const base = this.selectedEmail?.subject || '';
     return base.startsWith('Re:') ? base : `Re: ${base}`;
@@ -138,11 +140,13 @@ export class InboxComponent implements OnInit, OnDestroy {
     includeCurrent: boolean = false
   ): string {
     const baseText = typeof base === 'string' ? base : '';
-    if (baseText.includes('----- Previous messages -----')) return baseText;
+    const normalizedBase = this.normalizeHistoryDivider(baseText);
+    if (this.hasHistoryBlock(normalizedBase)) return normalizedBase;
+    const cleanedBase = this.stripQuotedHistory(normalizedBase);
     const history = this.formatThreadHistory(email, includeCurrent);
-    if (!history) return baseText;
-    const needsGap = baseText.trim().length > 0;
-    return needsGap ? `${baseText}\n\n${history}` : history;
+    if (!history) return cleanedBase;
+    const needsGap = cleanedBase.trim().length > 0;
+    return needsGap ? `${cleanedBase}\n\n${history}` : history;
   }
 
   private formatThreadHistory(
@@ -152,17 +156,40 @@ export class InboxComponent implements OnInit, OnDestroy {
     const history = this.collectThreadMessages(email);
     const sequence = includeCurrent && email ? [email, ...history] : history;
     if (!sequence.length) return '';
-    const lines: string[] = ['----- Previous messages -----'];
+    const lines: string[] = [this.historyDivider];
     sequence.forEach((m) => {
       const ts = this.formatThreadTimestamp(m.timestamp);
       const sender = m.sender || m.displaySender || 'Unknown sender';
       const header = ts ? `From: ${sender} - ${ts}` : `From: ${sender}`;
       lines.push(header);
-      const bodyText = (m.body || '').trim();
-      if (bodyText) lines.push(bodyText);
+      const bodyText = this.stripQuotedHistory(m.body);
+      if (bodyText.trim()) lines.push(bodyText.trim());
       lines.push('');
     });
     return lines.join('\n').trim();
+  }
+
+  private normalizeHistoryDivider(text: string): string {
+    if (!text) return '';
+    return text.replace(/-----\s*(original (?:message|email)|previous emails?)\s*-----/gi, this.historyDivider);
+  }
+
+  private hasHistoryBlock(text: string): boolean {
+    if (!text) return false;
+    return this.historyRegex.test(text);
+  }
+
+  private stripQuotedHistory(text: string | undefined | null): string {
+    if (!text) return '';
+    const normalized = this.normalizeHistoryDivider(text);
+    const markers = [
+      normalized.search(this.historyRegex),
+      normalized.search(/^[-\s]*original (message|email)\s*:/im),
+      normalized.search(/^[-\s]*previous (message|messages|email|emails)\s*:/im),
+    ].filter((idx) => idx >= 0);
+    const cutIdx = markers.length ? Math.min(...markers) : -1;
+    const base = cutIdx >= 0 ? normalized.slice(0, cutIdx) : normalized;
+    return base.trimEnd();
   }
 
   private formatThreadTimestamp(raw: string | undefined): string {

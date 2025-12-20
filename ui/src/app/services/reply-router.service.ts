@@ -25,6 +25,8 @@ export class ReplyRouterService {
   constructor(private http: HttpClient) {}
 
   private readonly kickoffLeadMs = 5 * 60_000; // mirror the kickoff send lead time
+  private readonly historyDivider = '----- Previous messages -----';
+  private readonly historyRegex = /-----\s*(previous messages?|previous emails?|original (message|email))\s*-----/i;
 
   async handleReply(opts: {
     companyId: string;
@@ -35,17 +37,24 @@ export class ReplyRouterService {
     timestamp?: string;
   }): Promise<void> {
     const cat = (opts.category || '').toLowerCase();
+    const threadItems = await this.getThreadItems(opts.companyId, opts.threadId);
     if (cat === 'vlad') {
       const meAddress = await this.getMeAddress(opts.companyId);
       const tpl = await this.loadTemplate('emails/vlad-autoreply.md');
       const from = tpl.from || 'vlad@strtupify.io';
       const subject = opts.subject || tpl.subject || '(no subject)';
+      const message = await this.appendThreadHistory({
+        companyId: opts.companyId,
+        threadId: opts.threadId,
+        body: tpl.body,
+        threadItems,
+      });
       const emailId = `vlad-auto-${Date.now()}`;
       const payload: any = {
         from,
         to: meAddress,
         subject,
-        message: tpl.body,
+        message,
         deleted: false,
         banner: tpl.banner ?? false,
         timestamp: opts.timestamp || new Date().toISOString(),
@@ -65,6 +74,7 @@ export class ReplyRouterService {
         threadId: opts.threadId,
         parentId: opts.parentId,
         timestamp: opts.timestamp,
+        threadItems,
       });
       return;
     }
@@ -77,6 +87,7 @@ export class ReplyRouterService {
         threadId: opts.threadId,
         parentId: opts.parentId,
         timestamp: opts.timestamp,
+        threadItems,
       });
       return;
     }
@@ -89,6 +100,7 @@ export class ReplyRouterService {
         threadId: opts.threadId,
         parentId: opts.parentId,
         timestamp: opts.timestamp,
+        threadItems,
       });
       return;
     }
@@ -99,6 +111,7 @@ export class ReplyRouterService {
         threadId: opts.threadId,
         parentId: opts.parentId,
         timestamp: opts.timestamp,
+        threadItems,
       });
       return;
     }
@@ -106,20 +119,25 @@ export class ReplyRouterService {
       const meAddress = await this.getMeAddress(opts.companyId);
       const replyText = await this.getReplyBody(opts.companyId, opts.parentId || '');
       if (!replyText) return;
-      const thread = await this.getThreadItems(opts.companyId, opts.threadId);
       const res = await this.http
         .post<any>('https://fa-strtupifyio.azurewebsites.net/api/kickoff_reply', {
           name: opts.companyId,
           threadId: opts.threadId,
           reply: replyText,
-          thread,
+          thread: threadItems,
         })
         .toPromise();
-     const from = res && res.from ? res.from : 'noreply@strtupify.io';
-     const subject = opts.subject || (res && res.subject ? res.subject : '(no subject)');
-     const body = res && res.body ? res.body : '';
+      const from = res && res.from ? res.from : 'noreply@strtupify.io';
+      const subject = opts.subject || (res && res.subject ? res.subject : '(no subject)');
+      let body = res && res.body ? res.body : '';
       const status = res && res.status ? String(res.status).toLowerCase() : '';
       if (!body) return;
+      body = await this.appendThreadHistory({
+        companyId: opts.companyId,
+        threadId: opts.threadId,
+        body,
+        threadItems,
+      });
       const emailId = `kickoff-auto-${Date.now()}`;
       const payload: any = {
         from,
@@ -174,7 +192,7 @@ export class ReplyRouterService {
       const workitemCtx = await this.getWorkitemContext(opts.companyId, workitemId, parent);
       const workerName = String(parent.senderName || parent.workerName || workitemCtx.assigneeName || 'Teammate');
       const workerTitle = String(parent.senderTitle || parent.workerTitle || workitemCtx.assigneeTitle || 'Contributor');
-      const thread = await this.getThreadItems(opts.companyId, opts.threadId);
+      const thread = threadItems;
 
       const reviewPayload = {
         company: opts.companyId,
@@ -266,8 +284,14 @@ export class ReplyRouterService {
         { merge: true }
       );
 
-      const followBody = typeof followUp.body === 'string' ? followUp.body : '';
+      let followBody = typeof followUp.body === 'string' ? followUp.body : '';
       if (followBody.trim().length) {
+        followBody = await this.appendThreadHistory({
+          companyId: opts.companyId,
+          threadId: opts.threadId,
+          body: followBody,
+          threadItems,
+        });
         const threadSubject =
           opts.subject ||
           parent.subject ||
@@ -393,6 +417,7 @@ export class ReplyRouterService {
     threadId: string;
     parentId?: string;
     timestamp?: string;
+    threadItems?: Array<{ id?: string; from?: string; message?: string; timestamp?: string }>;
   }): Promise<void> {
     const meAddress = await this.getMeAddress(opts.companyId);
     const payload = {
@@ -416,6 +441,12 @@ export class ReplyRouterService {
     if (!body) {
       body = 'This is Jeff. Something in here feels wrong. Stay on the line.';
     }
+    body = await this.appendThreadHistory({
+      companyId: opts.companyId,
+      threadId: opts.threadId,
+      body,
+      threadItems: opts.threadItems,
+    });
     const attempt = Number(res?.attempt);
     const urgency = Number(res?.urgency);
     const understanding = Number(res?.understanding);
@@ -453,6 +484,7 @@ export class ReplyRouterService {
     threadId: string;
     parentId?: string;
     timestamp?: string;
+    threadItems?: Array<{ id?: string; from?: string; message?: string; timestamp?: string }>;
   }): Promise<void> {
     const meAddress = await this.getMeAddress(opts.companyId);
     const decision = await this.classifySupereatsCancellation(opts.message || '');
@@ -467,6 +499,7 @@ export class ReplyRouterService {
         threadId: opts.threadId,
         parentId: opts.parentId,
         timestamp: opts.timestamp,
+        threadItems: opts.threadItems,
       });
       return;
     }
@@ -481,6 +514,7 @@ export class ReplyRouterService {
       threadId: opts.threadId,
       parentId: opts.parentId,
       timestamp: opts.timestamp,
+      threadItems: opts.threadItems,
     });
 
     if (stage >= 4) {
@@ -495,6 +529,7 @@ export class ReplyRouterService {
     threadId: string;
     parentId?: string;
     timestamp?: string;
+    threadItems?: Array<{ id?: string; from?: string; message?: string; timestamp?: string }>;
   }): Promise<void> {
     const meAddress = await this.getMeAddress(opts.companyId);
     const payload = {
@@ -523,6 +558,12 @@ export class ReplyRouterService {
           ? 'Sweetie, you were so thoughtful. I just sent you $10,000. Try not to spend it all at once. Love, Mom.'
           : 'Hi, thanks for writing. I am worried about you—do you need money? Love, Mom.';
     }
+    body = await this.appendThreadHistory({
+      companyId: opts.companyId,
+      threadId: opts.threadId,
+      body,
+      threadItems: opts.threadItems,
+    });
     const emailId = `mom-reply-${Date.now()}`;
     const baseTs = opts.timestamp ? new Date(opts.timestamp) : new Date();
     const delayMs = this.randomInt(25_000, 75_000); // stagger to feel more realistic
@@ -677,6 +718,7 @@ export class ReplyRouterService {
     threadId: string;
     parentId?: string;
     timestamp?: string;
+    threadItems?: Array<{ id?: string; from?: string; message?: string; timestamp?: string }>;
   }): Promise<void> {
     let template: { from?: string; subject?: string; banner?: boolean; deleted?: boolean; body: string } = {
       body: '',
@@ -691,6 +733,12 @@ export class ReplyRouterService {
     const message =
       (template.body || '').trim() ||
       'Your email has been received. Thank you for contacting Super Eats support.';
+    const messageWithHistory = await this.appendThreadHistory({
+      companyId: opts.companyId,
+      threadId: opts.threadId,
+      body: message,
+      threadItems: opts.threadItems,
+    });
     const deleted = typeof template.deleted === 'boolean' ? template.deleted : false;
     const banner = typeof template.banner === 'boolean' ? template.banner : true;
     const emailId = `supereats-reply-${Date.now()}`;
@@ -700,7 +748,7 @@ export class ReplyRouterService {
       from,
       to: opts.meAddress,
       subject,
-      message,
+      message: messageWithHistory,
       deleted,
       banner,
       timestamp,
@@ -718,6 +766,7 @@ export class ReplyRouterService {
     threadId: string;
     parentId?: string;
     timestamp?: string;
+    threadItems?: Array<{ id?: string; from?: string; message?: string; timestamp?: string }>;
   }): Promise<void> {
     const meAddress = await this.getMeAddress(opts.companyId);
     const { ticket, etaHours, etaText } = await this.nextBankTicket(opts.companyId);
@@ -756,6 +805,13 @@ export class ReplyRouterService {
       deleted = typeof rendered.deleted === 'boolean' ? rendered.deleted : deleted;
       body = rendered.body || body;
     } catch {}
+
+    body = await this.appendThreadHistory({
+      companyId: opts.companyId,
+      threadId: opts.threadId,
+      body,
+      threadItems: opts.threadItems,
+    });
 
     const base = opts.timestamp ? new Date(opts.timestamp) : new Date();
     const timestamp = new Date(base.getTime() + 1).toISOString();
@@ -915,7 +971,11 @@ export class ReplyRouterService {
     const from =
       reply.from || opts.employee.email || this.buildWorkerAddress(opts.employee.name, opts.companyId);
     const subject = reply.subject || `Re: ${opts.subject || '(no subject)'}`;
-    const messageBody = this.appendOriginalMessage(String(reply.body || ''), opts.message || '');
+    const messageBody = await this.appendThreadHistory({
+      companyId: opts.companyId,
+      threadId: opts.threadId,
+      body: String(reply.body || ''),
+    });
     if (!messageBody.trim()) return;
 
     const baseTs =
@@ -960,6 +1020,7 @@ export class ReplyRouterService {
     threadId: string;
     parentId: string;
     timestamp?: string;
+    threadItems?: Array<{ id?: string; from?: string; message?: string; timestamp?: string }>;
   }): Promise<void> {
     const meAddress = await this.getMeAddress(opts.companyId);
     const { amountCents } =
@@ -1009,6 +1070,13 @@ export class ReplyRouterService {
       if (typeof rendered.deleted === 'boolean') deleted = rendered.deleted;
       if (rendered.body) body = rendered.body;
     } catch {}
+
+    body = await this.appendThreadHistory({
+      companyId: opts.companyId,
+      threadId: opts.threadId,
+      body,
+      threadItems: opts.threadItems,
+    });
 
     const emailId = `mailer-daemon-${Date.now()}`;
     const payload: any = {
@@ -1067,16 +1135,85 @@ export class ReplyRouterService {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
+  private normalizeHistoryDivider(text: string): string {
+    if (!text) return '';
+    return text.replace(/-----\s*(original (?:message|email)|previous emails?)\s*-----/gi, this.historyDivider);
+  }
+
+  private hasHistoryBlock(text: string): boolean {
+    if (!text) return false;
+    return this.historyRegex.test(text);
+  }
+
+  private stripQuotedHistory(text: string | undefined | null): string {
+    if (!text) return '';
+    const normalized = this.normalizeHistoryDivider(String(text));
+    const markers = [
+      normalized.search(this.historyRegex),
+      normalized.search(/^[-\s]*original (message|email)\s*:/im),
+      normalized.search(/^[-\s]*previous (message|messages|email|emails)\s*:/im),
+    ].filter((idx) => idx >= 0);
+    const cutIdx = markers.length ? Math.min(...markers) : -1;
+    const base = cutIdx >= 0 ? normalized.slice(0, cutIdx) : normalized;
+    return base.trimEnd();
+  }
+
+  private formatThreadTimestamp(raw?: string): string {
+    if (!raw) return '';
+    const date = new Date(raw);
+    return Number.isFinite(date.getTime()) ? date.toLocaleString() : '';
+  }
+
+  private buildHistoryBlock(
+    thread: Array<{ id?: string; from?: string; message?: string; timestamp?: string }>
+  ): string {
+    if (!Array.isArray(thread) || !thread.length) return '';
+    const seen = new Set<string>();
+    const sorted = thread
+      .slice()
+      .sort((a, b) => new Date(b.timestamp || '').getTime() - new Date(a.timestamp || '').getTime());
+    const lines: string[] = [this.historyDivider];
+    sorted.forEach((item) => {
+      const key = item.id || `${item.from || ''}|${item.timestamp || ''}|${item.message || ''}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const sender = (item.from || 'Unknown sender').trim() || 'Unknown sender';
+      const headerTs = this.formatThreadTimestamp(item.timestamp);
+      const header = headerTs ? `From: ${sender} - ${headerTs}` : `From: ${sender}`;
+      const body = this.stripQuotedHistory(item.message).trim();
+      lines.push(header);
+      if (body) lines.push(body);
+      lines.push('');
+    });
+    return lines.join('\n').trim();
+  }
+
+  private async appendThreadHistory(opts: {
+    companyId: string;
+    threadId: string;
+    body: string;
+    threadItems?: Array<{ id?: string; from?: string; message?: string; timestamp?: string }>;
+  }): Promise<string> {
+    const normalizedBase = this.normalizeHistoryDivider(opts.body || '');
+    if (this.hasHistoryBlock(normalizedBase)) return normalizedBase;
+    const cleanedBase = this.stripQuotedHistory(normalizedBase);
+    const thread =
+      Array.isArray(opts.threadItems) && opts.threadItems.length
+        ? opts.threadItems
+        : await this.getThreadItems(opts.companyId, opts.threadId);
+    const history = this.buildHistoryBlock(thread);
+    if (!history) return cleanedBase;
+    const needsGap = cleanedBase.trim().length > 0;
+    return needsGap ? `${cleanedBase}\n\n${history}` : history;
+  }
+
   private appendOriginalMessage(replyBody: string, original: string): string {
-    const base = typeof replyBody === 'string' ? replyBody : '';
-    const originalText = typeof original === 'string' ? original.trim() : '';
+    const base = this.normalizeHistoryDivider(typeof replyBody === 'string' ? replyBody : '');
+    if (this.hasHistoryBlock(base)) return base;
+    const originalText = this.stripQuotedHistory(original).trim();
     if (!originalText) return base;
-    const divider = '----- Original message -----';
-    const alreadyHasOriginal =
-      base.includes(originalText) || base.toLowerCase().includes(divider.toLowerCase());
-    if (alreadyHasOriginal) return base;
     const needsGap = base.trim().length > 0;
-    return `${base}${needsGap ? '\n\n' : ''}${divider}\n${originalText}`;
+    return `${base}${needsGap ? '\n\n' : ''}${this.historyDivider}\n${originalText}`;
   }
 
   private async getAcceptedProduct(

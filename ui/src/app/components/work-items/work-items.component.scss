@@ -40,9 +40,26 @@
       gap: 20px;
     }
     .column {
+      position: relative;
       display: flex;
       flex-direction: column;
       gap: 12px;
+
+      &::after {
+        content: "";
+        position: absolute;
+        inset: -12px;
+        border-radius: 12px;
+        border: 2px dashed var(--theme-primary);
+        background: rgba(63, 140, 255, 0.06);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 120ms ease;
+      }
+
+      &.drop-target::after {
+        opacity: 1;
+      }
     }
     .col-header {
       display: flex;
@@ -161,7 +178,12 @@
 
       &.skeleton {
         position: relative;
-        background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%);
+        background: linear-gradient(
+          90deg,
+          #f3f4f6 0%,
+          #e5e7eb 50%,
+          #f3f4f6 100%
+        );
         background-size: 200% 100%;
         animation: avatarShimmer 1.2s ease-in-out infinite;
       }

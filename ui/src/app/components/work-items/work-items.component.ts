@@ -130,6 +130,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   private unsubEmployees: (() => void) | null = null;
   private readonly workdayStartHour = 8;
   private readonly workdayEndHour = 17;
+  dragHoverColumn: 'todo' | 'doing' | 'done' | null = null;
 
   constructor(private ui: UiStateService, private endgame: EndgameService) {}
 
@@ -673,37 +674,63 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
 
   onDragStart(ev: DragEvent, it: WorkItem) {
     this.draggingId = it.id;
+    this.dragHoverColumn = null;
     if (ev.dataTransfer) ev.dataTransfer.setData('text/plain', it.id);
   }
 
-  onDragOver(ev: DragEvent) {
+  onDragOver(ev: DragEvent, target: 'todo' | 'doing' | 'done') {
     ev.preventDefault();
+    if (!this.draggingId) {
+      this.dragHoverColumn = null;
+      return;
+    }
+    const it = this.items.find((x) => x.id === this.draggingId);
+    if (!it) {
+      this.dragHoverColumn = null;
+      return;
+    }
+    if (this.canDrop(it, target)) {
+      this.dragHoverColumn = target;
+    } else if (this.dragHoverColumn === target) {
+      this.dragHoverColumn = null;
+    }
+  }
+
+  onDragLeave(target: 'todo' | 'doing' | 'done') {
+    if (this.dragHoverColumn === target) this.dragHoverColumn = null;
+  }
+
+  onDragEnd() {
+    this.draggingId = null;
+    this.dragHoverColumn = null;
+  }
+
+  private canDrop(it: WorkItem, target: 'todo' | 'doing' | 'done'): boolean {
+    if (!it || !target) return false;
+    if (target === 'done' || it.status === 'done') return false;
+    if (target === it.status) return false;
+    if (target === 'doing') {
+      if (!it.assignee_id) return false;
+      const emp = this.empById.get(it.assignee_id);
+      if (emp && isBurnedOut(emp.status)) return false;
+      const blockers = Array.isArray(it.blockers) ? it.blockers : [];
+      for (const bid of blockers) {
+        const b = this.items.find((x) => x.id === bid);
+        if (!b || b.status !== 'done') return false;
+      }
+    }
+    return true;
   }
 
   async onDrop(ev: DragEvent, target: 'todo' | 'doing' | 'done') {
     ev.preventDefault();
     const id = (ev.dataTransfer && ev.dataTransfer.getData('text/plain')) || this.draggingId;
     this.draggingId = null;
+    this.dragHoverColumn = null;
     if (!id) return;
     const it = this.items.find((x) => x.id === id);
     if (!it) return;
-    if (it.status === target) return;
-
-    if (target === 'done' || it.status === 'done') return;
-    if (target === 'doing') {
-      if (!it.assignee_id) return;
-      const emp = this.empById.get(it.assignee_id);
-      if (emp && isBurnedOut(emp.status)) return;
-    }
-    if (target === 'doing') {
-      const blockers = Array.isArray(it.blockers) ? it.blockers : [];
-      if (blockers.length) {
-        for (const bid of blockers) {
-          const b = this.items.find((x) => x.id === bid);
-          if (!b || b.status !== 'done') return;
-        }
-      }
-    }
+    if (!this.canDrop(it, target)) return;
     const ref = doc(db, `companies/${this.companyId}/workitems/${id}`);
     const workedMs = this.totalWorkedMs(it);
     const update: any = { status: target, worked_ms: workedMs };
@@ -861,7 +888,8 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
           stressPerTask,
           offHoursAllowed,
         };
-        list.push(this.applyHireAvatarMood(base));
+        // Defer recoloring until the new hires list is installed to avoid losing cached avatars.
+        list.push(this.applyHireAvatarMood(base, false));
         this.lastPersistedStress.set(h.id, { stress: persistedStress, status });
       }
       this.hires = list;
@@ -993,13 +1021,16 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     return normalizeAvatarMood(hire.avatarName || '', mood || 'neutral');
   }
 
-  private applyHireAvatarMood(hire: HireSummary): HireSummary {
+  private applyHireAvatarMood(hire: HireSummary, colorize = true): HireSummary {
     const avatarMood = this.hireAvatarMood(hire);
     const burnout = avatarMood === 'sad';
+    const color = normalizeEmployeeColor(hire.color);
+    const cacheKey = color ? this.avatarCacheKey(hire, avatarMood, color) : null;
+    const cached = cacheKey ? this.avatarColorCache.get(cacheKey) : undefined;
     const builtUrl = hire.avatarName ? buildAvatarUrl(hire.avatarName, avatarMood) : '';
-    const avatarUrl = builtUrl || hire.avatarUrl || '';
+    const avatarUrl = cached || hire.avatarUrl || builtUrl || '';
     const updated: HireSummary = { ...hire, avatarMood, burnout, avatarUrl };
-    if (updated.avatarName && updated.color) void this.colorizeAvatar(updated, avatarMood);
+    if (colorize && updated.avatarName && color && !cached) void this.colorizeAvatar(updated, avatarMood);
     return updated;
   }
 

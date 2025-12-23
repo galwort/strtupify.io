@@ -46,7 +46,13 @@
     </ng-template>
 
     <div class="kanban">
-      <div class="column" (dragover)="onDragOver($event)" (drop)="onDrop($event, 'todo')">
+      <div
+        class="column"
+        [class.drop-target]="dragHoverColumn === 'todo'"
+        (dragover)="onDragOver($event, 'todo')"
+        (dragleave)="onDragLeave('todo')"
+        (drop)="onDrop($event, 'todo')"
+      >
         <div class="col-header">
           <div class="col-title">Do</div>
           <div class="count">{{ todo.length }}</div>
@@ -57,6 +63,7 @@
             *ngFor="let it of todo"
             draggable="true"
             (dragstart)="onDragStart($event, it)"
+            (dragend)="onDragEnd()"
           >
             <div class="card-header">
               <div class="card-title">{{ it.title }}</div>
@@ -69,7 +76,13 @@
         </div>
       </div>
 
-      <div class="column" (dragover)="onDragOver($event)" (drop)="onDrop($event, 'doing')">
+      <div
+        class="column"
+        [class.drop-target]="dragHoverColumn === 'doing'"
+        (dragover)="onDragOver($event, 'doing')"
+        (dragleave)="onDragLeave('doing')"
+        (drop)="onDrop($event, 'doing')"
+      >
         <div class="col-header">
           <div class="col-title">Doing</div>
           <div class="count">{{ doing.length }}</div>
@@ -80,6 +93,7 @@
             *ngFor="let it of doing"
             draggable="true"
             (dragstart)="onDragStart($event, it)"
+            (dragend)="onDragEnd()"
           >
             <div class="card-header">
               <div class="card-title">{{ it.title }}</div>
@@ -96,7 +110,12 @@
         </div>
       </div>
 
-      <div class="column" (dragover)="onDragOver($event)" (drop)="onDrop($event, 'done')">
+      <div
+        class="column"
+        (dragover)="onDragOver($event, 'done')"
+        (dragleave)="onDragLeave('done')"
+        (drop)="onDrop($event, 'done')"
+      >
         <div class="col-header">
           <div class="col-title">Done</div>
           <div class="count">{{ done.length }}</div>

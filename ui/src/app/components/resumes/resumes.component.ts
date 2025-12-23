@@ -70,6 +70,7 @@ export class ResumesComponent implements OnInit {
   private freezeDisplay = false;
   private avatarColorCache = new Map<string, string>();
   private pendingAvatarFetches = new Map<string, Promise<void>>();
+  displayedAvatarUrl = '';
 
   constructor(private router: Router) {}
 
@@ -130,6 +131,7 @@ export class ResumesComponent implements OnInit {
     this.applyRoleFilters();
     this.checkComplete();
     await this.ensureCurrentEmployeeSkillsLoaded();
+    this.refreshDisplayedAvatar();
   }
 
   get rolesWithOpenings() {
@@ -160,6 +162,10 @@ export class ResumesComponent implements OnInit {
     return this.displayedEmployee ? this.displayedEmployee.skills : [];
   }
 
+  get currentAvatarUrl(): string {
+    return this.displayedAvatarUrl || this.displayedEmployee?.avatarUrl || '';
+  }
+
   async hireEmployee() {
     if (!this.currentEmployee || this.autoHiring) return;
     await this.hireCandidate(this.currentEmployee);
@@ -167,6 +173,7 @@ export class ResumesComponent implements OnInit {
       this.currentIndex = Math.max(0, this.employees.length - 1);
     this.checkComplete();
     await this.ensureCurrentEmployeeSkillsLoaded();
+    this.refreshDisplayedAvatar();
   }
 
   async automateHiring() {
@@ -211,7 +218,9 @@ export class ResumesComponent implements OnInit {
     if (!this.roleSelectionEnabled) return;
     const idx = this.employees.findIndex((e) => e.title === roleTitle);
     if (idx >= 0 && idx !== this.currentIndex) {
+      this.displayedAvatarUrl = '';
       this.currentIndex = idx;
+      this.refreshDisplayedAvatar();
       await this.ensureCurrentEmployeeSkillsLoaded();
     }
   }
@@ -225,6 +234,7 @@ export class ResumesComponent implements OnInit {
     );
     if (this.currentIndex < 0) this.currentIndex = 0;
     if (this.employees.length === 0) this.currentIndex = 0;
+    this.refreshDisplayedAvatar();
   }
 
   private checkComplete(): boolean {
@@ -319,6 +329,7 @@ export class ResumesComponent implements OnInit {
 
     this.employees = this.employees.filter((e) => e.id !== employee.id);
     this.applyRoleFilters();
+    this.refreshDisplayedAvatar();
   }
 
   private async ensureCurrentEmployeeSkillsLoaded(): Promise<void> {
@@ -334,14 +345,18 @@ export class ResumesComponent implements OnInit {
 
   async nextResume() {
     if (this.currentIndex < this.employees.length - 1) {
+      this.displayedAvatarUrl = '';
       this.currentIndex++;
+      this.refreshDisplayedAvatar();
       await this.ensureCurrentEmployeeSkillsLoaded();
     }
   }
 
   async prevResume() {
     if (this.currentIndex > 0) {
+      this.displayedAvatarUrl = '';
       this.currentIndex--;
+      this.refreshDisplayedAvatar();
       await this.ensureCurrentEmployeeSkillsLoaded();
     }
   }
@@ -369,6 +384,11 @@ export class ResumesComponent implements OnInit {
 
   private avatarCacheKey(emp: Employee, color: string): string {
     return `${emp.avatar || ''}|${color || ''}`;
+  }
+
+  private refreshDisplayedAvatar(): void {
+    const emp = this.displayedEmployee;
+    this.displayedAvatarUrl = emp?.avatarUrl || '';
   }
 
   private async colorizeAvatar(emp: Employee): Promise<void> {
@@ -411,6 +431,9 @@ export class ResumesComponent implements OnInit {
     );
     if (this.frozenEmployee && this.frozenEmployee.id === empId) {
       this.frozenEmployee = { ...this.frozenEmployee, avatarUrl: url };
+    }
+    if (this.displayedEmployee && this.displayedEmployee.id === empId) {
+      this.displayedAvatarUrl = url;
     }
   }
 

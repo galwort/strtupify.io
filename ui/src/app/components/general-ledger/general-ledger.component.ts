@@ -38,6 +38,10 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
   private unsub: (() => void) | null = null;
   private groupSeq = 0;
 
+  get hasActiveFilter(): boolean {
+    return this.searchTerm.trim().length > 0;
+  }
+
   async ngOnInit() {
     if (!this.companyId) return;
     const companyRef = doc(db, 'companies', this.companyId);
@@ -244,7 +248,7 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
   }
 
   onSearch(term: string) {
-    this.searchTerm = term;
+    this.searchTerm = String(term || '');
     this.applyFilter();
   }
 

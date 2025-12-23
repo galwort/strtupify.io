@@ -13,10 +13,12 @@
         (input)="onSearch($any($event.target).value)"
       />
     </label>
-    <div class="stat filtered">
-      <div class="label">Filtered Total</div>
-      <div class="value">{{ filteredTotal | currency: 'USD':'symbol' }}</div>
-    </div>
+    <ng-container *ngIf="hasActiveFilter">
+      <div class="stat filtered">
+        <div class="label">Filtered Total</div>
+        <div class="value">{{ filteredTotal | currency: 'USD':'symbol' }}</div>
+      </div>
+    </ng-container>
     <div class="stat current">
       <div class="label">Current Balance</div>
       <div class="value">{{ currentBalance | currency: 'USD':'symbol' }}</div>

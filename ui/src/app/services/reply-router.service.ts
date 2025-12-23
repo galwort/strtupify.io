@@ -996,8 +996,9 @@ export class ReplyRouterService {
       console.error('employee email evaluation failed', err);
       return;
     }
-    const reply = res?.reply;
-    if (!reply) return;
+    const baseReply = res?.reply;
+    const reply = baseReply;
+    if (!reply || typeof reply.body !== 'string' || !reply.body.trim().length) return;
     const meAddress = await this.getMeAddress(opts.companyId);
     const from =
       reply.from || opts.employee.email || this.buildWorkerAddress(opts.employee.name, opts.companyId);
@@ -1015,36 +1016,42 @@ export class ReplyRouterService {
         ? new Date(opts.timestamp)
         : null;
     const baseSimMs = parsedBase ? parsedBase.getTime() : simState.simTime;
-    const allowOffHours =
-      res?.offHoursAllowed === true || opts.employee.offHoursAllowed === true;
+    const hadOffHours = opts.employee.offHoursAllowed === true;
+    const grantsOffHours = res?.offHoursAllowed === true;
+    const allowOffHours = hadOffHours; // new off-hours permission applies after this reply is sent
     const targetSimMs = this.scheduleEmployeeSimReply(baseSimMs, allowOffHours);
-    const clampedTargetSim = Math.max(targetSimMs, simState.simTime + 1);
-    const simLag = Math.max(0, clampedTargetSim - simState.simTime);
+    const plannedSimMs = Math.max(targetSimMs, simState.simTime + 1);
+    const simLag = Math.max(0, plannedSimMs - simState.simTime);
     const speed = Number.isFinite(simState.speed) && simState.speed > 0 ? simState.speed : 1;
     const approxDelay = simLag > 0 ? simLag / speed : 0;
     const jitter = this.randomInt(10_000, 40_000);
     const minDelay = allowOffHours ? 60_000 : 120_000; // mimic human response lag
-    const maxDelay = allowOffHours ? 240_000 : 420_000; // cap to a few minutes
-    const sendDelayMs = Math.min(maxDelay, Math.max(minDelay, Math.round(approxDelay + jitter)));
-    const timestamp = new Date(clampedTargetSim).toISOString();
+    const sendDelayMs = Math.max(minDelay, Math.round(approxDelay + jitter));
     const emailId = `employee-reply-${Date.now()}`;
-    const docPayload = {
+    const baseDocPayload = {
       from,
       to: meAddress,
       subject,
       message: messageBody,
       deleted: false,
       banner: false,
-      timestamp,
       threadId: opts.threadId,
       parentId: opts.parentId,
       category: 'employee',
       employeeId: opts.employee.id,
       employeeIntent: res?.intent || 'neutral',
-      offHoursAllowed: allowOffHours,
+      offHoursAllowed: grantsOffHours || hadOffHours,
     };
     const sendReply = async () => {
       try {
+        const liveSim = await this.getCompanySimState(opts.companyId);
+        const liveSimMs = Number.isFinite(liveSim.simTime) ? liveSim.simTime : simState.simTime;
+        const estimatedSimMs = simState.simTime + sendDelayMs * speed;
+        const timestampMs = Math.max(plannedSimMs, estimatedSimMs, liveSimMs);
+        const docPayload = {
+          ...baseDocPayload,
+          timestamp: new Date(timestampMs).toISOString(),
+        };
         await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), docPayload);
       } catch (err) {
         console.error('failed to send employee reply', err);

@@ -20,6 +20,7 @@
     width: 120%;
     background-color: var(--theme-background);
     border-bottom: 1px solid #e0e0e0;
+    box-sizing: border-box;
 
     .title {
       font-size: 40px;
@@ -31,13 +32,21 @@
 
   .filter-container {
     display: flex;
-    align-items: center;
-    gap: 12px;
+    flex-direction: column;
     padding: 8px 20px;
     border-bottom: 1px solid #e0e0e0;
-    width: 120%;
+    width: calc(100% + 40px);
     background: #fff;
+    box-sizing: border-box;
     flex-wrap: wrap;
+
+    .filter-actions-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      flex-wrap: wrap;
+    }
 
     .filter-actions {
       display: flex;
@@ -45,6 +54,7 @@
       gap: 12px;
       flex-wrap: wrap;
       flex: 1 1 auto;
+      min-width: 0;
     }
 
     .filter-btn {
@@ -80,9 +90,10 @@
       border: 1px solid #e2e8f0;
       border-radius: 8px;
       background: #f7f9fc;
+      width: clamp(220px, 30%, 360px);
       min-width: 220px;
       max-width: 360px;
-      flex: 1 1 240px;
+      flex: 0 1 clamp(220px, 30%, 360px);
 
       .material-symbols-outlined {
         font-size: 20px;
@@ -188,15 +199,6 @@
             font-size: 14px;
             margin: 0;
             font-weight: 400;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-          }
-
-          .to-line {
-            font-size: 11px;
-            color: #4b5563;
-            margin: 0;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;

@@ -44,6 +44,7 @@ const cadabraUrl = 'https://fa-strtupifyio.azurewebsites.net/api/order';
 
 type InboxEmail = Email & {
   displaySender?: string;
+  displayRecipient?: string;
   senderInitials?: string;
   senderAvatarUrl?: string | null;
 };
@@ -454,11 +455,13 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   private decorateEmail(email: Email): InboxEmail {
     const displaySender = this.resolveSenderName(email);
+    const displayRecipient = this.resolveRecipientName(email);
     const senderAvatarUrl = this.resolveSenderAvatar(email, displaySender);
     const senderInitials = this.initialsFor(displaySender || email.sender);
     return {
       ...email,
       displaySender,
+      displayRecipient,
       senderAvatarUrl,
       senderInitials,
     };
@@ -475,6 +478,28 @@ export class InboxComponent implements OnInit, OnDestroy {
       if (clean) return clean;
     }
     return email.sender || 'Unknown sender';
+  }
+
+  private resolveRecipientName(email: Email): string {
+    const explicit =
+      (email as any).recipientName ||
+      (email as any).recipient_name ||
+      (email as any).toName ||
+      (email as any).to_name;
+    if (explicit && String(explicit).trim()) return String(explicit).trim();
+    const toField = (email as any).to || (email as any).recipient || '';
+    const recipients = this.parseRecipients(String(toField || ''));
+    const primary = recipients[0] || String(toField || '');
+    const candidates = [
+      this.extractNameFromEmail(primary),
+      this.extractNameFromEmail(String(toField || '')),
+    ];
+    for (const name of candidates) {
+      const clean = String(name || '').trim();
+      if (clean) return clean;
+    }
+    const fallback = String(primary || '').trim();
+    return fallback || 'Unknown recipient';
   }
 
   private resolveSenderAvatar(email: Email, displayName: string): string | null {
@@ -2148,9 +2173,14 @@ export class InboxComponent implements OnInit, OnDestroy {
       email.body,
       (email as any).message,
       email.sender,
+      email.to,
       email.displaySender,
+      email.displayRecipient,
       (email as any).senderName,
       (email as any).senderTitle,
+      (email as any).recipientName,
+      (email as any).recipient,
+      (email as any).toName,
     ];
     return fields
       .map((f) => String(f || '').toLowerCase())

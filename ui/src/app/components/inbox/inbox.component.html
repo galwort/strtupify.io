@@ -3,52 +3,54 @@
     <div class="title">Inbox</div>
   </div>
   <div class="filter-container" *ngIf="showInboxControls">
-    <div class="filter-actions">
-      <button class="filter-btn" (click)="openCompose()">
-        <span class="material-symbols-outlined">add</span>
-        <span class="label">NEW EMAIL</span>
-      </button>
-      <button
-        class="filter-btn"
-        (click)="openReply()"
-        [disabled]="!selectedEmail"
-      >
-        <span class="material-symbols-outlined">reply</span>
-        <span class="label">REPLY</span>
-      </button>
-      <button class="filter-btn" (click)="toggleDelete()">
-        <span class="material-symbols-outlined">{{
-          showDeleted ? "restore" : "delete"
-        }}</span>
-        <span class="label">{{ showDeleted ? "UNDELETE" : "DELETE" }}</span>
-      </button>
-      <button
-        class="filter-btn"
-        (click)="toggleDelete()"
-        [disabled]="!selectedEmail || deleteInFlight"
-        *ngIf="aiDeleteEnabled"
-      >
-        <span class="material-symbols-outlined">auto_awesome</span>
-        <span class="label">AI DELETE</span>
-      </button>
-      <button class="filter-btn" (click)="toggleSent()">
-        <span class="material-symbols-outlined">outbox</span>
-        <span class="label">{{ showSent ? "INBOX" : "SENT" }}</span>
-      </button>
-      <button class="filter-btn" (click)="archiveEmails()">
-        <span class="material-symbols-outlined">{{
-          showDeleted ? "inbox" : "archive"
-        }}</span>
-      </button>
-    </div>
-    <div class="filter-search">
-      <span class="material-symbols-outlined">search</span>
-      <input
-        type="text"
-        [(ngModel)]="searchQuery"
-        (ngModelChange)="onSearchChange()"
-        placeholder="Search mail"
-      />
+    <div class="filter-actions-row">
+      <div class="filter-actions">
+        <button class="filter-btn" (click)="openCompose()">
+          <span class="material-symbols-outlined">add</span>
+          <span class="label">NEW EMAIL</span>
+        </button>
+        <button
+          class="filter-btn"
+          (click)="openReply()"
+          [disabled]="!selectedEmail"
+        >
+          <span class="material-symbols-outlined">reply</span>
+          <span class="label">REPLY</span>
+        </button>
+        <button class="filter-btn" (click)="toggleDelete()">
+          <span class="material-symbols-outlined">{{
+            showDeleted ? "restore" : "delete"
+          }}</span>
+          <span class="label">{{ showDeleted ? "UNDELETE" : "DELETE" }}</span>
+        </button>
+        <button
+          class="filter-btn"
+          (click)="toggleDelete()"
+          [disabled]="!selectedEmail || deleteInFlight"
+          *ngIf="aiDeleteEnabled"
+        >
+          <span class="material-symbols-outlined">auto_awesome</span>
+          <span class="label">AI DELETE</span>
+        </button>
+        <button class="filter-btn" (click)="toggleSent()">
+          <span class="material-symbols-outlined">outbox</span>
+          <span class="label">{{ showSent ? "INBOX" : "SENT" }}</span>
+        </button>
+        <button class="filter-btn" (click)="archiveEmails()">
+          <span class="material-symbols-outlined">{{
+            showDeleted ? "inbox" : "archive"
+          }}</span>
+        </button>
+      </div>
+      <div class="filter-search">
+        <span class="material-symbols-outlined">search</span>
+        <input
+          type="text"
+          [(ngModel)]="searchQuery"
+          (ngModelChange)="onSearchChange()"
+          placeholder="Search mail"
+        />
+      </div>
     </div>
   </div>
   <div class="inbox-body">
@@ -70,13 +72,19 @@
         </div>
         <div class="email-meta">
           <div class="top-row">
-            <div class="sender">{{ email.displaySender || email.sender }}</div>
+            <div class="sender">
+              {{
+                showSent
+                  ? email.displayRecipient ||
+                    email.to ||
+                    email.displaySender ||
+                    email.sender
+                  : email.displaySender || email.sender
+              }}
+            </div>
             <div class="timestamp">{{ email.timestamp | date : "short" }}</div>
           </div>
           <div class="subject">{{ email.subject }}</div>
-          <div class="to-line" *ngIf="showSent && email.to">
-            To: {{ email.to }}
-          </div>
           <div class="preview-text">{{ email.preview }}</div>
         </div>
       </div>
@@ -203,8 +211,10 @@
                 {{ selectedEmail.displaySender || selectedEmail.sender }}
               </div>
               <div class="sender-meta">
-                <span class="label">From</span>
-                <span class="value">{{ selectedEmail.sender }}</span>
+                <span class="label" *ngIf="selectedEmail?.to">To</span>
+                <span class="value" *ngIf="selectedEmail?.to">{{
+                  selectedEmail?.displayRecipient || selectedEmail?.to
+                }}</span>
                 <span class="timestamp">{{
                   selectedEmail.timestamp | date : "short"
                 }}</span>

@@ -2,28 +2,60 @@ import azure.functions as func
 import firebase_admin
 
 from json import dumps, loads
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from firebase_admin import credentials, initialize_app, firestore
-from openai import AzureOpenAI
+from openai import OpenAI
+from pydantic import BaseModel, ConfigDict, Field
 
 vault_url = "https://kv-strtupifyio.vault.azure.net/"
 credential = DefaultAzureCredential()
 secret_client = SecretClient(vault_url=vault_url, credential=credential)
 
-endpoint = secret_client.get_secret("AIEndpoint").value
+endpoint = secret_client.get_secret("AIEndpoint").value.rstrip("/")
 api_key = secret_client.get_secret("AIKey").value
 deployment = secret_client.get_secret("AIDeployment").value
-client = AzureOpenAI(
-    api_version="2023-07-01-preview", azure_endpoint=endpoint, api_key=api_key
-)
+client = OpenAI(api_key=api_key, base_url=f"{endpoint}/openai/v1/")
 
 firestore_sdk = secret_client.get_secret("FirebaseSDK").value
 cred = credentials.Certificate(loads(firestore_sdk))
 if not firebase_admin._apps:
     initialize_app(cred)
 db = firestore.client()
+
+
+class SenderChoice(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    name: str = Field(default="Product Lead", max_length=120)
+    title: str = Field(default="Product Lead", max_length=120)
+
+
+class ProductEvaluation(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    status: str = Field(
+        ...,
+        pattern="^(success|failure)$",
+        description="Overall outcome (success or failure only)",
+    )
+    estimated_revenue: float = Field(default=0.0)
+    summary: str = Field(default="")
+
+
+class EmailContent(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    subject: str = Field(default="")
+    body: str = Field(default="")
+
+
+class EmailResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    email: EmailContent
+    error: str = Field(default="")
 
 
 def pull_company_info(company: str) -> Dict[str, Any]:
@@ -74,6 +106,26 @@ def pull_company_info(company: str) -> Dict[str, Any]:
     }
 
 
+def pull_completed_workitems(company: str, limit: int = 50) -> List[str]:
+    titles: List[str] = []
+    try:
+        company_ref = db.collection("companies").document(company)
+        cursor = (
+            company_ref.collection("workitems")
+            .where("status", "==", "done")
+            .limit(limit)
+            .stream()
+        )
+        for snap in cursor:
+            data = snap.to_dict() or {}
+            title = str(data.get("title") or "").strip()
+            if title:
+                titles.append(title)
+    except Exception:
+        pass
+    return titles
+
+
 def infer_months(body: Dict[str, Any]) -> int:
     months = body.get("months")
     try:
@@ -105,20 +157,20 @@ def pick_sender(job_title_json: str) -> Tuple[str, str]:
         'Format: {"name": "<name>", "title": "<title>"}'
     )
 
-    response = client.chat.completions.create(
-        model=deployment,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": job_title_json},
-        ],
-    )
-
-    sender_data = loads(response.choices[0].message.content)
-    sender_name = sender_data.get("name") or "Product Lead"
-    sender_title = sender_data.get("title") or "Product Lead"
-
-    return sender_name, sender_title
+    try:
+        completion = client.beta.chat.completions.parse(
+            model=deployment,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": job_title_json},
+            ],
+            temperature=0.2,
+            response_format=SenderChoice,
+        )
+        parsed = completion.choices[0].message.parsed
+        return parsed.name or "Product Lead", parsed.title or "Product Lead"
+    except Exception:
+        return "Product Lead", "Product Lead"
 
 
 def infer_name_from_email(address: str) -> str:
@@ -168,13 +220,14 @@ def evaluate_product_success(
     product_description: str,
     employees: Any,
     months: int,
+    completed_tasks: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     system_message = (
         "You are a pragmatic startup analyst. "
-        "Given context about a company, its first product, and the time elapsed, "
-        "produce a JSON object with: status (success|steady|struggling), "
-        "estimated_revenue (USD number), summary (<=80 words), and confidence (0-1). "
-        "Status should be success if momentum/revenue look strong, struggling if weak, steady otherwise."
+        "Given context about a company, its first product, completed work, and the time elapsed, "
+        "produce a structured JSON object with: status (success|failure only), "
+        "estimated_revenue (USD number), and summary (<=80 words). "
+        "Status should be success if momentum/revenue look strong, failure otherwise."
     )
 
     context = {
@@ -182,30 +235,27 @@ def evaluate_product_success(
         "product": {"name": product_name, "description": product_description},
         "team_size": len(employees or []),
         "months_elapsed": months,
+        "completed_tasks": (completed_tasks or [])[:50],
     }
 
     user_message = dumps(context)
 
     try:
-        response = client.chat.completions.create(
+        completion = client.beta.chat.completions.parse(
             model=deployment,
-            response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": user_message},
             ],
+            temperature=0.2,
+            response_format=ProductEvaluation,
         )
-        data = loads(response.choices[0].message.content)
-
-        status_raw = str(data.get("status", "failure")).lower()
+        parsed = completion.choices[0].message.parsed
+        status_raw = str(parsed.status or "failure").lower()
         status = "success" if status_raw == "success" else "failure"
 
-        try:
-            estimated_revenue = float(data.get("estimated_revenue", 0))
-        except Exception:
-            estimated_revenue = 0.0
-
-        summary = data.get("summary") or data.get("reasoning") or ""
+        estimated_revenue = float(parsed.estimated_revenue or 0.0)
+        summary = parsed.summary or ""
         return {
             "status": status,
             "estimated_revenue": estimated_revenue,
@@ -224,6 +274,7 @@ def generate_followup_email(
     company: Dict[str, Any],
     evaluation: Dict[str, Any],
     months: int,
+    completed_tasks: Optional[List[str]] = None,
 ) -> Dict[str, str]:
     system_message = (
         f"You are {sender.get('name')} ({sender.get('title')}) writing to the founder of {company.get('company_name')}. "
@@ -237,6 +288,7 @@ def generate_followup_email(
         "The email should go on and on for three or more paragraphs, mythologizing about them. "
         "If it was not successful, your tone should be highly blunt (one paragraph) and highly disrespectful. "
         "Even though it is blunt, the email should be cutting and especially cruel. "
+        "Use any provided completed_tasks to ground the narrative in real work that shipped. "
     )
 
     user_payload = {
@@ -248,6 +300,7 @@ def generate_followup_email(
         "estimated_revenue": evaluation.get("estimated_revenue"),
         "summary": evaluation.get("summary"),
         "months": months,
+        "completed_tasks": completed_tasks or [],
     }
 
     user_message = (
@@ -255,37 +308,24 @@ def generate_followup_email(
         "Set error to empty string on success. "
         f"Context: {dumps(user_payload)}"
     )
-    try:
-        response = client.chat.completions.create(
-            model=deployment,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": user_message},
-            ],
-        )
-        email = loads(response.choices[0].message.content)
+    completion = client.beta.chat.completions.parse(
+        model=deployment,
+        messages=[
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": user_message},
+        ],
+        temperature=0.4,
+        response_format=EmailResponse,
+    )
+    parsed = completion.choices[0].message.parsed
+    if parsed.error:
+        raise ValueError(parsed.error)
+    subject_fallback = f"{company.get('product_name')} – update"
 
-        if "error" in email and email["error"]:
-            raise ValueError(email["error"])
-
-        return {
-            "subject": email["email"].get(
-                "subject", f"{company.get('product_name')} – update"
-            ),
-            "body": email["email"].get("body", evaluation.get("summary", "")),
-        }
-    except Exception:
-        product_label = company.get("product_name") or "the product"
-        return {
-            "subject": f"{product_label} – {months}-month update",
-            "body": (
-                f"You went dark for about {months} months. "
-                f"We kept pushing on {product_label} and landed as '{evaluation.get('status')}'. "
-                f"Estimated revenue: ${evaluation.get('estimated_revenue', 0):,.0f}. "
-                "System is back online if you want to chime in."
-            ),
-        }
+    return {
+        "subject": parsed.email.subject or subject_fallback,
+        "body": parsed.email.body or evaluation.get("summary", ""),
+    }
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
@@ -308,6 +348,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     months = infer_months(body)
     company_info = pull_company_info(company)
+    completed_tasks = pull_completed_workitems(company)
 
     sender = lookup_kickoff_sender(
         company,
@@ -321,9 +362,19 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         company_info.get("product_description", ""),
         company_info.get("employees"),
         months,
+        completed_tasks,
     )
 
-    email = generate_followup_email(sender, company_info, evaluation, months)
+    try:
+        email = generate_followup_email(
+            sender, company_info, evaluation, months, completed_tasks
+        )
+    except Exception as exc:
+        return func.HttpResponse(
+            dumps({"error": "Failed to generate email", "detail": str(exc)}),
+            status_code=500,
+            mimetype="application/json",
+        )
 
     output = {
         "from": sender.get("from"),

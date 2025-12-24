@@ -25,6 +25,7 @@ import {
   Timestamp,
   where,
 } from 'firebase/firestore';
+import { getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
 import { environment } from 'src/environments/environment';
 import { ThemeColors, ThemeService } from '../../services/theme.service';
 import { STRESS_BURNOUT_THRESHOLD } from '../../services/stress.service';
@@ -37,6 +38,7 @@ interface AccountProfile {
   companyIds?: string[];
   createdAt?: any;
   achievements?: StoredAchievement[];
+  photoUrl?: string | null;
 }
 
 interface AccountViewModel {
@@ -159,11 +161,16 @@ export class AccountPage implements OnInit, OnDestroy {
   achievements: AchievementBadge[] = [];
   achievementsLoading = false;
   activeBadge: AchievementBadge | null = null;
+  profilePhotoUrl: string | null = null;
+  photoUploading = false;
+  photoError = '';
+  usesGooglePhoto = false;
 
   private authSub: Subscription | null = null;
   private profileSub: Subscription | null = null;
   private fbApp = getApps().length ? getApps()[0] : initializeApp(environment.firebase);
   private db = getFirestore(this.fbApp);
+  private storage = getStorage(this.fbApp);
   private badgeSvgTemplate: string | null = null;
   private achievementLoadToken = 0;
   private destroyed = false;
@@ -190,6 +197,10 @@ export class AccountPage implements OnInit, OnDestroy {
         this.achievements = [];
         this.activeBadge = null;
         this.achievementLoadToken++;
+        this.profilePhotoUrl = null;
+        this.photoError = '';
+        this.photoUploading = false;
+        this.usesGooglePhoto = false;
         this.teardownProfile();
         this.router.navigate(['/login']);
         return;
@@ -255,6 +266,13 @@ export class AccountPage implements OnInit, OnDestroy {
       )
       .subscribe((profile) => {
         this.viewModel = { user, profile };
+        const resolvedPhoto = this.resolveProfilePhoto(user, profile);
+        const googlePhoto = this.getGooglePhoto(user);
+        this.profilePhotoUrl = resolvedPhoto;
+        this.usesGooglePhoto =
+          !!resolvedPhoto && !!googlePhoto && resolvedPhoto === googlePhoto;
+        this.photoError = '';
+        this.photoUploading = false;
         this.loading = false;
         void this.loadAchievements(user, profile);
       });
@@ -275,6 +293,10 @@ export class AccountPage implements OnInit, OnDestroy {
       this.achievements = [];
       this.activeBadge = null;
       this.achievementLoadToken++;
+      this.profilePhotoUrl = null;
+      this.photoError = '';
+      this.photoUploading = false;
+      this.usesGooglePhoto = false;
       return;
     }
     const token = ++this.achievementLoadToken;
@@ -465,6 +487,79 @@ export class AccountPage implements OnInit, OnDestroy {
     } catch {}
     const parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  async onPhotoSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0];
+    if (input) input.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      this.photoError = 'Please choose an image file.';
+      return;
+    }
+
+    const user = this.viewModel?.user;
+    if (!user) {
+      this.photoError = 'You need to be signed in to update your photo.';
+      return;
+    }
+
+    this.photoError = '';
+    this.photoUploading = true;
+    try {
+      const ext = this.fileExtension(file.name) || 'jpg';
+      const storageRef = ref(
+        this.storage,
+        `users/${user.uid}/profile-${Date.now()}.${ext}`
+      );
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      await Promise.all([
+        user.updateProfile({ photoURL: url }),
+        setDoc(
+          doc(this.db, 'users', user.uid),
+          { photoUrl: url },
+          { merge: true }
+        ),
+      ]);
+      this.profilePhotoUrl = url;
+      this.usesGooglePhoto = false;
+    } catch (err: any) {
+      console.error('Failed to upload profile photo', err);
+      this.photoError = err?.message || 'Failed to upload photo. Please try again.';
+    } finally {
+      this.photoUploading = false;
+    }
+  }
+
+  private resolveProfilePhoto(
+    user: firebase.User,
+    profile: AccountProfile | null
+  ): string | null {
+    const custom = String(profile?.photoUrl || '').trim();
+    if (custom) return custom;
+    const googlePhoto =
+      this.isGoogleUser(user) && user.photoURL ? String(user.photoURL).trim() : '';
+    const fallback = String(user.photoURL || '').trim();
+    return googlePhoto || fallback || null;
+  }
+
+  private getGooglePhoto(user: firebase.User | null): string | null {
+    if (!this.isGoogleUser(user)) return null;
+    const url = String(user?.photoURL || '').trim();
+    return url || null;
+  }
+
+  private isGoogleUser(user: firebase.User | null): boolean {
+    return !!user?.providerData?.some((p) => p?.providerId === 'google.com');
+  }
+
+  private fileExtension(name: string): string | null {
+    const parts = String(name || '').split('.');
+    if (parts.length < 2) return null;
+    const ext = parts.pop();
+    return ext ? ext.toLowerCase() : null;
   }
 
   private async collectCompanyIds(

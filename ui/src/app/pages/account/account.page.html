@@ -8,8 +8,40 @@
       <div class="account-content">
         <section class="profile-container">
           <div class="top-row">
-            <div class="logo">
-              <span class="material-symbols-outlined"> account_circle </span>
+            <div class="logo" [class.has-photo]="profilePhotoUrl">
+              <ng-container *ngIf="profilePhotoUrl; else profilePlaceholder">
+                <img [src]="profilePhotoUrl" alt="Profile photo" />
+              </ng-container>
+              <ng-template #profilePlaceholder>
+                <span class="material-symbols-outlined"> account_circle </span>
+              </ng-template>
+            </div>
+            <div class="photo-actions">
+              <button
+                type="button"
+                class="photo-button"
+                (click)="photoInput.click()"
+                [disabled]="photoUploading"
+              >
+                {{
+                  photoUploading
+                    ? 'Uploading...'
+                    : profilePhotoUrl
+                      ? 'Change photo'
+                      : 'Add photo'
+                }}
+              </button>
+              <input
+                #photoInput
+                type="file"
+                accept="image/*"
+                class="sr-only"
+                (change)="onPhotoSelected($event)"
+              />
+              <div class="photo-note" *ngIf="usesGooglePhoto && profilePhotoUrl">
+                Using your Google profile photo
+              </div>
+              <p class="error" *ngIf="photoError">{{ photoError }}</p>
             </div>
           </div>
           <h1 class="name">

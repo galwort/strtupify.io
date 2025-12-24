@@ -455,7 +455,6 @@ export class EndgameService implements OnDestroy {
 
     let companySize = 0;
     let burnoutCount = 0;
-    let focusPointsSpentCalculated = 0;
     try {
       const employeesSnap = await getDocs(
         query(
@@ -471,14 +470,9 @@ export class EndgameService implements OnDestroy {
         const burnedOut =
           status === 'burnout' || stress >= STRESS_BURNOUT_THRESHOLD;
         if (burnedOut) burnoutCount += 1;
-        const spend = await this.sumEmployeeFocusSpend(docSnap.id);
-        if (spend > 0) focusPointsSpentCalculated += spend;
       }
     } catch {}
-    const focusPointsSpent = Math.max(
-      focusPointsSpentRecorded,
-      focusPointsSpentCalculated
-    );
+    const focusPointsSpent = Math.max(0, focusPointsSpentRecorded);
     const focusPointsTotal = Math.max(
       0,
       focusPointsAvailable + focusPointsSpent

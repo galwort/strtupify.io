@@ -407,6 +407,10 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
       const currentPoints = Number.isFinite(Number(data.focusPoints))
         ? Math.max(0, Math.round(Number(data.focusPoints)))
         : 0;
+      const spentRaw = Number(data.focusPointsSpent ?? 0);
+      const currentSpent = Number.isFinite(spentRaw)
+        ? Math.max(0, Math.round(spentRaw))
+        : 0;
       if (currentPoints < this.skillPointCost) throw new Error('insufficient');
 
       const skillSnap = await tx.get(skillRef);
@@ -422,6 +426,7 @@ export class HumanResourcesComponent implements OnInit, OnDestroy {
         companyRef,
         {
           focusPoints: currentPoints - this.skillPointCost,
+          focusPointsSpent: currentSpent + this.skillPointCost,
           focusPointsUpdatedAt: serverTimestamp(),
         },
         { merge: true }

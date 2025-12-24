@@ -45,7 +45,7 @@
       align-items: center;
       gap: 12px;
       width: 100%;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
     }
 
     .filter-actions {
@@ -90,10 +90,10 @@
       border: 1px solid #e2e8f0;
       border-radius: 8px;
       background: #f7f9fc;
-      width: clamp(220px, 30%, 360px);
-      min-width: 220px;
-      max-width: 360px;
-      flex: 0 1 clamp(220px, 30%, 360px);
+      width: clamp(160px, 28%, 340px);
+      min-width: 140px;
+      max-width: 340px;
+      flex: 0 1 clamp(160px, 28%, 340px);
 
       .material-symbols-outlined {
         font-size: 20px;
@@ -107,6 +107,17 @@
         width: 100%;
         font-size: 16px;
         color: var(--theme-text);
+      }
+    }
+
+    @media (max-width: 1080px) {
+      .filter-actions-row {
+        gap: 8px;
+      }
+      .filter-search {
+        width: clamp(130px, 24vw, 280px);
+        min-width: 120px;
+        max-width: 280px;
       }
     }
   }

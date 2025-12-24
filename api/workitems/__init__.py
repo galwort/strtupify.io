@@ -289,7 +289,9 @@ def _apply_llm_rates(
             "rates": rounded_rates,
         }
         status = str(item.get("status") or "").lower()
-        if status != "done":
+        current_assignee = str(item.get("assignee_id") or "").strip()
+        # Do not overwrite an existing manual assignment when refreshing rates.
+        if status != "done" and not current_assignee:
             update_doc["assignee_id"] = best_emp
         try:
             work_ref.document(doc_id).update(update_doc)

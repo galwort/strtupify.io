@@ -28,6 +28,7 @@ const auth = getAuth(app);
 })
 export class HomePage implements OnInit, OnDestroy {
   companies: any[] = [];
+  loading = true;
   deleteTotal = 0;
   deleteDone = 0;
   deletingId: string | null = null;
@@ -38,11 +39,13 @@ export class HomePage implements OnInit, OnDestroy {
 
   async ngOnInit() {
     this.authUnsubscribe = onAuthStateChanged(auth, async (user) => {
+      this.loading = true;
       this.currentUser = user;
       if (user) {
         await this.loadCompanies(user.uid);
       } else {
         this.companies = [];
+        this.loading = false;
       }
     });
 
@@ -60,7 +63,7 @@ export class HomePage implements OnInit, OnDestroy {
 
   async ionViewWillEnter() {
     if (this.currentUser) {
-      await this.loadCompanies(this.currentUser.uid);
+      await this.loadCompanies(this.currentUser.uid, this.companies.length === 0);
     }
   }
 
@@ -71,38 +74,48 @@ export class HomePage implements OnInit, OnDestroy {
     }
   }
 
-  private async loadCompanies(userId: string) {
-    const seen: Map<string, any> = new Map();
-
-    const byMemberSnapshot = await getDocs(
-      query(collection(db, 'companies'), where('memberIds', 'array-contains', userId))
-    );
-    byMemberSnapshot.docs.forEach((d) => {
-      seen.set(d.id, { id: d.id, ...d.data() });
-    });
-
-    const byOwnerSnapshot = await getDocs(
-      query(collection(db, 'companies'), where('ownerId', '==', userId))
-    );
-    byOwnerSnapshot.docs.forEach((d) => {
-      if (!seen.has(d.id)) {
-        seen.set(d.id, { id: d.id, ...d.data() });
-      }
-    });
-
+  private async loadCompanies(userId: string, showLoading = true) {
+    const shouldShowLoading = showLoading || this.companies.length === 0;
+    if (shouldShowLoading) {
+      this.loading = true;
+    }
     try {
-      const userDoc = await getDoc(doc(db, 'users', userId));
-      const companyIds: string[] = (userDoc.data() as any)?.companyIds || [];
-      for (const companyId of companyIds) {
-        if (seen.has(companyId)) continue;
-        const companySnap = await getDoc(doc(db, 'companies', companyId));
-        if (companySnap.exists()) {
-          seen.set(companyId, { id: companyId, ...companySnap.data() });
-        }
-      }
-    } catch {}
+      const seen: Map<string, any> = new Map();
 
-    this.companies = Array.from(seen.values());
+      const byMemberSnapshot = await getDocs(
+        query(collection(db, 'companies'), where('memberIds', 'array-contains', userId))
+      );
+      byMemberSnapshot.docs.forEach((d) => {
+        seen.set(d.id, { id: d.id, ...d.data() });
+      });
+
+      const byOwnerSnapshot = await getDocs(
+        query(collection(db, 'companies'), where('ownerId', '==', userId))
+      );
+      byOwnerSnapshot.docs.forEach((d) => {
+        if (!seen.has(d.id)) {
+          seen.set(d.id, { id: d.id, ...d.data() });
+        }
+      });
+
+      try {
+        const userDoc = await getDoc(doc(db, 'users', userId));
+        const companyIds: string[] = (userDoc.data() as any)?.companyIds || [];
+        for (const companyId of companyIds) {
+          if (seen.has(companyId)) continue;
+          const companySnap = await getDoc(doc(db, 'companies', companyId));
+          if (companySnap.exists()) {
+            seen.set(companyId, { id: companyId, ...companySnap.data() });
+          }
+        }
+      } catch {}
+
+      this.companies = Array.from(seen.values());
+    } finally {
+      if (shouldShowLoading) {
+        this.loading = false;
+      }
+    }
   }
 
   async onDelete(event: Event, companyId: string) {

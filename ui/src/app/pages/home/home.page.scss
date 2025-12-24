@@ -149,3 +149,23 @@ ion-fab-button {
     line-height: 1.5;
   }
 }
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 12px;
+  color: var(--theme-text);
+
+  ion-spinner {
+    width: 36px;
+    height: 36px;
+    --color: var(--theme-primary);
+  }
+
+  .loading-text {
+    font-size: 15px;
+  }
+}

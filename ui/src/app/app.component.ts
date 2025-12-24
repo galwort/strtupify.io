@@ -74,6 +74,7 @@ export class AppComponent implements OnDestroy {
   private inboxWatchInitialized = false;
   private emailToastTimer: any = null;
   private lastInboxEmails: Email[] = [];
+  private contextVersion = 0;
 
   private fbApp = initializeApp(environment.firebase);
   private db = getFirestore(this.fbApp);
@@ -432,6 +433,7 @@ export class AppComponent implements OnDestroy {
   }
 
   private async updateCompanyContext() {
+    const contextVersion = ++this.contextVersion;
     const previousCompanyId = this.currentCompanyId;
     const m = this.router.url.match(/\/company\/([^\/]+)/);
     const companyId = m ? m[1] : null;
@@ -474,14 +476,19 @@ export class AppComponent implements OnDestroy {
     try {
       const user = getAuth(this.fbApp).currentUser;
       if (!user) {
-        this.router.navigate(['/login']);
+        if (contextVersion === this.contextVersion) {
+          this.router.navigate(['/login']);
+        }
         return;
       }
 
       const ref = doc(this.db, 'companies', companyId);
       const snap = await getDoc(ref);
+      if (contextVersion !== this.contextVersion) return;
       if (!snap.exists()) {
-        this.router.navigate(['/home']);
+        if (contextVersion === this.contextVersion) {
+          this.router.navigate(['/home']);
+        }
         return;
       }
       const data = snap.data() as any;
@@ -496,6 +503,7 @@ export class AppComponent implements OnDestroy {
             memberIds: members,
             ownerEmail: data?.ownerEmail || user.email || null,
           });
+          if (contextVersion !== this.contextVersion) return;
           await setDoc(
             doc(this.db, 'users', user.uid),
             {
@@ -503,11 +511,15 @@ export class AppComponent implements OnDestroy {
             },
             { merge: true }
           );
+          if (contextVersion !== this.contextVersion) return;
         } else {
-          this.router.navigate(['/home']);
+          if (contextVersion === this.contextVersion) {
+            this.router.navigate(['/home']);
+          }
           return;
         }
       }
+      if (contextVersion !== this.contextVersion) return;
       this.companyLogo = data?.logo || '';
       this.companyProfileEnabled = true;
       this.ui.setCompanyProfileEnabled(true);
@@ -524,6 +536,7 @@ export class AppComponent implements OnDestroy {
         !!data?.endgameResolved ||
         !!data?.endgameEmailsSent;
       this.recomputeInboxCount();
+      if (contextVersion !== this.contextVersion) return;
       this.theme.applyCompanyTheme(data);
       try {
         const acceptedSnap = await getDocs(
@@ -532,11 +545,14 @@ export class AppComponent implements OnDestroy {
             where('accepted', '==', true)
           )
         );
+        if (contextVersion !== this.contextVersion) return;
         this.inboxEnabled = !acceptedSnap.empty;
       } catch {}
+      if (contextVersion !== this.contextVersion) return;
       this.startInboxWatcher(companyId);
       try {
         const unsub = onSnapshot(ref, (s) => {
+          if (contextVersion !== this.contextVersion) return;
           const d = (s && (s.data() as any)) || {};
           const endgameDoc =
             !!d.endgameTriggered ||
@@ -557,7 +573,11 @@ export class AppComponent implements OnDestroy {
           this.ui.setWorkEnabled(this.workEnabled);
           this.theme.applyCompanyTheme(d);
         });
-        (window as any).__companyDocUnsub = unsub;
+        if (contextVersion === this.contextVersion) {
+          (window as any).__companyDocUnsub = unsub;
+        } else {
+          unsub();
+        }
       } catch {}
     } catch (e) {}
   }

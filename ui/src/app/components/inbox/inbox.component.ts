@@ -47,6 +47,7 @@ type InboxEmail = Email & {
   displayRecipient?: string;
   senderInitials?: string;
   senderAvatarUrl?: string | null;
+  isSeed?: boolean;
 };
 
 type EmployeeAvatarSource = {
@@ -771,6 +772,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   private vladOpenToWorkAt: number | null = null;
   private workitemsUnsub: (() => void) | null = null;
   private workitemProgress = { done: 0, total: 0 };
+  private seedEmails = new Map<string, InboxEmail>();
 
   private kickoffSendTime: number | null = null;
   private momSendTime: number | null = null;
@@ -807,6 +809,9 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     if (!this.companyId) return;
+    const welcomeEnsurePromise = this.inboxService
+      .ensureWelcomeEmail(this.companyId)
+      .catch(() => {});
     this.startEmployeeAvatarWatch();
 
     this.inboxPreferredSub = this.ui.inboxPreferredEmailId$.subscribe((id) => {
@@ -873,6 +878,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       });
       (this as any).__unsubInboxSim = unsub;
     }
+    this.primeVladWelcomeEmail();
     this.loadSnacks();
     this.loadSuperEatsTemplate();
     this.loadVladNightTemplate();
@@ -880,7 +886,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.loadBankTemplate();
     this.loadCadabraTemplate();
 
-    this.inboxService.ensureWelcomeEmail(this.companyId).finally(() => {
+    welcomeEnsurePromise.finally(() => {
       this.subscribeToInbox();
     });
   }
@@ -1658,6 +1664,40 @@ export class InboxComponent implements OnInit, OnDestroy {
     });
   }
 
+  private primeVladWelcomeEmail(): void {
+    if (this.seedEmails.has('vlad-welcome')) return;
+    const to =
+      this.meAddress ||
+      (this.companyId ? `me@${this.companyId}.com` : 'me@example.com');
+    const timestamp = (this.simDate || new Date()).toISOString();
+    this.http
+      .get('emails/vlad-welcome.md', { responseType: 'text' })
+      .subscribe({
+        next: (text) => {
+          const parsed = this.parseMarkdownEmail(text);
+          const body = parsed.body || '';
+          const seed = this.decorateEmail({
+            id: 'vlad-welcome',
+            sender: parsed.from || 'vlad@strtupify.io',
+            subject: parsed.subject || 'How to email',
+            body,
+            preview: `${body.substring(0, 60)}...`,
+            deleted: parsed.deleted ?? false,
+            banner: parsed.banner ?? false,
+            timestamp,
+            threadId: 'vlad-welcome',
+            to,
+            category: 'vlad',
+            avatarUrl: 'assets/vlad.svg',
+          } as Email);
+          seed.isSeed = true;
+          this.seedEmails.set(seed.id, seed);
+          this.updateInboxView(this.allEmails, { preferredId: seed.id });
+        },
+        error: () => {},
+      });
+  }
+
   private loadAiDeleteTemplate(): void {
     this.http.get('emails/vlad-ai-delete.md', { responseType: 'text' }).subscribe({
       next: (text) => {
@@ -2219,7 +2259,8 @@ export class InboxComponent implements OnInit, OnDestroy {
     opts?: { preferredId?: string | null; avoidIds?: Array<string | null> }
   ): void {
     this.pruneSuppressed();
-    this.allEmails = emails;
+    const merged = this.mergeSeedEmails(emails);
+    this.allEmails = merged;
     this.inbox = this.sortEmails(this.filteredEmails(this.allEmails));
     const avoid = new Set<string>();
     (opts?.avoidIds || [])
@@ -2251,6 +2292,23 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.pendingSelectionId = null;
     this.preferredInboxEmailId = null;
     this.markEmailAsRead(this.selectedEmail);
+  }
+
+  private mergeSeedEmails(emails: InboxEmail[]): InboxEmail[] {
+    const merged = emails.slice();
+    const seen = new Map<string, InboxEmail>();
+    merged.forEach((e) => seen.set(e.id, e));
+    for (const [id, seed] of this.seedEmails.entries()) {
+      const existing = seen.get(id);
+      if (existing) {
+        if (!existing.isSeed) {
+          this.seedEmails.delete(id);
+        }
+        continue;
+      }
+      merged.push(seed);
+    }
+    return merged;
   }
 
   private pruneSuppressed(): void {

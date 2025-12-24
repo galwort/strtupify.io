@@ -31,15 +31,13 @@
       justify-content: center;
       width: 50px;
       height: 60px;
-      border-radius: 6px;
-      /* accent pop for brand */
+      border-radius: 0;
+      /* accent pop for brand without hover animation */
       background-color: var(--theme-accent, #ffb703);
-      transition: transform 0.15s ease, background-color 0.15s ease;
     }
 
     .logo:hover {
       background-color: rgba(255, 255, 255, 0.25);
-      transform: scale(1.05);
     }
 
     .logo img {
@@ -55,7 +53,7 @@
       justify-content: center;
       width: 50px;
       height: 60px;
-      border-radius: 6px;
+      border-radius: 0;
       color: #fff;
       text-decoration: none;
       background: transparent;

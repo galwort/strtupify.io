@@ -66,6 +66,9 @@
                 loading="lazy"
               />
               <div class="badge-name">{{ badge.name }}</div>
+              <div class="badge-earned" *ngIf="badge.earnedAt">
+                Earned {{ badge.earnedAt | date: 'mediumDate' }}
+              </div>
             </button>
           </div>
         </section>
@@ -113,6 +116,9 @@
       <div class="badge-modal-title">{{ badge.name }}</div>
       <div class="badge-modal-description">
         {{ badge.description }}
+      </div>
+      <div class="badge-modal-meta" *ngIf="badge.earnedAt">
+        Earned {{ badge.earnedAt | date: 'medium' }}
       </div>
     </div>
   </div>

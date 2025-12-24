@@ -21,6 +21,8 @@ import {
   getDocs,
   getFirestore,
   query,
+  setDoc,
+  Timestamp,
   where,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
@@ -34,6 +36,7 @@ interface AccountProfile {
   loginUsername?: string | null;
   companyIds?: string[];
   createdAt?: any;
+  achievements?: StoredAchievement[];
 }
 
 interface AccountViewModel {
@@ -62,6 +65,7 @@ type AchievementBadge = {
   name: string;
   description: string;
   imageUrl: string;
+  earnedAt?: Date | null;
 };
 
 type AchievementState = {
@@ -79,6 +83,11 @@ type AchievementState = {
   banned: boolean;
   transcendentalist: boolean;
   nepoBaby: boolean;
+};
+
+type StoredAchievement = {
+  key: AchievementKey;
+  earnedAt?: any;
 };
 
 const ACHIEVEMENT_DEFINITIONS: Record<
@@ -289,9 +298,25 @@ export class AccountPage implements OnInit, OnDestroy {
     user: firebase.User,
     profile: AccountProfile | null
   ): Promise<AchievementBadge[]> {
+    const stored = this.normalizeStoredAchievements(profile);
     const companyIds = await this.collectCompanyIds(user, profile);
-    if (!companyIds.length) return [];
+    const earnedKeys = companyIds.length
+      ? await this.computeCompanyAchievementKeys(companyIds)
+      : [];
 
+    const { achievements, changed } = this.mergeAchievements(stored, earnedKeys);
+    if (changed) {
+      await this.persistAchievements(user.uid, achievements);
+    }
+
+    if (!achievements.length) return [];
+    const template = await this.loadBadgeTemplate();
+    return this.toAchievementBadges(achievements, template);
+  }
+
+  private async computeCompanyAchievementKeys(
+    companyIds: string[]
+  ): Promise<AchievementKey[]> {
     const state: AchievementState = {
       taskmasterCount: 0,
       rockstar: false,
@@ -323,6 +348,10 @@ export class AccountPage implements OnInit, OnDestroy {
       }
     }
 
+    return this.extractAchievementKeys(state);
+  }
+
+  private extractAchievementKeys(state: AchievementState): AchievementKey[] {
     const earnedKeys: AchievementKey[] = [];
     if (state.taskmasterCount >= 100) earnedKeys.push('taskmaster');
     if (state.rockstar) earnedKeys.push('rockstar');
@@ -338,20 +367,104 @@ export class AccountPage implements OnInit, OnDestroy {
     if (state.banned) earnedKeys.push('banned');
     if (state.transcendentalist) earnedKeys.push('transcendentalist');
     if (state.nepoBaby) earnedKeys.push('nepoBaby');
+    return earnedKeys;
+  }
 
-    if (!earnedKeys.length) return [];
-    const template = await this.loadBadgeTemplate();
-    const imageFor = (name: string) => this.renderBadge(name, template);
-
-    return ACHIEVEMENT_ORDER.filter((k) => earnedKeys.includes(k)).map((key) => {
-      const def = ACHIEVEMENT_DEFINITIONS[key];
-      return {
-        key,
-        name: def.name,
-        description: def.description,
-        imageUrl: imageFor(def.name),
-      };
+  private mergeAchievements(
+    stored: StoredAchievement[],
+    computedKeys: AchievementKey[]
+  ): { achievements: StoredAchievement[]; changed: boolean } {
+    const byKey = new Map<AchievementKey, StoredAchievement>();
+    const normalizedStored = Array.isArray(stored) ? stored : [];
+    const seenStored = new Set<AchievementKey>();
+    normalizedStored.forEach((entry) => {
+      if (!entry || !this.isAchievementKey(entry.key) || seenStored.has(entry.key)) {
+        return;
+      }
+      seenStored.add(entry.key);
+      byKey.set(entry.key, { key: entry.key, earnedAt: entry.earnedAt ?? null });
     });
+
+    let changed = false;
+    const now = Timestamp.fromDate(new Date());
+    computedKeys.forEach((key) => {
+      if (!byKey.has(key)) {
+        byKey.set(key, { key, earnedAt: now });
+        changed = true;
+      }
+    });
+
+    const achievements = ACHIEVEMENT_ORDER.filter((key) => byKey.has(key)).map(
+      (key) => byKey.get(key) as StoredAchievement
+    );
+    return { achievements, changed };
+  }
+
+  private async persistAchievements(
+    userId: string,
+    achievements: StoredAchievement[]
+  ): Promise<void> {
+    try {
+      await setDoc(
+        doc(this.db, 'users', userId),
+        { achievements },
+        { merge: true }
+      );
+    } catch (err) {
+      console.error('Failed to persist achievements', err);
+    }
+  }
+
+  private normalizeStoredAchievements(
+    profile: AccountProfile | null
+  ): StoredAchievement[] {
+    if (!profile?.achievements || !Array.isArray(profile.achievements)) return [];
+    const seen = new Set<AchievementKey>();
+    return profile.achievements.reduce<StoredAchievement[]>((list, entry: any) => {
+      const key = entry?.key;
+      if (!this.isAchievementKey(key) || seen.has(key)) return list;
+      seen.add(key);
+      list.push({ key, earnedAt: entry?.earnedAt ?? null });
+      return list;
+    }, []);
+  }
+
+  private toAchievementBadges(
+    achievements: StoredAchievement[],
+    template: string | null
+  ): AchievementBadge[] {
+    const imageFor = (name: string) => this.renderBadge(name, template);
+    return achievements
+      .filter((a) => this.isAchievementKey(a.key))
+      .map((achievement) => {
+        const def = ACHIEVEMENT_DEFINITIONS[achievement.key];
+        return {
+          key: achievement.key,
+          name: def.name,
+          description: def.description,
+          imageUrl: imageFor(def.name),
+          earnedAt: this.asDate(achievement.earnedAt),
+        };
+      });
+  }
+
+  private isAchievementKey(value: any): value is AchievementKey {
+    return ACHIEVEMENT_ORDER.includes(value as AchievementKey);
+  }
+
+  private asDate(value: any): Date | null {
+    if (!value) return null;
+    if (value instanceof Date) return value;
+    try {
+      if (typeof value?.toDate === 'function') {
+        const converted = value.toDate();
+        return converted instanceof Date && !Number.isNaN(converted.getTime())
+          ? converted
+          : null;
+      }
+    } catch {}
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
   private async collectCompanyIds(

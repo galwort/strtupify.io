@@ -46,8 +46,24 @@
         object-fit: contain;
       }
 
+      &.loading {
+        background: linear-gradient(
+          90deg,
+          #f3f4f6 0%,
+          #e5e7eb 50%,
+          #f3f4f6 100%
+        );
+        background-size: 200% 100%;
+        animation: resumeShimmer 1.2s ease-in-out infinite;
+      }
+
       &.fallback {
         background: rgba(63, 140, 255, 0.04);
+      }
+
+      .avatar-skeleton {
+        width: 100%;
+        height: 100%;
       }
 
       .material-symbols-outlined {
@@ -120,6 +136,24 @@
     &.full-skill {
       border-top-right-radius: 10px;
       border-bottom-right-radius: 10px;
+    }
+  }
+
+  .skeleton-bar {
+    display: inline-block;
+    width: 160px;
+    height: 14px;
+    border-radius: 8px;
+  }
+
+  .progress-bar.skeleton {
+    border-color: transparent;
+    overflow: hidden;
+  }
+
+  .skills-skeleton {
+    li {
+      gap: 12px;
     }
   }
 
@@ -219,5 +253,31 @@
         box-shadow: none;
       }
     }
+  }
+
+  .skeleton-bar,
+  .avatar.loading,
+  .progress-bar.skeleton {
+    background: linear-gradient(
+      90deg,
+      #f3f4f6 0%,
+      #e5e7eb 50%,
+      #f3f4f6 100%
+    );
+    background-size: 200% 100%;
+    animation: resumeShimmer 1.2s ease-in-out infinite;
+  }
+
+  .progress-bar.skeleton .progress-fill {
+    display: none;
+  }
+}
+
+@keyframes resumeShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
   }
 }

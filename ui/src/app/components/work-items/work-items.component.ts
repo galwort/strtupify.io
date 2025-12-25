@@ -453,6 +453,16 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     return `assist-${workitemId}-${Date.now()}-${seed}`;
   }
 
+  private isWorkday(date: Date): boolean {
+    const day = date.getDay();
+    return day >= 1 && day <= 5;
+  }
+
+  private isWithinWorkHours(date: Date): boolean {
+    const minutes = date.getHours() * 60 + date.getMinutes();
+    return minutes >= this.workdayStartHour * 60 && minutes <= this.workdayEndHour * 60;
+  }
+
   private shouldTriggerAssistance(it: WorkItem): boolean {
     if (!it || it.status !== 'doing') return false;
     if (!it.assignee_id) return false;
@@ -471,6 +481,13 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     const startedSim = this.assistStartedSim.get(it.id);
     if (!startedSim) return false;
     if (this.simTime - startedSim < this.assistMinSimMs) return false;
+
+    const assignee = it.assignee_id ? this.empById.get(it.assignee_id) : null;
+    const allowOffHours = assignee ? !!assignee.offHoursAllowed : false;
+    if (!allowOffHours) {
+      const now = new Date(this.simTime);
+      if (!this.isWorkday(now) || !this.isWithinWorkHours(now)) return false;
+    }
 
     const targetPct = this.getAssistTriggerPct(it);
     if (targetPct === null) return false;
@@ -500,6 +517,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     if (!this.companyId || !this.productInfo) return;
     const assignee = it.assignee_id ? this.empById.get(it.assignee_id) : null;
     if (!assignee) return;
+    const allowOffHours = !!assignee.offHoursAllowed;
     const assigneeName = (assignee.name || '').trim();
     const assigneeTitle = (assignee.title || '').trim();
     if (!assigneeName || !assigneeTitle) {
@@ -594,6 +612,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
         assistWorkitemDescription: it.description,
         productName: this.productInfo?.name,
         productDescription: this.productInfo?.description,
+        offHoursAllowed: allowOffHours,
       });
 
       const targetPct = this.getAssistTriggerPct(it);

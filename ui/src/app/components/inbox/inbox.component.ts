@@ -809,9 +809,9 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     if (!this.companyId) return;
-    const welcomeEnsurePromise = this.inboxService
-      .ensureWelcomeEmail(this.companyId)
-      .catch(() => {});
+    void this.inboxService.ensureWelcomeEmail(this.companyId).catch(() => {});
+    this.primeVladWelcomeEmail();
+    this.subscribeToInbox();
     this.startEmployeeAvatarWatch();
 
     this.inboxPreferredSub = this.ui.inboxPreferredEmailId$.subscribe((id) => {
@@ -878,17 +878,12 @@ export class InboxComponent implements OnInit, OnDestroy {
       });
       (this as any).__unsubInboxSim = unsub;
     }
-    this.primeVladWelcomeEmail();
     this.loadSnacks();
     this.loadSuperEatsTemplate();
     this.loadVladNightTemplate();
     this.loadAiDeleteTemplate();
     this.loadBankTemplate();
     this.loadCadabraTemplate();
-
-    welcomeEnsurePromise.finally(() => {
-      this.subscribeToInbox();
-    });
   }
 
   ngOnDestroy(): void {
@@ -940,6 +935,7 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   private markEmailAsRead(email: InboxEmail | null): void {
     if (!email || !this.companyId) return;
+    if (email.isSeed) return;
     if (email.read) return;
     const alreadyMarking = this.markingRead.has(email.id);
     const readAt = new Date().toISOString();
@@ -1674,7 +1670,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       .get('emails/vlad-welcome.md', { responseType: 'text' })
       .subscribe({
         next: (text) => {
-          const parsed = this.parseMarkdownEmail(text);
+          const parsed = this.parseMarkdownEmail(text || '');
           const body = parsed.body || '';
           const seed = this.decorateEmail({
             id: 'vlad-welcome',

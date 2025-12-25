@@ -47,8 +47,17 @@ export class InboxService {
   ensureWelcomeEmail(companyId: string): Promise<void> {
     const welcomeRef = doc(db, `companies/${companyId}/inbox/vlad-welcome`);
     return getDoc(welcomeRef).then((snapshot) => {
+      const existing = snapshot.exists() ? (snapshot.data() as any) : null;
       if (snapshot.exists()) {
-        return;
+        const hasContent =
+          existing &&
+          typeof existing.subject === 'string' &&
+          existing.subject.trim().length > 0 &&
+          typeof existing.message === 'string' &&
+          existing.message.trim().length > 0 &&
+          typeof existing.from === 'string' &&
+          existing.from.trim().length > 0;
+        if (hasContent) return;
       }
       return new Promise<void>((resolve, reject) => {
         this.http
@@ -75,18 +84,29 @@ export class InboxService {
                 toAddr = `me@${domain}`;
               } catch {}
               try {
-                await setDoc(welcomeRef, {
+                const payload: any = {
                   from: parsed.from,
                   subject: parsed.subject,
-                message: parsed.body,
-                deleted: parsed.deleted ?? false,
-                banner: parsed.banner ?? false,
-                timestamp,
-                threadId: 'vlad-welcome',
-                to: toAddr,
-                category: 'vlad',
-                avatarUrl: 'assets/vlad.svg',
-              });
+                  message: parsed.body,
+                  deleted: parsed.deleted ?? false,
+                  banner: parsed.banner ?? false,
+                  timestamp,
+                  threadId: 'vlad-welcome',
+                  to: toAddr,
+                  category: 'vlad',
+                  avatarUrl: 'assets/vlad.svg',
+                };
+                if (existing && existing.read !== undefined) {
+                  payload.read = existing.read;
+                }
+                const existingReadAt =
+                  (existing && (existing.readAt || existing.read_at)) || null;
+                if (existingReadAt) {
+                  payload.readAt = existingReadAt;
+                }
+                await setDoc(welcomeRef, {
+                  ...payload,
+                });
               resolve();
             } catch (e) {
               reject(e);

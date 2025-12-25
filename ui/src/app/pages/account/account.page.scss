@@ -59,9 +59,10 @@
   align-items: center;
   justify-content: center;
   background: #fff;
-  border: 1.5px solid var(--theme-primary);
+  border: 1px solid #e5e5e5;
   border-radius: 8px;
   overflow: hidden;
+  position: relative;
 }
 
 .logo .material-symbols-outlined {
@@ -80,25 +81,53 @@
   display: block;
 }
 
-.photo-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.photo-button {
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  border: 1.5px solid var(--theme-primary);
-  background: var(--theme-primary);
-  color: #fff;
-  font-size: 0.95rem;
+.edit-icon {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  color: var(--theme-primary);
   cursor: pointer;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 0.15s ease, transform 0.15s ease, color 0.15s ease;
+  border-radius: 50%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.photo-button[disabled] {
-  opacity: 0.75;
+.edit-icon .material-symbols-outlined {
+  font-size: 18px;
+  color: currentColor;
+}
+
+.edit-icon:hover {
+  color: var(--theme-accent);
+}
+
+.edit-icon[disabled] {
   cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.logo:hover .edit-icon,
+.logo:focus-within .edit-icon {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.edit-spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-top-color: var(--theme-primary);
+  animation: spin 0.9s linear infinite;
 }
 
 .photo-note {

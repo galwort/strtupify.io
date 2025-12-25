@@ -17,6 +17,11 @@
     }
   }
 
+  &.loading {
+    justify-content: center;
+    align-items: center;
+  }
+
   .header {
     display: flex;
     flex-direction: row;
@@ -157,15 +162,12 @@ ion-fab-button {
   justify-content: center;
   gap: 10px;
   padding: 16px 12px;
+  width: 100%;
   color: var(--theme-text);
 
   ion-spinner {
     width: 36px;
     height: 36px;
     --color: var(--theme-primary);
-  }
-
-  .loading-text {
-    font-size: 15px;
   }
 }

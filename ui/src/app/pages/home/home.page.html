@@ -1,5 +1,9 @@
 <ion-content [fullscreen]="true">
-  <div class="page-container" [class.empty]="!loading && companies.length === 0">
+  <div
+    class="page-container"
+    [class.empty]="!loading && companies.length === 0"
+    [class.loading]="loading && companies.length === 0"
+  >
     <div class="header" *ngIf="companies.length > 0">
       <div class="title">Companies</div>
     </div>
@@ -27,7 +31,6 @@
     <div *ngIf="companies.length === 0">
       <div class="loading-state" *ngIf="loading">
         <ion-spinner name="crescent"></ion-spinner>
-        <div class="loading-text">Loading companies...</div>
       </div>
       <div class="empty-state" *ngIf="!loading">
         <div class="empty-title">No companies yet</div>

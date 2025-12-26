@@ -96,3 +96,13 @@ Googling what web3 means
 Googling what hodl means
 Creating an AI LinkedIn profile picture
 I don't even know man
+Googling if a PhD is worth it
+Googling "sql server 1000000 row(s) affected"
+Googling "No module named requests"
+Asking ChatGPT what pip stands for
+Asking ChatGPT why seaborn is abbreviated as sns
+Upgrading to python 3
+Adding .md to .gitignore
+Asking ChatGPT what a picnic error is
+Being more concise
+Removing em dashes

@@ -229,7 +229,7 @@
               <div class="sender-meta">
                 <span class="label" *ngIf="selectedEmail?.to">To</span>
                 <span class="value" *ngIf="selectedEmail?.to">{{
-                  selectedEmail?.displayRecipient || selectedEmail?.to
+                  selectedEmail.displayRecipient || selectedEmail.to
                 }}</span>
                 <span class="timestamp">{{
                   selectedEmail.timestamp | date : "short"

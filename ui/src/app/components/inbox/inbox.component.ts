@@ -1848,10 +1848,6 @@ export class InboxComponent implements OnInit, OnDestroy {
     const recipients = this.parseRecipients(toRaw);
     const isMultiRecipient = recipients.length > 1;
     const to = recipients[0] || toRaw;
-    if (!message) {
-      this.composeError = 'Message body cannot be empty.';
-      return;
-    }
     if (!isMultiRecipient && !this.isValidEmailAddress(to)) {
       this.composeError = 'Please enter a valid email address.';
       return;
@@ -1927,7 +1923,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   }
 
   async sendReply(): Promise<void> {
-    if (!this.selectedEmail || !this.replyText.trim()) return;
+    if (!this.selectedEmail) return;
     if (this.sendingReply) return;
     this.sendingReply = true;
     this.clickedSend = true;
@@ -1948,11 +1944,10 @@ export class InboxComponent implements OnInit, OnDestroy {
         else if (tid.startsWith('mom-')) category = 'mom';
         else category = 'generic';
       }
-      const replyBody = this.mergeBodyWithHistory(
-        this.replyText.trim(),
-        this.selectedEmail,
-        true
-      );
+      const rawReply = this.replyText ?? '';
+      const replyBody = rawReply.trim().length
+        ? this.mergeBodyWithHistory(rawReply, this.selectedEmail, true)
+        : '';
       const replyId = await this.inboxService.sendReply(this.companyId, {
         threadId,
         subject,
@@ -1962,6 +1957,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         to,
         category,
         timestamp: this.simDate.toISOString(),
+        ledgerIgnore: true,
       });
 
       const delay = this.randomInt(this.replyDelayMinMs, this.replyDelayMaxMs);

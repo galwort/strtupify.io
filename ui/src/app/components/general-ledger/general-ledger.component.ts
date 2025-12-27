@@ -62,6 +62,7 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
       const entries = snap.docs
         .map((d) => {
           const x = d.data() as any;
+          if (x?.ledgerIgnore === true) return null;
           const ts = String(x.timestamp || '');
           const category = String(x.category || '').toLowerCase();
           if (!ts || !category) return null;

@@ -220,6 +220,7 @@ export class InboxService {
       timestamp?: string;
       to?: string;
       category?: string;
+      ledgerIgnore?: boolean;
     }
   ): Promise<string> {
     const emailId = `reply-${Date.now()}`;
@@ -235,6 +236,7 @@ export class InboxService {
       category: opts.category || undefined,
     };
     if (opts.parentId) payload.parentId = opts.parentId;
+    if (opts.ledgerIgnore) payload.ledgerIgnore = true;
     return setDoc(
       doc(db, `companies/${companyId}/inbox/${emailId}`),
       payload

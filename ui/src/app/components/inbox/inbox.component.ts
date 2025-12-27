@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Input } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
@@ -955,6 +955,46 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.allEmails = this.allEmails.map(apply);
     if (this.selectedEmail && this.selectedEmail.id === emailId) {
       this.selectedEmail = apply(this.selectedEmail);
+    }
+  }
+
+  private shouldIgnoreHotkeyTarget(target: EventTarget | null): boolean {
+    const el = target as HTMLElement | null;
+    if (!el) return false;
+    const tag = el.tagName ? el.tagName.toLowerCase() : '';
+    return (
+      el.isContentEditable ||
+      tag === 'input' ||
+      tag === 'textarea' ||
+      tag === 'select' ||
+      tag === 'button'
+    );
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  handleGlobalHotkeys(event: KeyboardEvent): void {
+    if (event.defaultPrevented) return;
+    if (!(event.ctrlKey || event.metaKey)) return;
+    if (event.altKey) return;
+    if (event.repeat) return;
+    if (!this.showInboxControls) return;
+    if (this.shouldIgnoreHotkeyTarget(event.target)) return;
+
+    const key = (event.key || '').toLowerCase();
+    if (key === 'n') {
+      event.preventDefault();
+      event.stopPropagation();
+      this.openCompose();
+    } else if (key === 'r') {
+      if (!this.selectedEmail) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.openReply();
+    } else if (key === 'd') {
+      if (!this.selectedEmail || this.deleteInFlight) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.toggleDelete();
     }
   }
 

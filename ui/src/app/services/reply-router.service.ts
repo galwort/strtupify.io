@@ -881,16 +881,35 @@ export class ReplyRouterService {
             ? Number(data.bankAutoEtaHours)
             : 36;
         const nextCounter = prevCounter + 1;
-        const etaBump = this.randomInt(18, 42);
-        let nextEta = prevEta + etaBump;
-        if (nextEta <= prevEta) nextEta = prevEta + etaBump + 6;
+        const today = new Date();
+        const dayOfMonth = Math.max(1, Math.min(31, today.getDate()));
+        const additiveBump = this.randomInt(1, dayOfMonth);
+        const multiplicativeBump = 1.5 + Math.random(); // 1.5–2.5
+        const roll = Math.random();
+        let nextEta = prevEta;
+        if (roll < 0.1) {
+          // 10%: do both add then multiply
+          nextEta = (nextEta + additiveBump) * multiplicativeBump;
+        } else if (roll < 0.55) {
+          // ~45%: additive only
+          nextEta = nextEta + additiveBump;
+        } else {
+          // ~45%: multiplicative only
+          nextEta = nextEta * multiplicativeBump;
+        }
+        const roundedEta = Math.max(1, Math.round(nextEta));
+        const safeEta = roundedEta <= prevEta ? prevEta + additiveBump + 1 : roundedEta;
         tx.set(
           ref,
-          { bankAutoTicketCounter: nextCounter, bankAutoEtaHours: nextEta, bankAutoUpdatedAt: new Date().toISOString() },
+          {
+            bankAutoTicketCounter: nextCounter,
+            bankAutoEtaHours: safeEta,
+            bankAutoUpdatedAt: new Date().toISOString(),
+          },
           { merge: true }
         );
         ticketNumber = this.formatBankTicket(nextCounter);
-        etaHours = nextEta;
+        etaHours = safeEta;
       });
     } catch {
       try {

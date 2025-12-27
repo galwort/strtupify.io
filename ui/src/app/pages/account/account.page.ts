@@ -60,7 +60,8 @@ type AchievementKey =
   | 'integrityProblem'
   | 'banned'
   | 'transcendentalist'
-  | 'nepoBaby';
+  | 'nepoBaby'
+  | 'infiniteRunway';
 
 type AchievementBadge = {
   key: AchievementKey;
@@ -85,6 +86,7 @@ type AchievementState = {
   banned: boolean;
   transcendentalist: boolean;
   nepoBaby: boolean;
+  infiniteRunway: boolean;
 };
 
 type StoredAchievement = {
@@ -128,6 +130,10 @@ const ACHIEVEMENT_DEFINITIONS: Record<
     description: 'Score 280 focus points in one week',
   },
   nepoBaby: { name: 'Nepo Baby', description: 'Receive money from mom' },
+  infiniteRunway: {
+    name: 'Infinite Runway',
+    description: 'Keep your company running for over a simulated year',
+  },
 };
 
 const ACHIEVEMENT_ORDER: AchievementKey[] = [
@@ -145,6 +151,7 @@ const ACHIEVEMENT_ORDER: AchievementKey[] = [
   'banned',
   'transcendentalist',
   'nepoBaby',
+  'infiniteRunway',
 ];
 
 @Component({
@@ -354,6 +361,7 @@ export class AccountPage implements OnInit, OnDestroy {
       banned: false,
       transcendentalist: false,
       nepoBaby: false,
+      infiniteRunway: false,
     };
 
     for (const companyId of companyIds) {
@@ -389,6 +397,7 @@ export class AccountPage implements OnInit, OnDestroy {
     if (state.banned) earnedKeys.push('banned');
     if (state.transcendentalist) earnedKeys.push('transcendentalist');
     if (state.nepoBaby) earnedKeys.push('nepoBaby');
+    if (state.infiniteRunway) earnedKeys.push('infiniteRunway');
     return earnedKeys;
   }
 
@@ -620,6 +629,18 @@ export class AccountPage implements OnInit, OnDestroy {
 
     if (!state.rebrand) {
       state.rebrand = this.isRebranded(data);
+    }
+
+    const simTimeMs = this.safeNumber(data?.simTime);
+    const createdAt =
+      this.asDate(data?.created) ||
+      (Number.isFinite(simTimeMs) ? new Date(simTimeMs) : null);
+    if (createdAt && simTimeMs > 0) {
+      const elapsedMs = simTimeMs - createdAt.getTime();
+      const yearMs = 365 * 24 * 60 * 60 * 1000;
+      if (elapsedMs >= yearMs) {
+        state.infiniteRunway = true;
+      }
     }
   }
 

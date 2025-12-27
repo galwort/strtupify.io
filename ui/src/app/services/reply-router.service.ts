@@ -26,7 +26,8 @@ export class ReplyRouterService {
 
   private readonly kickoffLeadMs = 5 * 60_000; // mirror the kickoff send lead time
   private readonly historyDivider = '----- Previous messages -----';
-  private readonly historyRegex = /-----\s*(previous messages?|previous emails?|original (message|email))\s*-----/i;
+  private readonly historyRegex =
+    /-----\s*(previous (?:messages?|emails?|repl(?:y|ies))|original (?:message|email))\s*-----/i;
   private readonly workdayStartHour = 8;
   private readonly workdayEndHour = 17;
 
@@ -1286,12 +1287,23 @@ export class ReplyRouterService {
 
   private normalizeHistoryDivider(text: string): string {
     if (!text) return '';
-    return text.replace(/-----\s*(original (?:message|email)|previous emails?)\s*-----/gi, this.historyDivider);
+    return text
+      .replace(
+        /-----\s*(original (?:message|email)|previous (?:emails?|repl(?:y|ies)))\s*-----/gi,
+        this.historyDivider
+      )
+      .replace(
+        /(^|\n)\s*-*\s*previous\s+repl(?:y|ies)\s*-*\s*(\n|$)/gi,
+        (_m, prefix, suffix) => `${prefix}${this.historyDivider}${suffix}`
+      );
   }
 
   private hasHistoryBlock(text: string): boolean {
     if (!text) return false;
-    return this.historyRegex.test(text);
+    return (
+      this.historyRegex.test(text) ||
+      /(^|\n)\s*-*\s*previous\s+repl(?:y|ies)\s*-*\s*($|\n)/i.test(text)
+    );
   }
 
   private stripQuotedHistory(text: string | undefined | null): string {
@@ -1300,7 +1312,8 @@ export class ReplyRouterService {
     const markers = [
       normalized.search(this.historyRegex),
       normalized.search(/^[-\s]*original (message|email)\s*:/im),
-      normalized.search(/^[-\s]*previous (message|messages|email|emails)\s*:/im),
+      normalized.search(/^[-\s]*previous (message|messages|email|emails|reply|replies)\s*:/im),
+      normalized.search(/^\s*-*\s*previous\s+repl(?:y|ies)\s*-*\s*$/im),
     ].filter((idx) => idx >= 0);
     const cutIdx = markers.length ? Math.min(...markers) : -1;
     const base = cutIdx >= 0 ? normalized.slice(0, cutIdx) : normalized;

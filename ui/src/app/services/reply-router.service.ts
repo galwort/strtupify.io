@@ -1076,7 +1076,13 @@ export class ReplyRouterService {
         const liveSim = await this.getCompanySimState(opts.companyId);
         const liveSimMs = Number.isFinite(liveSim.simTime) ? liveSim.simTime : simState.simTime;
         const estimatedSimMs = simState.simTime + sendDelayMs * speed;
-        const timestampMs = Math.max(plannedSimMs, estimatedSimMs, liveSimMs);
+        let timestampMs: number;
+        if (allowOffHours) {
+          timestampMs = Math.max(plannedSimMs, estimatedSimMs, liveSimMs);
+        } else {
+          const baseForSchedule = Math.max(plannedSimMs, liveSimMs);
+          timestampMs = this.scheduleEmployeeSimReply(baseForSchedule, false);
+        }
         const docPayload = {
           ...baseDocPayload,
           timestamp: new Date(timestampMs).toISOString(),

@@ -169,6 +169,10 @@ export class ReplyRouterService {
         threadItems,
       });
       const emailId = `kickoff-auto-${Date.now()}`;
+      const simNow = await this.getCompanySimTime(opts.companyId);
+      const baseTs = opts.timestamp ? new Date(opts.timestamp) : null;
+      const baseMs = baseTs && baseTs.toString() !== 'Invalid Date' ? baseTs.getTime() : Number.NaN;
+      const kickoffTimestamp = new Date(Math.max(simNow, Number.isFinite(baseMs) ? baseMs + 1 : simNow)).toISOString();
       const payload: any = {
         from,
         to: meAddress,
@@ -176,7 +180,7 @@ export class ReplyRouterService {
         message: body,
         deleted: false,
         banner: false,
-        timestamp: opts.timestamp || new Date().toISOString(),
+        timestamp: kickoffTimestamp,
         threadId: opts.threadId,
         category: 'kickoff',
       };
@@ -483,8 +487,11 @@ export class ReplyRouterService {
     const understanding = Number(res?.understanding);
     const temperature = Number(res?.temperature);
     const emailId = `cadabra-reply-${Date.now()}`;
-    const baseTs = opts.timestamp ? new Date(opts.timestamp) : new Date();
-    const timestampIso = new Date(baseTs.getTime() + 1).toISOString();
+    const simNow = await this.getCompanySimTime(opts.companyId);
+    const baseTs = opts.timestamp ? new Date(opts.timestamp) : null;
+    const baseMs = baseTs && baseTs.toString() !== 'Invalid Date' ? baseTs.getTime() : Number.NaN;
+    const tsMs = Math.max(simNow, Number.isFinite(baseMs) ? baseMs + 1 : simNow);
+    const timestampIso = new Date(tsMs).toISOString();
     const docPayload: any = {
       from,
       to: meAddress,
@@ -773,8 +780,10 @@ export class ReplyRouterService {
     const deleted = typeof template.deleted === 'boolean' ? template.deleted : false;
     const banner = typeof template.banner === 'boolean' ? template.banner : true;
     const emailId = `supereats-reply-${Date.now()}`;
-    const base = opts.timestamp ? new Date(opts.timestamp) : new Date();
-    const timestamp = new Date(base.getTime() + 1).toISOString();
+    const simNow = await this.getCompanySimTime(opts.companyId);
+    const base = opts.timestamp ? new Date(opts.timestamp) : null;
+    const baseMs = base && base.toString() !== 'Invalid Date' ? base.getTime() : Number.NaN;
+    const timestamp = new Date(Math.max(simNow, Number.isFinite(baseMs) ? baseMs + 1 : simNow)).toISOString();
     const payload: any = {
       from,
       to: opts.meAddress,

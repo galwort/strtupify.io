@@ -52,8 +52,8 @@ export class ClockComponent implements OnChanges, OnDestroy {
   private readonly maxSpeed = 240 * this.speedMultiplier;
   private readonly accelPerTick = 0.1 * this.speedMultiplier;
   private readonly realPhaseMs = (5 * 60_000) / this.speedMultiplier;
-  private simTime = Date.now();
-  private displaySimMs = this.simTime;
+  private simTime: number | null = null;
+  private displaySimMs = 0;
   private speed = this.baseSpeed;
   private readonly tickMs = 250;
   private readonly tickMinDelayMs = 8000;
@@ -158,9 +158,14 @@ export class ClockComponent implements OnChanges, OnDestroy {
     const ref = doc(db, `companies/${this.companyId}`);
     this.unsub = onSnapshot(ref, (snap: DocumentSnapshot<DocumentData>) => {
       const data = (snap && (snap.data() as any)) || {};
-      const st = Number(data.simTime || Date.now());
+      const st = Number(data.simTime);
       const sp = Number(data.speed);
-      this.simTime = Number.isFinite(st) ? st : Date.now();
+      if (!Number.isFinite(st)) {
+        this.simTime = null;
+        this.stopClock();
+        return;
+      }
+      this.simTime = st;
       this.speed = Number.isFinite(sp) ? this.clampSpeed(sp) : this.baseSpeed;
       this.setDisplayTime(this.simTime, false);
       const endgameEngaged = !!data.endgameTriggered || !!data.endgameResolved;
@@ -234,6 +239,10 @@ export class ClockComponent implements OnChanges, OnDestroy {
   }
 
   private startClock(): void {
+    if (typeof this.simTime !== 'number' || !Number.isFinite(this.simTime)) {
+      this.clockActive = false;
+      return;
+    }
     if (this.tickTimer) {
       clearTimeout(this.tickTimer);
       this.tickTimer = null;
@@ -262,6 +271,10 @@ export class ClockComponent implements OnChanges, OnDestroy {
       return;
     }
     if (!this.clockActive) {
+      this.tickInFlight = false;
+      return;
+    }
+    if (typeof this.simTime !== 'number' || !Number.isFinite(this.simTime)) {
       this.tickInFlight = false;
       return;
     }
@@ -333,6 +346,8 @@ export class ClockComponent implements OnChanges, OnDestroy {
 
   private startDisplayWind(durationMs: number): void {
     if (!durationMs || durationMs <= 0) return;
+    if (typeof this.simTime !== 'number' || !Number.isFinite(this.simTime))
+      return;
     const currentSpeed = this.getEffectiveSpeed();
     const target = this.simTime + currentSpeed * durationMs;
     this.cancelDisplayWind();
@@ -395,15 +410,19 @@ export class ClockComponent implements OnChanges, OnDestroy {
     if (this.endgameStatus === 'triggered' || this.endgameStatus === 'resolved')
       return;
     if (!this.items.length) return;
+    const simTime = this.simTime;
+    if (typeof simTime !== 'number' || !Number.isFinite(simTime)) return;
     const allDone = this.items.every(
       (it) => (it.status || '').toLowerCase() === 'done'
     );
     if (!allDone) return;
-    void this.endgame.triggerEndgame('all-workitems-complete', this.simTime);
+    void this.endgame.triggerEndgame('all-workitems-complete', simTime);
   }
 
   private checkAutoComplete(): void {
     if (!this.companyId || !this.items.length) return;
+    const simTime = this.simTime;
+    if (typeof simTime !== 'number' || !Number.isFinite(simTime)) return;
     for (const it of this.items) {
       if (it.status === 'done') continue;
       if (it.status !== 'doing') continue;
@@ -415,7 +434,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
       if (pct >= 100 && !this.completedIds.has(it.id)) {
         this.completedIds.add(it.id);
         const ref = doc(db, `companies/${this.companyId}/workitems/${it.id}`);
-        updateDoc(ref, { status: 'done', completed_at: this.simTime }).catch(
+        updateDoc(ref, { status: 'done', completed_at: simTime }).catch(
           () => {
             this.completedIds.delete(it.id);
           }
@@ -431,6 +450,9 @@ export class ClockComponent implements OnChanges, OnDestroy {
     worked_ms: number;
     status: string;
   }): number {
+    if (typeof this.simTime !== 'number' || !Number.isFinite(this.simTime))
+      return 0;
+    const simTime = this.simTime;
     const baseWorked = Number(it.worked_ms || 0);
     const startedAt = Number(it.started_at || 0);
     const emp = it.assignee_id
@@ -441,7 +463,7 @@ export class ClockComponent implements OnChanges, OnDestroy {
     if (it.status === 'doing' && startedAt) {
       totalWorkedMs += this.workingMillisBetween(
         startedAt,
-        this.simTime,
+        simTime,
         allowOffHours
       );
     }

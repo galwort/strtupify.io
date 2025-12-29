@@ -1969,7 +1969,7 @@ export class InboxComponent implements OnInit, OnDestroy {
             threadId,
             subject,
             parentId: replyId,
-            timestamp: this.simDate.toISOString(),
+            timestamp: new Date().toISOString(),
           })
           .catch(() => {});
       }, delay);

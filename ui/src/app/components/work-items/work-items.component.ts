@@ -91,7 +91,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   todo: WorkItem[] = [];
   doing: WorkItem[] = [];
   done: WorkItem[] = [];
-  simTime = Date.now();
+  simTime: number | null = null;
   hires: HireSummary[] = [];
   hiresLoading = true;
 
@@ -208,10 +208,12 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     this.unsubCompany = onDocSnapshot(doc(db, `companies/${this.companyId}`), (snapshot) => {
       const x = (snapshot && (snapshot.data() as any)) || {};
       this.companySnapshotSeen = true;
-      const incomingSim = Number(x.simTime || Date.now());
-      if (!Number.isFinite(this.simTime) || !this.intervalId) {
-        this.simTime = Number.isFinite(incomingSim) ? incomingSim : Date.now();
-      } else if (Number.isFinite(incomingSim) && incomingSim > this.simTime) {
+      const incomingSimRaw = x.simTime;
+      const incomingSim = Number(incomingSimRaw);
+      const hasSimTime = Number.isFinite(incomingSim);
+      if ((!Number.isFinite(this.simTime) || !this.intervalId) && hasSimTime) {
+        this.simTime = incomingSim;
+      } else if (hasSimTime && this.simTime !== null && incomingSim > this.simTime) {
         this.simTime = incomingSim;
       }
       this.speed = Number(x.speed || 8);
@@ -222,6 +224,9 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       }
       if (!this.companyDomain) {
         this.companyDomain = this.normalizeDomain(this.companyId);
+      }
+      if (Number.isFinite(this.simTime)) {
+        this.partition();
       }
       this.startLocalClock();
     });
@@ -253,7 +258,13 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     const doingIds = new Set(this.doing.map((x) => x.id));
     const nowSim = this.simTime;
     for (const id of doingIds) {
-      if (!this.assistStartedSim.has(id)) this.assistStartedSim.set(id, nowSim);
+      if (
+        !this.assistStartedSim.has(id) &&
+        typeof nowSim === 'number' &&
+        Number.isFinite(nowSim)
+      ) {
+        this.assistStartedSim.set(id, nowSim);
+      }
     }
     for (const id of Array.from(this.assistStartedSim.keys())) {
       if (!doingIds.has(id)) this.assistStartedSim.delete(id);
@@ -266,9 +277,11 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     if (!this.companyId) return;
     if (this.endgameStatus === 'triggered' || this.endgameStatus === 'resolved') return;
     if (!this.items.length) return;
+    const nowSim = this.simTime;
+    if (typeof nowSim !== 'number' || !Number.isFinite(nowSim)) return;
     const allDone = this.items.every((it) => (it.status || '').toLowerCase() === 'done');
     if (!allDone) return;
-    void this.endgame.triggerEndgame('all-workitems-complete', this.simTime);
+    void this.endgame.triggerEndgame('all-workitems-complete', nowSim);
   }
 
   private parseAssistTrigger(value: any): number | null | undefined {
@@ -315,8 +328,15 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     const worker = emp || (it.assignee_id ? this.empById.get(it.assignee_id) : null);
     const burnedOut = worker ? isBurnedOut(worker.status) : false;
     const allowOffHours = worker ? !!worker.offHoursAllowed : false;
-    if (!burnedOut && it.status === 'doing' && it.started_at) {
-      const delta = this.workingMillisBetween(it.started_at, this.simTime, allowOffHours);
+    const nowSim = this.simTime;
+    if (
+      !burnedOut &&
+      it.status === 'doing' &&
+      it.started_at &&
+      typeof nowSim === 'number' &&
+      Number.isFinite(nowSim)
+    ) {
+      const delta = this.workingMillisBetween(it.started_at, nowSim, allowOffHours);
       return base + delta;
     }
     return base;
@@ -365,8 +385,10 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     if (this.intervalId) return;
     if (this.endgameStatus !== 'idle') return;
     if (!this.companySnapshotSeen) return;
+    if (typeof this.simTime !== 'number' || !Number.isFinite(this.simTime)) return;
     let assistTick = 0;
     this.intervalId = setInterval(() => {
+      if (typeof this.simTime !== 'number' || !Number.isFinite(this.simTime)) return;
       this.simTime = this.simTime + this.speed * this.tickMs;
       assistTick++;
       if (assistTick % 8 === 0) {
@@ -464,6 +486,8 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   }
 
   private shouldTriggerAssistance(it: WorkItem): boolean {
+    const nowSim = this.simTime;
+    if (typeof nowSim !== 'number' || !Number.isFinite(nowSim)) return false;
     if (!it || it.status !== 'doing') return false;
     if (!it.assignee_id) return false;
     if (this.assistInFlight.has(it.id)) return false;
@@ -480,12 +504,12 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
 
     const startedSim = this.assistStartedSim.get(it.id);
     if (!startedSim) return false;
-    if (this.simTime - startedSim < this.assistMinSimMs) return false;
+    if (nowSim - startedSim < this.assistMinSimMs) return false;
 
     const assignee = it.assignee_id ? this.empById.get(it.assignee_id) : null;
     const allowOffHours = assignee ? !!assignee.offHoursAllowed : false;
     if (!allowOffHours) {
-      const now = new Date(this.simTime);
+      const now = new Date(nowSim);
       if (!this.isWorkday(now) || !this.isWithinWorkHours(now)) return false;
     }
 
@@ -501,6 +525,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   private async checkAssistanceNeeds(force = false): Promise<void> {
     if (this.endgameStatus !== 'idle') return;
     if (!this.companyId || !this.doing.length) return;
+    if (typeof this.simTime !== 'number' || !Number.isFinite(this.simTime)) return;
     if (!this.productInfo) await this.ensureProductInfo();
     if (!this.productInfo) return;
     const now = Date.now();
@@ -514,7 +539,9 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   }
 
   private async triggerAssistanceEmail(it: WorkItem): Promise<void> {
+    const nowSim = this.simTime;
     if (!this.companyId || !this.productInfo) return;
+    if (typeof nowSim !== 'number' || !Number.isFinite(nowSim)) return;
     const assignee = it.assignee_id ? this.empById.get(it.assignee_id) : null;
     if (!assignee) return;
     const allowOffHours = !!assignee.offHoursAllowed;
@@ -586,7 +613,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       const summary = typeof data?.summary === 'string' ? data.summary : '';
       const pauseReason = typeof email.pause_reason === 'string' ? email.pause_reason : '';
       const confidenceRaw = Number(email.confidence);
-      const timestampIso = new Date(this.simTime).toISOString();
+    const timestampIso = new Date(nowSim).toISOString();
       const threadId = this.createAssistThreadId(it.id);
       const emailId = `${threadId}-email`;
 
@@ -618,7 +645,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       const targetPct = this.getAssistTriggerPct(it);
       const updatePayload: Record<string, any> = {
         assist_status: 'pending',
-        assist_last_sent_at: this.simTime,
+        assist_last_sent_at: nowSim,
         worked_ms: totalWorked,
         started_at: 0,
         updated: serverTimestamp(),
@@ -629,7 +656,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       await updateDoc(doc(db, `companies/${this.companyId}/workitems/${it.id}`), updatePayload);
 
       it.assist_status = 'pending';
-      it.assist_last_sent_at = this.simTime;
+      it.assist_last_sent_at = nowSim;
       it.started_at = 0;
       it.worked_ms = totalWorked;
       this.partition();
@@ -750,11 +777,13 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     const it = this.items.find((x) => x.id === id);
     if (!it) return;
     if (!this.canDrop(it, target)) return;
+    if (typeof this.simTime !== 'number' || !Number.isFinite(this.simTime)) return;
+    const simTime = this.simTime;
     const ref = doc(db, `companies/${this.companyId}/workitems/${id}`);
     const workedMs = this.totalWorkedMs(it);
     const update: any = { status: target, worked_ms: workedMs };
     if (target === 'doing') {
-      update.started_at = it.status === 'doing' && it.started_at ? it.started_at : this.simTime;
+      update.started_at = it.status === 'doing' && it.started_at ? it.started_at : simTime;
     } else {
       update.started_at = 0;
       this.assistStartedSim.delete(it.id);
@@ -1017,16 +1046,18 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
 
   private async resumeWorkitemsForAssignee(empId: string): Promise<void> {
     if (!this.companyId) return;
+    if (typeof this.simTime !== 'number' || !Number.isFinite(this.simTime)) return;
+    const simTime = this.simTime;
     const targets = this.items.filter(
       (it) => it.assignee_id === empId && it.status === 'doing' && !it.started_at
     );
     if (!targets.length) return;
     const updates: Array<Promise<void>> = [];
     for (const it of targets) {
-      it.started_at = this.simTime;
+      it.started_at = simTime;
       updates.push(
         updateDoc(doc(db, `companies/${this.companyId}/workitems/${it.id}`), {
-          started_at: this.simTime,
+          started_at: simTime,
         }).catch(() => {})
       );
     }

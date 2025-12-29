@@ -104,9 +104,6 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   private empById = new Map<string, HireSummary>();
   private titleById = new Map<string, string>();
   private rateCache = new Map<string, Record<string, number>>();
-  private pendingRateRequest = false;
-  private lastRateRefresh = 0;
-  private rateRefreshCooldownMs = 12_000;
   private lastPersistedStress = new Map<string, { stress: number; status: 'Active' | 'Burnout' }>();
   private hrActivated = false;
   private companyName = '';
@@ -199,7 +196,6 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       this.titleById.clear();
       for (const it of this.items) this.titleById.set(it.id, it.title);
       this.partition();
-      this.scheduleRateGeneration();
       this.recomputeStress();
       this.checkEndgameCondition();
       void this.checkAssistanceNeeds();
@@ -411,14 +407,6 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     } else {
       this.startLocalClock();
     }
-  }
-
-  private scheduleRateGeneration(force = false) {
-    if (!this.companyId || !this.items.length || !this.hires.length) return;
-    if (this.pendingRateRequest) return;
-    const now = Date.now();
-    if (!force && now - this.lastRateRefresh < this.rateRefreshCooldownMs) return;
-    void this.requestRatesFromLlm();
   }
 
   private normalizeDomain(source: string): string {
@@ -684,40 +672,6 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     }
   }
 
-  private async requestRatesFromLlm() {
-    if (!this.companyId) return;
-    this.pendingRateRequest = true;
-    const url = 'https://fa-strtupifyio.azurewebsites.net/api/estimate';
-    try {
-      const resp = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ company: this.companyId }),
-      });
-      if (!resp.ok) throw new Error(`rate request failed: ${resp.status}`);
-      const data = await resp.json();
-      const rates = data?.rates as Record<string, any> | undefined;
-      this.rateCache.clear();
-      if (rates && typeof rates === 'object') {
-        for (const [workId, entries] of Object.entries(rates)) {
-          const normalized: Record<string, number> = {};
-          if (entries && typeof entries === 'object') {
-            for (const [empId, value] of Object.entries(entries as Record<string, any>)) {
-              const num = Number(value);
-              if (Number.isFinite(num)) normalized[empId] = num;
-            }
-          }
-          this.rateCache.set(workId, normalized);
-        }
-      }
-      this.lastRateRefresh = Date.now();
-    } catch (err) {
-      console.error('Failed to refresh LLM rates', err);
-    } finally {
-      this.pendingRateRequest = false;
-    }
-  }
-
   onDragStart(ev: DragEvent, it: WorkItem) {
     this.draggingId = it.id;
     this.dragHoverColumn = null;
@@ -796,7 +750,6 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     this.recomputeStress();
 
     if (target === 'doing') {
-      this.scheduleRateGeneration(true);
       void this.checkAssistanceNeeds(true);
     }
   }
@@ -833,17 +786,15 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const level = emp.level;
     const rateMap = this.rateCache.get(it.id);
     const llmRateRaw = rateMap ? Number(rateMap[emp.id]) : Number.NaN;
     const hasLlmRate = Number.isFinite(llmRateRaw) && llmRateRaw > 0;
-    const normalizedRate = hasLlmRate ? Math.max(0.1, Math.min(5, llmRateRaw)) : 0;
-    const estimatedHours = hasLlmRate
-      ? Math.max(1, Math.round(100 / normalizedRate))
-      : this.fallbackEstimateHours(it.complexity, level);
-    const ratePerHour = hasLlmRate
-      ? Math.round(normalizedRate * 10000) / 10000
-      : Math.round((100.0 / Math.max(1, estimatedHours)) * 10000) / 10000;
+    if (!hasLlmRate) {
+      return;
+    }
+    const normalizedRate = Math.max(0.1, Math.min(5, llmRateRaw));
+    const estimatedHours = Math.max(1, Math.round(100 / normalizedRate));
+    const ratePerHour = Math.round(normalizedRate * 10000) / 10000;
     const updatePayload: Record<string, any> = {
       assignee_id: emp.id,
       estimated_hours: estimatedHours,
@@ -866,9 +817,6 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     it.rate_per_hour = ratePerHour;
     it.rates = this.rateCache.get(it.id) || undefined;
 
-    if (!hasLlmRate) {
-      this.scheduleRateGeneration(true);
-    }
     this.recomputeStress();
   }
 
@@ -943,7 +891,6 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       this.hires = list;
       this.empById.clear();
       for (const e of list) this.empById.set(e.id, e);
-      this.scheduleRateGeneration();
       this.recomputeStress();
     } catch (err) {
       console.error('Failed to load hires', err);
@@ -1148,14 +1095,6 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
         // best-effort persistence
       }
     }
-  }
-
-  private fallbackEstimateHours(complexity: number, empLevel: number): number {
-    const normalized = Number.isFinite(Number(complexity)) && Number(complexity) > 0 ? Number(complexity) : 3;
-    const cx = Math.max(1, Math.min(5, Math.floor(normalized)));
-    const base = 6 + 8 * cx;
-    const mult = Math.max(0.6, Math.min(1.4, 1.0 - (empLevel - 5) * 0.05));
-    return Math.round(base * mult);
   }
 
   blockerTitle(it: WorkItem): string {

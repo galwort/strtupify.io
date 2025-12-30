@@ -506,6 +506,7 @@ export class ReplyRouterService {
         from.toLowerCase() === 'jeff@cadabra.com'
           ? 'assets/jeff.svg'
           : 'assets/cadabra-avatar.png',
+      ledgerIgnore: true,
     };
     if (opts.parentId) docPayload.parentId = opts.parentId;
     if (Number.isFinite(attempt)) docPayload.cadabraReplyAttempt = attempt;
@@ -795,6 +796,7 @@ export class ReplyRouterService {
       threadId: opts.threadId,
       category: 'supereats',
       avatarUrl: 'assets/supereats-avatar.png',
+      ledgerIgnore: true,
     };
     if (opts.parentId) payload.parentId = opts.parentId;
     await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), payload);
@@ -853,8 +855,11 @@ export class ReplyRouterService {
       threadItems: opts.threadItems,
     });
 
-    const base = opts.timestamp ? new Date(opts.timestamp) : new Date();
-    const timestamp = new Date(base.getTime() + 1).toISOString();
+    const simNow = await this.getCompanySimTime(opts.companyId);
+    const base = opts.timestamp ? new Date(opts.timestamp) : null;
+    const baseMs = base && base.toString() !== 'Invalid Date' ? base.getTime() : Number.NaN;
+    const tsMs = Math.max(simNow, Number.isFinite(baseMs) ? baseMs + 1 : simNow);
+    const timestamp = new Date(tsMs).toISOString();
     const emailId = `bank-auto-${Date.now()}`;
     const payload: any = {
       from,
@@ -869,6 +874,7 @@ export class ReplyRouterService {
       bankTicketNumber: ticket,
       bankEtaHours: etaHours,
       bankEtaText: etaText,
+      ledgerIgnore: true,
     };
     if (opts.parentId) payload.parentId = opts.parentId;
     await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), payload);

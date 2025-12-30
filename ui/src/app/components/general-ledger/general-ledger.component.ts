@@ -366,7 +366,7 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
     const qty = Number(x?.cadabra?.quantity || 0);
     const item = String(x?.cadabra?.item || '').trim();
     if (qty > 0 && item) return `${qty}x ${item}`;
-    return 'Company card purchase';
+    return '';
   }
 
   private parseMomGiftAmount(x: any): number {

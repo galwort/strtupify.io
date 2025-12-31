@@ -39,6 +39,7 @@ interface AccountProfile {
   createdAt?: any;
   achievements?: StoredAchievement[];
   photoUrl?: string | null;
+  totalEmailCount?: number;
 }
 
 interface AccountViewModel {
@@ -61,7 +62,8 @@ type AchievementKey =
   | 'banned'
   | 'transcendentalist'
   | 'nepoBaby'
-  | 'infiniteRunway';
+  | 'infiniteRunway'
+  | 'swamped';
 
 type AchievementBadge = {
   key: AchievementKey;
@@ -87,6 +89,7 @@ type AchievementState = {
   transcendentalist: boolean;
   nepoBaby: boolean;
   infiniteRunway: boolean;
+  swamped?: boolean;
 };
 
 type StoredAchievement = {
@@ -134,6 +137,7 @@ const ACHIEVEMENT_DEFINITIONS: Record<
     name: 'Infinite Runway',
     description: 'Keep your company running for over a simulated year',
   },
+  swamped: { name: 'Swamped', description: 'Receive 1000 total emails' },
 };
 
 const ACHIEVEMENT_ORDER: AchievementKey[] = [
@@ -152,6 +156,7 @@ const ACHIEVEMENT_ORDER: AchievementKey[] = [
   'transcendentalist',
   'nepoBaby',
   'infiniteRunway',
+  'swamped',
 ];
 
 @Component({
@@ -329,9 +334,12 @@ export class AccountPage implements OnInit, OnDestroy {
   ): Promise<AchievementBadge[]> {
     const stored = this.normalizeStoredAchievements(profile);
     const companyIds = await this.collectCompanyIds(user, profile);
-    const earnedKeys = companyIds.length
+    const companyKeys = companyIds.length
       ? await this.computeCompanyAchievementKeys(companyIds)
       : [];
+    const emailCount = Number(profile?.totalEmailCount || 0);
+    const swampedKey: AchievementKey[] = emailCount >= 1000 ? ['swamped'] : [];
+    const earnedKeys = Array.from(new Set<AchievementKey>([...companyKeys, ...swampedKey]));
 
     const { achievements, changed } = this.mergeAchievements(stored, earnedKeys);
     if (changed) {

@@ -16,13 +16,14 @@ import {
   runTransaction,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
+import { EmailCounterService } from './email-counter.service';
 
 const fbApp = getApps().length ? getApps()[0] : initializeApp(environment.firebase);
 const db = getFirestore(fbApp);
 
 @Injectable({ providedIn: 'root' })
 export class ReplyRouterService {
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private emailCounter: EmailCounterService) {}
 
   private readonly kickoffLeadMs = 5 * 60_000; // mirror the kickoff send lead time
   private readonly historyDivider = '----- Previous messages -----';
@@ -68,7 +69,7 @@ export class ReplyRouterService {
         category: 'vlad',
       };
       if (opts.parentId) payload.parentId = opts.parentId;
-      await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), payload);
+      await this.saveInboxEmail(opts.companyId, emailId, payload);
       return;
     }
     if (cat === 'mom') {
@@ -188,7 +189,7 @@ export class ReplyRouterService {
         category: 'kickoff',
       };
       if (opts.parentId) payload.parentId = opts.parentId;
-      await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), payload);
+      await this.saveInboxEmail(opts.companyId, emailId, payload);
       await this.scheduleCalendarUnlock(opts.companyId);
       if (status === 'approved') {
         await this.markKickoffLoopDone(opts.companyId, opts.threadId, status);
@@ -357,7 +358,7 @@ export class ReplyRouterService {
               ? liveBase
               : this.scheduleEmployeeSimReply(liveBase, false);
             const followTimestamp = new Date(followTimestampMs).toISOString();
-            await setDoc(doc(db, `companies/${opts.companyId}/inbox/${followId}`), {
+            await this.saveInboxEmail(opts.companyId, followId, {
               from: parent.from || this.buildWorkerAddress(workerName, opts.companyId),
               to: parent.to || (await this.getMeAddress(opts.companyId)),
               subject: followSubject,
@@ -567,7 +568,7 @@ export class ReplyRouterService {
     if (Number.isFinite(urgency)) docPayload.cadabraUrgency = urgency;
     if (Number.isFinite(understanding)) docPayload.cadabraUnderstanding = understanding;
     if (Number.isFinite(temperature)) docPayload.cadabraTemperature = temperature;
-    await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), docPayload);
+    await this.saveInboxEmail(opts.companyId, emailId, docPayload);
   }
 
   private async handleSupereatsConversation(opts: {
@@ -684,7 +685,7 @@ export class ReplyRouterService {
     }
     const sendReply = async () => {
       try {
-        await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), docPayload);
+        await this.saveInboxEmail(opts.companyId, emailId, docPayload);
         if (grant) {
           try {
             await setDoc(
@@ -853,7 +854,7 @@ export class ReplyRouterService {
       ledgerIgnore: true,
     };
     if (opts.parentId) payload.parentId = opts.parentId;
-    await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), payload);
+    await this.saveInboxEmail(opts.companyId, emailId, payload);
   }
 
   private async sendBankAutoReply(opts: {
@@ -931,7 +932,7 @@ export class ReplyRouterService {
       ledgerIgnore: true,
     };
     if (opts.parentId) payload.parentId = opts.parentId;
-    await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), payload);
+    await this.saveInboxEmail(opts.companyId, emailId, payload);
   }
 
   private async nextBankTicket(companyId: string): Promise<{ ticket: string; etaHours: number; etaText: string }> {
@@ -1147,7 +1148,7 @@ export class ReplyRouterService {
           ...baseDocPayload,
           timestamp: new Date(timestampMs).toISOString(),
         };
-        await setDoc(doc(db, `companies/${opts.companyId}/inbox/${emailId}`), docPayload);
+        await this.saveInboxEmail(opts.companyId, emailId, docPayload);
       } catch (err) {
         console.error('failed to send employee reply', err);
       }
@@ -1238,10 +1239,7 @@ export class ReplyRouterService {
     if (opts.parentId) {
       payload.parentId = opts.parentId;
     }
-    await setDoc(
-      doc(db, `companies/${opts.companyId}/inbox/${emailId}`),
-      payload
-    );
+    await this.saveInboxEmail(opts.companyId, emailId, payload);
   }
 
   private async incrementMailerDaemonCharge(
@@ -1798,5 +1796,10 @@ export class ReplyRouterService {
     }
     const body = lines.slice(i).join('\n').trim();
     return { ...meta, body };
+  }
+
+  private async saveInboxEmail(companyId: string, emailId: string, payload: Record<string, any>): Promise<void> {
+    await setDoc(doc(db, `companies/${companyId}/inbox/${emailId}`), payload);
+    await this.emailCounter.recordInbound();
   }
 }

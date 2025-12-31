@@ -14,6 +14,7 @@ import {
 import { environment } from 'src/environments/environment';
 import { Observable } from 'rxjs';
 import { AvatarMood } from '../utils/avatar';
+import { EmailCounterService } from './email-counter.service';
 
 const fbApp = initializeApp(environment.firebase);
 const db = getFirestore(fbApp);
@@ -42,7 +43,7 @@ export interface Email {
 
 @Injectable({ providedIn: 'root' })
 export class InboxService {
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private emailCounter: EmailCounterService) {}
 
   ensureWelcomeEmail(companyId: string): Promise<void> {
     const welcomeRef = doc(db, `companies/${companyId}/inbox/vlad-welcome`);
@@ -107,6 +108,7 @@ export class InboxService {
                 await setDoc(welcomeRef, {
                   ...payload,
                 });
+                await this.emailCounter.recordInbound();
               resolve();
             } catch (e) {
               reject(e);

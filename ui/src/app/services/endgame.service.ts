@@ -25,6 +25,7 @@ import {
   outcomeMood,
 } from '../utils/avatar';
 import { STRESS_BURNOUT_THRESHOLD } from './stress.service';
+import { EmailCounterService } from './email-counter.service';
 
 export type EndgameStatus = 'idle' | 'triggered' | 'resolved';
 
@@ -75,7 +76,7 @@ export class EndgameService implements OnDestroy {
   });
   readonly state$ = this.stateSubject.asObservable();
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private emailCounter: EmailCounterService) {}
 
   setCompany(companyId: string): void {
     if (companyId === this.companyId) return;
@@ -306,11 +307,11 @@ export class EndgameService implements OnDestroy {
     );
     const emailId = `vlad-reset-${Date.now()}`;
     try {
-      await setDoc(
-        doc(this.db, `companies/${this.companyId}/inbox/${emailId}`),
-        {
-          from,
-          to,
+        await setDoc(
+          doc(this.db, `companies/${this.companyId}/inbox/${emailId}`),
+          {
+            from,
+            to,
           subject,
           message: body,
           deleted: false,
@@ -320,6 +321,7 @@ export class EndgameService implements OnDestroy {
           category: 'vlad',
         }
       );
+      await this.emailCounter.recordInbound();
       return true;
     } catch {
       return false;
@@ -417,6 +419,7 @@ export class EndgameService implements OnDestroy {
           productName: product.name,
         }
       );
+      await this.emailCounter.recordInbound();
       try {
         await updateDoc(companyRef, {
           endgameOutcome: outcomeStatus,
@@ -667,6 +670,7 @@ export class EndgameService implements OnDestroy {
           },
         }
       );
+      await this.emailCounter.recordInbound();
       return true;
     } catch {
       return false;

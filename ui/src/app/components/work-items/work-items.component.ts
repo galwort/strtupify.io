@@ -29,6 +29,7 @@ import {
 import { EndgameService, EndgameStatus } from '../../services/endgame.service';
 import { AvatarMood, buildAvatarUrl, burnoutMood, normalizeAvatarMood } from '../../utils/avatar';
 import { fallbackEmployeeColor, normalizeEmployeeColor } from '../../utils/employee-colors';
+import { EmailCounterService } from '../../services/email-counter.service';
 
 type WorkItem = {
   id: string;
@@ -129,7 +130,11 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   private readonly workdayEndHour = 17;
   dragHoverColumn: 'todo' | 'doing' | 'done' | null = null;
 
-  constructor(private ui: UiStateService, private endgame: EndgameService) {}
+  constructor(
+    private ui: UiStateService,
+    private endgame: EndgameService,
+    private emailCounter: EmailCounterService
+  ) {}
 
   ngOnInit(): void {
     if (!this.companyId) return;
@@ -629,6 +634,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
         productDescription: this.productInfo?.description,
         offHoursAllowed: allowOffHours,
       });
+      await this.emailCounter.recordInbound();
 
       const targetPct = this.getAssistTriggerPct(it);
       const updatePayload: Record<string, any> = {

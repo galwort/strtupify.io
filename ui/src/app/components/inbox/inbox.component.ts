@@ -5,6 +5,7 @@ import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
 import { InboxService, Email } from '../../services/inbox.service';
 import { ReplyRouterService } from '../../services/reply-router.service';
+import { EmailCounterService } from '../../services/email-counter.service';
 import { Subscription } from 'rxjs';
 import { initializeApp, getApps } from 'firebase/app';
 import {
@@ -817,7 +818,8 @@ export class InboxComponent implements OnInit, OnDestroy {
     private http: HttpClient,
     private replyRouter: ReplyRouterService,
     private endgame: EndgameService,
-    private ui: UiStateService
+    private ui: UiStateService,
+    private emailCounter: EmailCounterService
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -1607,7 +1609,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     const ledgerMemo = `${quantity}x ${snack.name}`;
     const emailId = `supereats-${Date.now()}`;
     try {
-      await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+      await this.saveInboxEmail(emailId, {
         from,
         subject,
         message,
@@ -2059,7 +2061,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       .replace(/\{RECIPIENTS\}/g, recipientList || 'multiple people')
       .replace(/\{SUBJECT\}/g, subject || '(no subject)');
     const emailId = `vlad-multi-${Date.now()}`;
-    await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+    await this.saveInboxEmail(emailId, {
       from: parsed.from || 'vlad@strtupify.io',
       subject: renderedSubject,
       message: renderedBody,
@@ -2099,7 +2101,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     const timestampMs = Math.max(simTimestamp, this.simDate.getTime(), Date.now());
     const timestampIso = new Date(timestampMs).toISOString();
     try {
-      await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+      await this.saveInboxEmail(emailId, {
         from: parsed.from || 'vlad@strtupify.io',
         subject: parsed.subject || 'New calendar feature',
         message: parsed.body,
@@ -2447,6 +2449,12 @@ export class InboxComponent implements OnInit, OnDestroy {
     );
   }
 
+  private async saveInboxEmail(emailId: string, payload: Record<string, any>): Promise<void> {
+    if (!this.companyId) return;
+    await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), payload);
+    await this.emailCounter.recordInbound();
+  }
+
   private computeFirstDaySuperEats(now: Date): Date {
     const d = new Date(now.getTime());
     const hr = d.getHours();
@@ -2676,7 +2684,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     const emailId = `cadabra-${Date.now()}`;
     const ledgerMemo = `${orderDetails.quantity}x ${orderDetails.item}`;
     try {
-      await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+      await this.saveInboxEmail(emailId, {
         from: tpl.from || 'updates@cadabra.com',
         subject,
         message,
@@ -2785,7 +2793,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       .replace(/\{TOTAL_AMOUNT\}/g, totalStr)
       .replace(/\{BREAKDOWN\}/g, breakdown);
     const emailId = `bank-${Date.now()}`;
-    await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+    await this.saveInboxEmail(emailId, {
       from,
       subject,
       message,
@@ -2867,7 +2875,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       Math.max(this.simDate.getTime(), sendAt || this.simDate.getTime())
     ).toISOString();
     try {
-      await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+      await this.saveInboxEmail(emailId, {
         from,
         subject,
         message: body,
@@ -2938,7 +2946,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     const openAt =
       this.startOfDay(new Date(blitzedStamp)).getTime() + 24 * 60 * 60 * 1000;
     try {
-      await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+      await this.saveInboxEmail(emailId, {
         from,
         subject,
         message: body,
@@ -3017,7 +3025,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       Math.max(this.simDate.getTime(), Date.now())
     ).toISOString();
     try {
-      await setDoc(doc(db, `companies/${this.companyId}/inbox/${emailId}`), {
+      await this.saveInboxEmail(emailId, {
         from: parsed.from || 'vlad@strtupify.io',
         subject: parsed.subject || 'New calendar feature',
         message: parsed.body,

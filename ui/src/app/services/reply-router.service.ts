@@ -342,20 +342,43 @@ export class ReplyRouterService {
           '(no subject)';
         const followSubject = threadSubject;
         const followId = `assist-follow-${Date.now()}`;
-        await setDoc(doc(db, `companies/${opts.companyId}/inbox/${followId}`), {
-          from: parent.from || this.buildWorkerAddress(workerName, opts.companyId),
-          to: parent.to || (await this.getMeAddress(opts.companyId)),
-          subject: followSubject,
-          message: followBody,
-          deleted: false,
-          banner: false,
-          timestamp: evaluationStamp,
-          threadId: opts.threadId,
-          parentId: opts.parentId,
-          category: 'workitem-help',
-          workitemId,
-          assistId: parent.assistId || parent.assist_id || opts.threadId,
-        });
+        const simState = await this.getCompanySimState(opts.companyId);
+        const speed = Number.isFinite(simState.speed) && simState.speed > 0 ? simState.speed : 1;
+        const simLag = Math.max(0, plannedReplyMs - simState.simTime);
+        const baseDelay = Math.round(simLag / speed);
+        const jitter = this.randomInt(5_000, 15_000);
+        const sendDelayMs = Math.max(0, baseDelay + jitter);
+
+        const sendFollow = async () => {
+          try {
+            const liveSim = await this.getCompanySimState(opts.companyId);
+            const liveBase = Math.max(plannedReplyMs, liveSim.simTime + 1);
+            const followTimestampMs = allowOffHours
+              ? liveBase
+              : this.scheduleEmployeeSimReply(liveBase, false);
+            const followTimestamp = new Date(followTimestampMs).toISOString();
+            await setDoc(doc(db, `companies/${opts.companyId}/inbox/${followId}`), {
+              from: parent.from || this.buildWorkerAddress(workerName, opts.companyId),
+              to: parent.to || (await this.getMeAddress(opts.companyId)),
+              subject: followSubject,
+              message: followBody,
+              deleted: false,
+              banner: false,
+              timestamp: followTimestamp,
+              threadId: opts.threadId,
+              parentId: opts.parentId,
+              category: 'workitem-help',
+              workitemId,
+              assistId: parent.assistId || parent.assist_id || opts.threadId,
+            });
+          } catch (err) {
+            console.error('failed to send assist follow-up', err);
+          }
+        };
+
+        setTimeout(() => {
+          void sendFollow();
+        }, sendDelayMs);
       }
       return;
     }
@@ -462,6 +485,25 @@ export class ReplyRouterService {
     threadItems?: Array<{ id?: string; from?: string; message?: string; timestamp?: string }>;
   }): Promise<void> {
     const meAddress = await this.getMeAddress(opts.companyId);
+    const thread =
+      Array.isArray(opts.threadItems) && opts.threadItems.length
+        ? opts.threadItems
+        : await this.getThreadItems(opts.companyId, opts.threadId);
+    const priorCadabraReplies = thread.filter((t) => String(t?.category || '').toLowerCase() === 'cadabra').length;
+    const cadabraLevels = [
+      { urgency: 2, understanding: 0.7, temperature: 0.35, note: 'wary' },
+      { urgency: 4, understanding: 0.55, temperature: 0.55, note: 'concerned' },
+      { urgency: 6, understanding: 0.4, temperature: 0.75, note: 'heated' },
+      { urgency: 8, understanding: 0.25, temperature: 0.95, note: 'volatile' },
+      { urgency: 10, understanding: 0.1, temperature: 1.2, note: '100% unhinged' },
+    ];
+    const fallbackCadabraBody = (levelIdx: number): string => {
+      const tag = cadabraLevels[Math.min(levelIdx, cadabraLevels.length - 1)]?.note || 'unhinged';
+      if (levelIdx >= cadabraLevels.length - 1) {
+        return `This is Jeff. I am now ${tag}. I will resolve this even if it melts the servers. I am doubling down until you respond.`;
+      }
+      return `This is Jeff. Attempt ${levelIdx + 1}. Something feels off and I am escalating (${tag}). Expect follow-up until this is resolved.`;
+    };
     const payload = {
       company: opts.companyId,
       subject: opts.subject || '(no subject)',
@@ -478,21 +520,26 @@ export class ReplyRouterService {
     }
     const from = res?.from || 'jeff@cadabra.com';
     const subject = opts.subject || res?.subject || '(no subject)';
-    let body = typeof res?.body === 'string' ? res.body : '';
-    body = body.trim();
-    if (!body) {
-      body = 'This is Jeff. Something in here feels wrong. Stay on the line.';
-    }
+    const apiAttempt = Number(res?.attempt);
+    const attempt = Number.isFinite(apiAttempt) && apiAttempt > 0 ? apiAttempt : priorCadabraReplies + 1;
+    const effectiveAttempt = Math.min(Math.max(1, attempt), cadabraLevels.length);
+    const level = cadabraLevels[effectiveAttempt - 1] || cadabraLevels[cadabraLevels.length - 1];
+    const rawBody = typeof res?.body === 'string' ? res.body.trim() : '';
+    let body = rawBody || fallbackCadabraBody(effectiveAttempt - 1);
     body = await this.appendThreadHistory({
       companyId: opts.companyId,
       threadId: opts.threadId,
       body,
-      threadItems: opts.threadItems,
+      threadItems: thread,
     });
-    const attempt = Number(res?.attempt);
-    const urgency = Number(res?.urgency);
-    const understanding = Number(res?.understanding);
-    const temperature = Number(res?.temperature);
+    const urgencyRaw = Number(res?.urgency);
+    const understandingRaw = Number(res?.understanding);
+    const temperatureRaw = Number(res?.temperature);
+    const urgency = Number.isFinite(urgencyRaw) ? Math.max(urgencyRaw, level.urgency) : level.urgency;
+    const understanding = Number.isFinite(understandingRaw)
+      ? Math.min(understandingRaw, level.understanding)
+      : level.understanding;
+    const temperature = Number.isFinite(temperatureRaw) ? Math.max(temperatureRaw, level.temperature) : level.temperature;
     const emailId = `cadabra-reply-${Date.now()}`;
     const simNow = await this.getCompanySimTime(opts.companyId);
     const baseTs = opts.timestamp ? new Date(opts.timestamp) : null;

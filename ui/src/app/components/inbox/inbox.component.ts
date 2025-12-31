@@ -1,4 +1,4 @@
-import { Component, HostListener, OnDestroy, OnInit, Input } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, Input, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
@@ -76,6 +76,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   inbox: InboxEmail[] = [];
   private allEmails: InboxEmail[] = [];
   selectedEmail: InboxEmail | null = null;
+  @ViewChild('replyTextarea') replyTextarea?: ElementRef<HTMLTextAreaElement>;
 
   showReplyBox = false;
   replyText = '';
@@ -1796,6 +1797,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.composeError = '';
     this.showReplyBox = true;
     this.replyText = '';
+    setTimeout(() => this.replyTextarea?.nativeElement?.focus(), 0);
   }
 
   onReplyKeydown(event: KeyboardEvent): void {

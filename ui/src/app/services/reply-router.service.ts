@@ -39,7 +39,10 @@ export class ReplyRouterService {
     parentId?: string;
     timestamp?: string;
   }): Promise<void> {
-    const cat = (opts.category || '').toLowerCase();
+    let cat = (opts.category || '').toLowerCase();
+    if (cat === 'calendar') {
+      cat = 'vlad';
+    }
     const threadItems = await this.getThreadItems(opts.companyId, opts.threadId);
     if (cat === 'vlad') {
       const meAddress = await this.getMeAddress(opts.companyId);
@@ -288,6 +291,10 @@ export class ReplyRouterService {
       nextRate = Math.max(0.1, Math.min(5, Math.round(nextRate * 10000) / 10000));
       const estimatedHours = Math.max(1, Math.round(100 / nextRate));
       const simTime = await this.getCompanySimTime(opts.companyId);
+      const allowOffHours = parent.offHoursAllowed === true || parent.off_hours_allowed === true;
+      const baseTs = opts.timestamp ? new Date(opts.timestamp) : null;
+      const baseMs = baseTs && baseTs.toString() !== 'Invalid Date' ? baseTs.getTime() : simTime;
+      const plannedReplyMs = this.scheduleEmployeeSimReply(Math.max(simTime, baseMs), allowOffHours);
 
       const updatePayload: Record<string, any> = {
         assist_status: 'resolved',
@@ -310,7 +317,7 @@ export class ReplyRouterService {
 
       await updateDoc(workitemRef, updatePayload);
 
-      const evaluationStamp = new Date(simTime).toISOString();
+      const evaluationStamp = new Date(plannedReplyMs).toISOString();
       await setDoc(
         doc(db, `companies/${opts.companyId}/inbox/${opts.parentId}`),
         {

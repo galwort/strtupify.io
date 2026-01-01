@@ -484,7 +484,8 @@ export class CalendarComponent implements OnInit, OnDestroy {
 
   private addMeeting(m: CalendarMeeting): void {
     this.meetings.push(m);
-    for (const p of m.participants) {
+    const attendees = this.attendeesOf(m);
+    for (const p of attendees) {
       const list = this.calendarByPerson.get(p) || [];
       list.push(m);
       this.calendarByPerson.set(p, list);
@@ -516,8 +517,8 @@ export class CalendarComponent implements OnInit, OnDestroy {
     startMs: number,
     endMs: number
   ): void {
-    const oldParticipants = [...meeting.participants];
-    for (const p of oldParticipants) {
+    const oldAttendees = this.attendeesOf(meeting);
+    for (const p of oldAttendees) {
       const list = this.calendarByPerson.get(p) || [];
       this.calendarByPerson.set(
         p,
@@ -527,7 +528,8 @@ export class CalendarComponent implements OnInit, OnDestroy {
     meeting.dayIndex = dayIndex;
     meeting.start = startMs;
     meeting.end = endMs;
-    for (const p of oldParticipants) {
+    const newAttendees = this.attendeesOf(meeting);
+    for (const p of newAttendees) {
       const list = this.calendarByPerson.get(p) || [];
       list.push(meeting);
       this.calendarByPerson.set(p, list);
@@ -555,14 +557,13 @@ export class CalendarComponent implements OnInit, OnDestroy {
   }
 
   private recomputeVisuals(): void {
-    const visible = new Set<string>(['me', ...this.selectedEmployees]);
+    const visible = new Set<string>(this.selectedEmployees);
     const byDay: VisualMeeting[][] = [[], [], [], [], []];
     for (const meeting of this.meetings) {
-      const ownerVisible = visible.has(meeting.owner);
-      const participantVisible = meeting.participants.some((p) =>
-        visible.has(p)
-      );
-      if (!ownerVisible && !participantVisible) continue;
+      const attendees = this.attendeesOf(meeting).filter((p) => p !== 'me');
+      const shouldShow =
+        !attendees.length || attendees.every((p) => visible.has(p));
+      if (!shouldShow) continue;
       const { top, height } = this.computeBlockPosition(
         meeting.dayIndex,
         meeting.start,
@@ -571,12 +572,9 @@ export class CalendarComponent implements OnInit, OnDestroy {
       const bg = meeting.owner === 'me' ? '#fff' : this.colorFor(meeting.owner);
       const border =
         meeting.owner === 'me' ? '#d8e2ec' : this.colorFor(meeting.owner);
-      const dots =
-        meeting.owner === 'me'
-          ? meeting.participants
-              .filter((p) => p !== 'me')
-              .map((p) => this.colorFor(p))
-          : [];
+      const dots = meeting.participants
+        .filter((p) => p !== meeting.owner)
+        .map((p) => this.colorFor(p));
       const v: VisualMeeting = {
         ...meeting,
         top,
@@ -736,11 +734,10 @@ export class CalendarComponent implements OnInit, OnDestroy {
     const endMs = startMs + durationMs;
     const outOfBounds = endMs > dayEnd || startMs >= dayEnd;
     const conflict = this.hasParticipantOverlap(
-      meeting.participants,
+      meeting,
       dayIndex,
       startMs,
-      endMs,
-      meeting.id
+      endMs
     );
     const { top, height } = this.computeBlockPosition(
       dayIndex,
@@ -750,14 +747,24 @@ export class CalendarComponent implements OnInit, OnDestroy {
     return { startMs, endMs, conflict, outOfBounds, top, height };
   }
 
-  private hasParticipantOverlap(participants: string[], dayIndex: number, start: number, end: number, ignoreId?: string): boolean {
-    const partSet = new Set(participants);
-    for (const m of this.meetings) {
-      if (ignoreId && m.id === ignoreId) continue;
-      if (m.dayIndex !== dayIndex) continue;
-      if (!(m.start < end && start < m.end)) continue;
-      const shares = m.participants.some((p) => partSet.has(p));
-      if (shares) return true;
+  private attendeesOf(meeting: CalendarMeeting): string[] {
+    return Array.from(new Set([meeting.owner, ...meeting.participants]));
+  }
+
+  private hasParticipantOverlap(
+    meeting: CalendarMeeting,
+    dayIndex: number,
+    start: number,
+    end: number
+  ): boolean {
+    const attendees = this.attendeesOf(meeting);
+    for (const p of attendees) {
+      const list = this.calendarByPerson.get(p) || [];
+      for (const m of list) {
+        if (m.id === meeting.id) continue;
+        if (m.dayIndex !== dayIndex) continue;
+        if (m.start < end && start < m.end) return true;
+      }
     }
     return false;
   }

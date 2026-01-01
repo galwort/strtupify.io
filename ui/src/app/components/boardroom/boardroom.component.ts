@@ -38,8 +38,8 @@ interface TranscriptEntry {
 export class BoardroomComponent implements OnInit, AfterViewInit {
   @Input() companyId = '';
   @Output() acceptedProduct = new EventEmitter<void>();
-  @ViewChild('scrollBox') private scrollBox!: ElementRef<HTMLDivElement>;
-  @ViewChild('headerBox') private headerBox!: ElementRef<HTMLDivElement>;
+  @ViewChild('scrollBox') private scrollBox?: ElementRef<HTMLDivElement>;
+  @ViewChild('headerBox') private headerBox?: ElementRef<HTMLDivElement>;
   @ViewChild('bottomBox') private bottomBox?: ElementRef<HTMLDivElement>;
 
   productId = '';
@@ -54,20 +54,13 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
   private employeeAvatars = new Map<string, string>();
   private avatarColorCache = new Map<string, string>();
   private pendingAvatarFetches = new Map<string, Promise<void>>();
+  transcriptReady = false;
 
   constructor(private api: BoardroomService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
     this.loadEmployeeAvatars();
-    this.api.start(this.companyId).subscribe((r) => {
-      this.productId = r.productId;
-      this.transcript.push(this.buildTranscriptEntry(r.speaker, r.line));
-      setTimeout(() => {
-        this.updateLayout();
-        this.scrollToBottom();
-      });
-      this.next();
-    });
+    this.startConversation();
   }
 
   ngAfterViewInit() {
@@ -125,16 +118,8 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
     this.typing = false;
     this.showAiSummary = false;
     this.aiSummary = '';
-
-    this.api.start(this.companyId).subscribe((r) => {
-      this.productId = r.productId;
-      this.transcript.push(this.buildTranscriptEntry(r.speaker, r.line));
-      setTimeout(() => {
-        this.updateLayout();
-        this.scrollToBottom();
-      });
-      this.next();
-    });
+    this.transcriptReady = false;
+    this.startConversation();
   }
 
   async accept() {
@@ -156,7 +141,8 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
   }
 
   private scrollToBottom(): void {
-    const box = this.scrollBox.nativeElement;
+    const box = this.scrollBox?.nativeElement;
+    if (!box || !this.transcriptReady) return;
     box.scrollTop = box.scrollHeight;
   }
 
@@ -166,7 +152,7 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
   }
 
   private updateLayout(): void {
-    if (!this.scrollBox || !this.headerBox) return;
+    if (!this.scrollBox || !this.headerBox || !this.transcriptReady) return;
     const scroll = this.scrollBox.nativeElement;
     const header = this.headerBox.nativeElement;
     const bottom = this.bottomBox?.nativeElement ?? null;
@@ -244,6 +230,20 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
       avatarUrl: this.avatarForSpeaker(speaker),
       initials: this.initialsFor(speaker),
     };
+  }
+
+  private startConversation(): void {
+    this.api.start(this.companyId).subscribe((r) => {
+      this.productId = r.productId;
+      this.transcript.push(this.buildTranscriptEntry(r.speaker, r.line));
+      this.transcriptReady = true;
+      this.cdr.detectChanges();
+      setTimeout(() => {
+        this.updateLayout();
+        this.scrollToBottom();
+      });
+      this.next();
+    });
   }
 
   private avatarForSpeaker(name: string): string | null {

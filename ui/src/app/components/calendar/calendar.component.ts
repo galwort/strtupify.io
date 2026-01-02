@@ -53,6 +53,15 @@ type DragPreview = {
   top: number;
   height: number;
   conflict: boolean;
+  conflictsWith: string[];
+  conflicts: ConflictDetail[];
+};
+
+type ConflictDetail = {
+  meetingId: string;
+  owner: string;
+  attendees: string[];
+  shared: string[];
 };
 
 const fbApp = getApps().length
@@ -562,7 +571,8 @@ export class CalendarComponent implements OnInit, OnDestroy {
     for (const meeting of this.meetings) {
       const attendees = this.attendeesOf(meeting).filter((p) => p !== 'me');
       const shouldShow =
-        !attendees.length || attendees.every((p) => visible.has(p));
+        meeting.owner === 'me' ||
+        (attendees.length > 0 && attendees.every((p) => visible.has(p)));
       if (!shouldShow) continue;
       const { top, height } = this.computeBlockPosition(
         meeting.dayIndex,
@@ -572,9 +582,12 @@ export class CalendarComponent implements OnInit, OnDestroy {
       const bg = meeting.owner === 'me' ? '#fff' : this.colorFor(meeting.owner);
       const border =
         meeting.owner === 'me' ? '#d8e2ec' : this.colorFor(meeting.owner);
-      const dots = meeting.participants
-        .filter((p) => p !== meeting.owner)
-        .map((p) => this.colorFor(p));
+      const dots =
+        meeting.owner === 'me'
+          ? meeting.participants
+              .filter((p) => p !== 'me')
+              .map((p) => this.colorFor(p))
+          : [];
       const v: VisualMeeting = {
         ...meeting,
         top,
@@ -631,7 +644,15 @@ export class CalendarComponent implements OnInit, OnDestroy {
       top: placement.top,
       height: placement.height,
       conflict: placement.conflict,
+      conflictsWith: placement.conflictsWith,
+      conflicts: placement.conflicts,
     };
+    if (placement.conflict && placement.conflicts?.length) {
+      this.statusError = `Overlaps with ${this.conflictSummary(placement.conflicts)}`;
+      this.statusMessage = '';
+    } else {
+      this.statusError = '';
+    }
   }
 
   onDayDragLeave(_: DragEvent, dayIndex: number): void {
@@ -656,6 +677,12 @@ export class CalendarComponent implements OnInit, OnDestroy {
     const placement = this.computeDropPlacement(event, meeting, dayIndex);
     this.dragPreview = null;
     if (!placement || placement.outOfBounds || placement.conflict) {
+      if (placement?.conflicts?.length) {
+        this.statusError = `Can't move: overlaps with ${this.conflictSummary(
+          placement.conflicts
+        )}`;
+        this.statusMessage = '';
+      }
       this.draggingMeetingId = null;
       return;
     }
@@ -711,6 +738,8 @@ export class CalendarComponent implements OnInit, OnDestroy {
         top: number;
         height: number;
         conflict: boolean;
+        conflictsWith: string[];
+        conflicts: ConflictDetail[];
         outOfBounds: boolean;
       }
     | null {
@@ -733,40 +762,95 @@ export class CalendarComponent implements OnInit, OnDestroy {
     const startMs = Math.min(Math.max(dayStart, desiredStart), maxStartMs);
     const endMs = startMs + durationMs;
     const outOfBounds = endMs > dayEnd || startMs >= dayEnd;
-    const conflict = this.hasParticipantOverlap(
+    const conflicts = this.overlappingConflicts(
       meeting,
       dayIndex,
       startMs,
       endMs
     );
+    const conflictsWith = Array.from(
+      new Set(conflicts.flatMap((c) => c.shared))
+    );
+    const conflict = conflictsWith.length > 0;
     const { top, height } = this.computeBlockPosition(
       dayIndex,
       startMs,
       endMs
     );
-    return { startMs, endMs, conflict, outOfBounds, top, height };
+    return {
+      startMs,
+      endMs,
+      conflict,
+      conflictsWith,
+      conflicts,
+      outOfBounds,
+      top,
+      height,
+    };
   }
 
   private attendeesOf(meeting: CalendarMeeting): string[] {
     return Array.from(new Set([meeting.owner, ...meeting.participants]));
   }
 
-  private hasParticipantOverlap(
+  private overlappingConflicts(
     meeting: CalendarMeeting,
     dayIndex: number,
     start: number,
     end: number
-  ): boolean {
-    const attendees = this.attendeesOf(meeting);
-    for (const p of attendees) {
-      const list = this.calendarByPerson.get(p) || [];
-      for (const m of list) {
-        if (m.id === meeting.id) continue;
-        if (m.dayIndex !== dayIndex) continue;
-        if (m.start < end && start < m.end) return true;
+  ): ConflictDetail[] {
+    const movingAttendees = new Set(this.conflictAttendees(meeting));
+    const conflicts: ConflictDetail[] = [];
+    for (const m of this.meetings) {
+      if (m.id === meeting.id) continue;
+      if (m.dayIndex !== dayIndex) continue;
+      if (!(m.start < end && start < m.end)) continue;
+      const shared = this.conflictAttendees(m).filter((p) =>
+        movingAttendees.has(p)
+      );
+      if (shared.length) {
+        conflicts.push({
+          meetingId: m.id,
+          owner: m.owner,
+          attendees: this.conflictAttendees(m),
+          shared,
+        });
       }
     }
-    return false;
+    return conflicts;
+  }
+
+  private prettyAttendees(list: string[]): string {
+    return list
+      .map((id) => this.employeeName(id))
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  private conflictSummary(conflicts: ConflictDetail[]): string {
+    const parts = conflicts.map((c) => {
+      const owner = this.employeeName(c.owner);
+      const shared = c.shared
+        .map((id) => this.employeeName(id))
+        .filter(Boolean)
+        .join(', ');
+      const ownerLabel = c.owner === 'me' ? 'your meeting' : `${owner}'s meeting`;
+      return `${ownerLabel} (${shared})`;
+    });
+    return parts.join('; ');
+  }
+
+  private conflictAttendees(meeting: CalendarMeeting): string[] {
+    // For user-owned meetings, consider all participants. For others, only the owner
+    // (plus "me" if I'm listed) should block moves, since colored cards represent a single owner's slot.
+    const result = new Set<string>();
+    result.add(meeting.owner);
+    if (meeting.owner === 'me') {
+      meeting.participants.forEach((p) => result.add(p));
+    } else if (meeting.participants.includes('me')) {
+      result.add('me');
+    }
+    return Array.from(result);
   }
 
   private computeFocusScore(): void {

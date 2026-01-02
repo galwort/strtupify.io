@@ -17,6 +17,7 @@ import {
   where,
   limit,
   serverTimestamp,
+  getDoc,
 } from 'firebase/firestore';
 import { environment } from 'src/environments/environment';
 import { UiStateService } from '../../services/ui-state.service';
@@ -306,8 +307,24 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       const cached = this.assistTriggerById.get(it.id);
       return cached === undefined ? null : cached;
     }
-    this.assistTriggerById.set(it.id, null);
-    return null;
+    const derived = this.deriveAssistTrigger(it.id);
+    this.assistTriggerById.set(it.id, derived);
+    return derived;
+  }
+
+  private deriveAssistTrigger(workitemId: string): number | null {
+    if (!workitemId) return null;
+    const hash = this.simpleHash(workitemId);
+    const pct = (hash % this.assistProgressCeiling) + 1;
+    return pct;
+  }
+
+  private simpleHash(value: string): number {
+    let h = 0;
+    for (let i = 0; i < value.length; i++) {
+      h = (h * 31 + value.charCodeAt(i)) >>> 0;
+    }
+    return h;
   }
 
   progress(it: WorkItem): number {
@@ -478,6 +495,47 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     return minutes >= this.workdayStartHour * 60 && minutes <= this.workdayEndHour * 60;
   }
 
+  private nextWorkSimTime(baseMs: number): number {
+    let cursor = new Date(baseMs);
+    while (true) {
+      const dayStart = new Date(cursor);
+      dayStart.setHours(this.workdayStartHour, 0, 0, 0);
+      const dayEnd = new Date(cursor);
+      dayEnd.setHours(this.workdayEndHour, 0, 0, 0);
+      const isWorkday = this.isWorkday(cursor);
+      if (isWorkday && baseMs <= dayEnd.getTime()) {
+        if (baseMs < dayStart.getTime()) return dayStart.getTime();
+        return baseMs;
+      }
+      cursor = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+    }
+  }
+
+  private async getCompanySimState(): Promise<{ simTime: number; speed: number }> {
+    if (!this.companyId) return { simTime: Date.now(), speed: 1 };
+    try {
+      const snap = await getDoc(doc(db, `companies/${this.companyId}`));
+      const data = (snap && (snap.data() as any)) || {};
+      const simTime = Number(data.simTime || Date.now());
+      const speed = Number(data.speed || this.speed || 1);
+      return {
+        simTime: Number.isFinite(simTime) ? simTime : Date.now(),
+        speed: Number.isFinite(speed) && speed > 0 ? speed : 1,
+      };
+    } catch {
+      return { simTime: Date.now(), speed: 1 };
+    }
+  }
+
+  private async waitForSimTime(targetSimMs: number, currentSimMs: number, speed: number): Promise<void> {
+    const lag = Math.max(0, targetSimMs - currentSimMs);
+    if (lag <= 0) return;
+    const waitMs = Math.max(0, Math.round(lag / Math.max(1, speed)));
+    if (waitMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+  }
+
   private shouldTriggerAssistance(it: WorkItem): boolean {
     const nowSim = this.simTime;
     if (typeof nowSim !== 'number' || !Number.isFinite(nowSim)) return false;
@@ -564,6 +622,23 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       return;
     }
     this.assistInFlight.add(it.id);
+    const simState = await this.getCompanySimState();
+    const baseSim = Number.isFinite(simState.simTime) ? simState.simTime : nowSim;
+    const speed = Number.isFinite(simState.speed) && simState.speed > 0 ? simState.speed : 1;
+    let sendSimMs = allowOffHours ? nowSim : this.nextWorkSimTime(nowSim);
+    if (!Number.isFinite(sendSimMs)) sendSimMs = baseSim;
+    sendSimMs = Math.max(sendSimMs, baseSim);
+    if (sendSimMs > baseSim) {
+      await this.waitForSimTime(sendSimMs, baseSim, speed);
+      const refreshed = await this.getCompanySimState();
+      const refreshedSim = Number.isFinite(refreshed.simTime) ? refreshed.simTime : sendSimMs;
+      sendSimMs = Math.max(sendSimMs, refreshedSim);
+    }
+    const latest = this.items.find((x) => x.id === it.id);
+    if (!latest || latest.status !== 'doing' || latest.assist_last_sent_at) {
+      this.assistInFlight.delete(it.id);
+      return;
+    }
     const totalWorked = this.totalWorkedMs(it);
     const payload = {
       company: this.companyId,
@@ -606,7 +681,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       const summary = typeof data?.summary === 'string' ? data.summary : '';
       const pauseReason = typeof email.pause_reason === 'string' ? email.pause_reason : '';
       const confidenceRaw = Number(email.confidence);
-    const timestampIso = new Date(nowSim).toISOString();
+      const timestampIso = new Date(sendSimMs).toISOString();
       const threadId = this.createAssistThreadId(it.id);
       const emailId = `${threadId}-email`;
 
@@ -639,7 +714,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       const targetPct = this.getAssistTriggerPct(it);
       const updatePayload: Record<string, any> = {
         assist_status: 'pending',
-        assist_last_sent_at: nowSim,
+        assist_last_sent_at: sendSimMs,
         worked_ms: totalWorked,
         started_at: 0,
         updated: serverTimestamp(),
@@ -650,7 +725,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       await updateDoc(doc(db, `companies/${this.companyId}/workitems/${it.id}`), updatePayload);
 
       it.assist_status = 'pending';
-      it.assist_last_sent_at = nowSim;
+      it.assist_last_sent_at = sendSimMs;
       it.started_at = 0;
       it.worked_ms = totalWorked;
       this.partition();

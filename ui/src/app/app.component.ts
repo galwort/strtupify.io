@@ -22,6 +22,7 @@ import { EndgameService, EndgameStatus } from './services/endgame.service';
 import { InboxService, Email } from './services/inbox.service';
 import { Subscription } from 'rxjs';
 import { ThemeService } from './services/theme.service';
+import { AnalyticsService } from './services/analytics.service';
 
 @Component({
   selector: 'app-root',
@@ -97,8 +98,10 @@ export class AppComponent implements OnDestroy {
     private cdr: ChangeDetectorRef,
     private endgame: EndgameService,
     private inbox: InboxService,
-    private theme: ThemeService
+    private theme: ThemeService,
+    private analytics: AnalyticsService
   ) {
+    this.analytics.init();
     this.router.events.subscribe(() => {
       this.hideMenu =
         this.router.url === '/login' || this.router.url === '/register';

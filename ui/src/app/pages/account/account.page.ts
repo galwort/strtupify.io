@@ -728,17 +728,30 @@ export class AccountPage implements OnInit, OnDestroy {
   }
 
   private isRebranded(data: any): boolean {
+    if (!data || typeof data !== 'object') return false;
     const logo = String(data?.logo || '').trim();
     const originalLogo = String(data?.original_logo || '').trim();
     const logoChanged = !!originalLogo && originalLogo !== logo;
 
-    const extracted = this.theme.extractFromCompany(data);
-    const normalized = this.theme.normalizeTheme(extracted);
-    const defaultTheme = this.theme.normalizeTheme(this.defaultTheme);
-    const themeChanged = (Object.keys(defaultTheme) as (keyof ThemeColors)[]).some(
-      (key) => normalized[key] !== defaultTheme[key]
-    );
-    return logoChanged || themeChanged;
+    const brandUpdated =
+      logoChanged ||
+      data?.brandUpdated === true ||
+      !!data?.brandUpdatedAt ||
+      typeof data?.brandUpdatedBy === 'string';
+
+    const hasBrandBaseline = brandUpdated || !!originalLogo;
+
+    let themeChanged = false;
+    if (hasBrandBaseline) {
+      const extracted = this.theme.extractFromCompany(data);
+      const normalized = this.theme.normalizeTheme(extracted);
+      const defaultTheme = this.theme.normalizeTheme(this.defaultTheme);
+      themeChanged = (Object.keys(defaultTheme) as (keyof ThemeColors)[]).some(
+        (key) => normalized[key] !== defaultTheme[key]
+      );
+    }
+
+    return logoChanged || themeChanged || brandUpdated;
   }
 
   private isAiEmployee(data: any): boolean {

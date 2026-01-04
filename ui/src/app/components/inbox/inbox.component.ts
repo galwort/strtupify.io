@@ -354,6 +354,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         if (status === 'done') done++;
       });
       this.workitemProgress = { done, total };
+      void this.maybeScheduleVladWorkEmail();
       void this.maybeScheduleAIDeleteEmail();
       void this.maybeScheduleVladNightEmail();
     });
@@ -721,6 +722,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   private readonly vladDefaultAvatar = 'assets/vlad.svg';
   private readonly vladBlitzedAvatar = 'assets/vladblitzed.svg';
   private readonly vladOpenToWorkAvatar = 'assets/vladopentowork.svg';
+  private readonly vladWorkDelayMs = 5000;
   private readonly aiDeleteThreshold = 0.75;
   private readonly aiDeleteStartHour = 8;
   private readonly aiDeleteEndHour = 17;
@@ -763,6 +765,14 @@ export class InboxComponent implements OnInit, OnDestroy {
   } | null = null;
   cadabraProcessing = false;
 
+  private vladWorkSendTime: number | null = null;
+  private vladWorkTemplate: {
+    from?: string;
+    subject?: string;
+    banner?: boolean;
+    deleted?: boolean;
+    body: string;
+  } | null = null;
   private vladNightSendTime: number | null = null;
   private vladNightTemplate: {
     from?: string;
@@ -781,6 +791,8 @@ export class InboxComponent implements OnInit, OnDestroy {
   } | null = null;
   private aiDeleteEmailSent = false;
   private aiDeleteProcessing = false;
+  private vladWorkEmailSent = false;
+  private vladWorkProcessing = false;
   private vladNightEmailSent = false;
   private vladNightProcessing = false;
   private vladBlitzedAt: number | null = null;
@@ -877,6 +889,11 @@ export class InboxComponent implements OnInit, OnDestroy {
         else if (typeof d.aiDeleteEmailAt === 'number')
           this.aiDeleteSendTime = d.aiDeleteEmailAt;
         else this.aiDeleteSendTime = null;
+        this.vladWorkEmailSent = !!d.vladWorkEmailSent;
+        if (this.vladWorkEmailSent) this.vladWorkSendTime = null;
+        else if (typeof d.vladWorkEmailAt === 'number')
+          this.vladWorkSendTime = d.vladWorkEmailAt;
+        else this.vladWorkSendTime = null;
         this.vladNightEmailSent = !!d.vladNightEmailSent;
         if (this.vladNightEmailSent) this.vladNightSendTime = null;
         else if (typeof d.vladNightEmailAt === 'number')
@@ -897,6 +914,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.loadSnacks();
     this.loadSuperEatsTemplate();
     this.loadVladNightTemplate();
+    this.loadVladWorkTemplate();
     this.loadAiDeleteTemplate();
     this.loadBankTemplate();
     this.loadCadabraTemplate();
@@ -1125,6 +1143,17 @@ export class InboxComponent implements OnInit, OnDestroy {
         await updateDoc(ref, { cadabraNextAt: this.cadabraSendTime });
       }
 
+      if (data.vladWorkEmailSent) {
+        this.vladWorkEmailSent = true;
+        this.vladWorkSendTime = null;
+      } else {
+        this.vladWorkEmailSent = false;
+        this.vladWorkSendTime =
+          typeof data.vladWorkEmailAt === 'number'
+            ? data.vladWorkEmailAt
+            : null;
+      }
+
       if (data.vladNightEmailSent) {
         this.vladNightEmailSent = true;
         this.vladNightSendTime = null;
@@ -1205,6 +1234,11 @@ export class InboxComponent implements OnInit, OnDestroy {
           await updateDoc(ref, { cadabraEmailInProgress: false });
         } catch {}
       }
+      if (data.vladWorkEmailInProgress) {
+        try {
+          await updateDoc(ref, { vladWorkEmailInProgress: false });
+        } catch {}
+      }
       if (data.vladNightEmailInProgress) {
         try {
           await updateDoc(ref, { vladNightEmailInProgress: false });
@@ -1254,6 +1288,9 @@ export class InboxComponent implements OnInit, OnDestroy {
         calendarEmailSent: false,
         calendarEmailInProgress: false,
         calendarEnabled: false,
+        vladWorkEmailAt: null,
+        vladWorkEmailSent: false,
+        vladWorkEmailInProgress: false,
         vladNightEmailAt: null,
         vladNightEmailSent: false,
         vladNightEmailInProgress: false,
@@ -1292,6 +1329,42 @@ export class InboxComponent implements OnInit, OnDestroy {
         calendarEnabled: false,
       });
       this.calendarEmailAt = target;
+    } catch {}
+  }
+
+  private async maybeScheduleVladWorkEmail(): Promise<void> {
+    if (!this.companyId) return;
+    if (this.vladWorkEmailSent) return;
+    if (this.vladWorkSendTime) return;
+    const { total } = this.workitemProgress;
+    if (total <= 0) return;
+
+    const target = this.simDate.getTime() + this.vladWorkDelayMs;
+    const ref = doc(db, `companies/${this.companyId}`);
+    try {
+      const scheduled = await runTransaction<number | null>(db, async (tx) => {
+        const snap = await tx.get(ref);
+        const d = (snap && (snap.data() as any)) || {};
+        if (d.vladWorkEmailSent || d.vladWorkEmailInProgress) {
+          const existing =
+            typeof d.vladWorkEmailAt === 'number' ? d.vladWorkEmailAt : null;
+          return existing;
+        }
+        const existing =
+          typeof d.vladWorkEmailAt === 'number' ? d.vladWorkEmailAt : null;
+        if (existing) return existing;
+        tx.set(
+          ref,
+          {
+            vladWorkEmailAt: target,
+            vladWorkEmailSent: false,
+            vladWorkEmailInProgress: false,
+          },
+          { merge: true }
+        );
+        return target;
+      });
+      if (scheduled) this.vladWorkSendTime = scheduled;
     } catch {}
   }
 
@@ -1408,6 +1481,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.checkKickoffEmail();
       this.checkCalendarEmail();
       this.checkMomEmail();
+      void this.checkVladWorkEmail();
       void this.checkAIDeleteEmail();
       this.checkBankEmail();
       void this.checkVladNightEmail();
@@ -1472,6 +1546,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       await this.checkSuperEatsEmail();
       await this.checkKickoffEmail();
       await this.checkMomEmail();
+      await this.checkVladWorkEmail();
       await this.checkAIDeleteEmail();
       await this.checkVladNightEmail();
       await this.checkBankEmail();
@@ -1712,6 +1787,17 @@ export class InboxComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.vladNightTemplate = this.parseEmailTemplate('');
+      },
+    });
+  }
+
+  private loadVladWorkTemplate(): void {
+    this.http.get('emails/vlad-work.md', { responseType: 'text' }).subscribe({
+      next: (text) => {
+        this.vladWorkTemplate = this.parseEmailTemplate(text || '');
+      },
+      error: () => {
+        this.vladWorkTemplate = null;
       },
     });
   }
@@ -2823,6 +2909,79 @@ export class InboxComponent implements OnInit, OnDestroy {
       } catch {}
     }
     this.bankProcessing = false;
+  }
+
+  private async checkVladWorkEmail(): Promise<void> {
+    if (!this.vladWorkSendTime) return;
+    if (this.vladWorkEmailSent) return;
+    if (this.vladWorkProcessing) return;
+    if (this.simDate.getTime() < this.vladWorkSendTime) return;
+    this.vladWorkProcessing = true;
+    const ref = doc(db, `companies/${this.companyId}`);
+    let sendAt = this.vladWorkSendTime;
+    let proceed = false;
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        const d = (snap && (snap.data() as any)) || {};
+        if (d.vladWorkEmailSent || d.vladWorkEmailInProgress) return;
+        const at =
+          typeof d.vladWorkEmailAt === 'number'
+            ? d.vladWorkEmailAt
+            : this.vladWorkSendTime;
+        if (!at || this.simDate.getTime() < at) return;
+        sendAt = at;
+        tx.update(ref, { vladWorkEmailInProgress: true });
+        proceed = true;
+      });
+    } catch {}
+    if (!proceed) {
+      this.vladWorkProcessing = false;
+      return;
+    }
+    const tpl = this.vladWorkTemplate;
+    if (!tpl || !tpl.body || !tpl.subject || !tpl.from) {
+      try {
+        await updateDoc(ref, { vladWorkEmailInProgress: false });
+      } catch {}
+      this.vladWorkProcessing = false;
+      return;
+    }
+    const from = tpl.from;
+    const subject = tpl.subject;
+    const body = tpl.body.trim();
+    const emailId = `vlad-work-${Date.now()}`;
+    const timestampIso = new Date(
+      Math.max(this.simDate.getTime(), sendAt || this.simDate.getTime())
+    ).toISOString();
+    try {
+      await this.saveInboxEmail(emailId, {
+        from,
+        subject,
+        message: body,
+        deleted: tpl?.deleted ?? false,
+        banner: tpl?.banner ?? false,
+        timestamp: timestampIso,
+        threadId: 'vlad-work',
+        to: this.meAddress,
+        category: 'vlad',
+        avatarUrl: this.vladDefaultAvatar,
+        avatarMood: 'neutral',
+      });
+      this.vladWorkEmailSent = true;
+      this.vladWorkSendTime = null;
+      await updateDoc(ref, {
+        vladWorkEmailSent: true,
+        vladWorkEmailInProgress: false,
+        vladWorkEmailAt: sendAt,
+      });
+    } catch {
+      try {
+        await updateDoc(ref, { vladWorkEmailInProgress: false });
+      } catch {}
+    } finally {
+      this.vladWorkProcessing = false;
+    }
   }
 
   private async checkAIDeleteEmail(): Promise<void> {

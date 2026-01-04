@@ -2,7 +2,8 @@
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, getDoc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { getFirestore, doc, getDoc, updateDoc, collection, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { environment } from 'src/environments/environment';
@@ -11,6 +12,7 @@ import { ThemeColors, ThemeColorKey, ThemeService } from '../../services/theme.s
 
 const app = initializeApp(environment.firebase);
 const db = getFirestore(app);
+const auth = getAuth(app);
 
 @Component({
   selector: 'app-company-profile',
@@ -126,7 +128,25 @@ export class CompanyProfileComponent implements OnInit {
     this.saving = true;
     this.colorError = '';
     const nextTheme = this.theme.normalizeTheme(this.themeColors);
-    const payload: any = { logo: this.selectedIcon, theme: nextTheme };
+    const logoChanged = this.selectedIcon !== this.logo;
+    const themeChanged = !this.themesEqual(nextTheme, this.loadedTheme);
+    if (!logoChanged && !themeChanged) {
+      this.hasChanges = false;
+      this.picking = false;
+      this.saving = false;
+      return;
+    }
+
+    const payload: any = {
+      logo: this.selectedIcon,
+      theme: nextTheme,
+      brandUpdatedAt: serverTimestamp(),
+      brandUpdated: true,
+    };
+    const updatedBy = auth.currentUser?.uid || null;
+    if (updatedBy) {
+      payload.brandUpdatedBy = updatedBy;
+    }
     if (this.originalLogo) {
       payload.original_logo = this.originalLogo;
     } else if (this.logo) {
@@ -166,11 +186,26 @@ export class CompanyProfileComponent implements OnInit {
     this.saving = true;
     this.colorError = '';
     const defaultTheme = this.theme.getDefaultTheme();
+    const currentTheme = this.theme.normalizeTheme(this.themeColors);
     const logoToRestore = this.originalLogo || this.logo || this.selectedIcon;
+    const themeChanged = !this.themesEqual(defaultTheme, currentTheme);
+    const logoChanged = this.selectedIcon !== logoToRestore || this.logo !== logoToRestore;
+    if (!themeChanged && !logoChanged) {
+      this.saving = false;
+      this.picking = false;
+      this.hasChanges = false;
+      return;
+    }
     const payload: any = {
       logo: logoToRestore,
       theme: defaultTheme,
+      brandUpdatedAt: serverTimestamp(),
+      brandUpdated: true,
     };
+    const updatedBy = auth.currentUser?.uid || null;
+    if (updatedBy) {
+      payload.brandUpdatedBy = updatedBy;
+    }
     if (this.originalLogo) {
       payload.original_logo = this.originalLogo;
     }
@@ -315,5 +350,10 @@ export class CompanyProfileComponent implements OnInit {
     }
 
     return list.slice(0, 200);
+  }
+
+  private themesEqual(a: ThemeColors, b: ThemeColors): boolean {
+    const keys: ThemeColorKey[] = ['primary', 'secondary', 'accent', 'background', 'text'];
+    return keys.every((key) => a[key] === b[key]);
   }
 }

@@ -4,7 +4,9 @@
   align-items: flex-start;
   justify-content: flex-start;
   color: var(--theme-text);
-  width: calc(100% + 40px + var(--scrollbar-size, 0px)); // extend to page edges past parent padding + scrollbar
+  width: calc(
+    100% + 40px + var(--scrollbar-size, 0px)
+  ); // extend to page edges past parent padding + scrollbar
   max-width: none;
   min-height: calc(100vh - 40px);
   position: relative;
@@ -161,15 +163,42 @@
       gap: 12px;
       align-items: end;
       position: relative;
+
+      .submitted-watermark {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        pointer-events: none;
+        z-index: 5;
+        background: linear-gradient(
+          135deg,
+          rgba(255, 255, 255, 0.3),
+          rgba(255, 255, 255, 0.6)
+        );
+        backdrop-filter: blur(2px);
+
+        .watermark-text {
+          font-weight: 900;
+          font-size: 26px;
+          color: #777;
+          text-transform: uppercase;
+          letter-spacing: 0.6px;
+        }
+      }
     }
     .calendar.locked {
       filter: grayscale(0.8);
+      pointer-events: none;
     }
     .calendar.locked .day-body {
       cursor: not-allowed;
     }
     .calendar.locked .day-body::after {
-      content: '';
+      content: "";
       position: absolute;
       inset: 0;
       background: rgba(255, 255, 255, 0.55);

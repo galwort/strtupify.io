@@ -97,9 +97,11 @@ export class CalendarComponent implements OnInit, OnDestroy {
   isSubmitting = false;
   timeTicks: string[] = [];
   calendarLocked = false;
+  showSubmittedOverlay = false;
   private calendarSubmittedWeekStart: number | null = null;
   private storedWeekStart: number | null = null;
   private storedMeetings: CalendarMeeting[] = [];
+  private overlayDismissed = false;
 
   private simTime = Date.now();
   private unsubCompany: (() => void) | null = null;
@@ -1005,10 +1007,18 @@ export class CalendarComponent implements OnInit, OnDestroy {
 
   private applyCalendarLock(): void {
     const currentWeekStart = this.weekStart?.getTime() ?? null;
-    this.calendarLocked =
+    const wasLocked = this.calendarLocked;
+    const nowLocked =
       currentWeekStart !== null &&
       this.calendarSubmittedWeekStart !== null &&
       currentWeekStart === this.calendarSubmittedWeekStart;
+    this.calendarLocked = nowLocked;
+    if (!nowLocked) {
+      this.overlayDismissed = false;
+      this.showSubmittedOverlay = false;
+    } else if (nowLocked && !wasLocked && !this.overlayDismissed) {
+      this.showSubmittedOverlay = true;
+    }
   }
 
   private normalizeStoredMeeting(raw: any): CalendarMeeting | null {
@@ -1060,5 +1070,10 @@ export class CalendarComponent implements OnInit, OnDestroy {
     if (h < this.workdayStartHour || h > this.workdayEndHour) return null;
     if (min !== 0 && min !== 30) return null;
     return (h - this.workdayStartHour) * 60 + min;
+  }
+
+  dismissSubmittedOverlay(): void {
+    this.showSubmittedOverlay = false;
+    this.overlayDismissed = true;
   }
 }

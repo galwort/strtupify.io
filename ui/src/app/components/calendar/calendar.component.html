@@ -6,6 +6,9 @@
   <div class="content-body">
     <div class="layout">
       <div class="calendar" [class.locked]="calendarLocked">
+        <div class="submitted-watermark" *ngIf="showSubmittedOverlay">
+          <div class="watermark-text">RESCHEDULES SENT FOR THIS WEEK</div>
+        </div>
         <div class="time-column">
           <div class="time-slot" *ngFor="let t of timeTicks">{{ t }}</div>
         </div>

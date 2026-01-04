@@ -60,10 +60,10 @@ export class ResumesComponent implements OnInit {
 
   companyId = '';
   employees: Employee[] = [];
+  hiredEmployees: Employee[] = [];
   roles: Role[] = [];
   currentIndex = 0;
   private doneEmitted = false;
-  private hiredCount = 0;
   autoHiring = false;
   private roleDisplaySnapshot: Role[] = [];
   private frozenEmployee: Employee | null = null;
@@ -74,10 +74,24 @@ export class ResumesComponent implements OnInit {
   avatarLoading = false;
   skillsLoading = false;
   skillSkeletonRows = Array.from({ length: 4 });
+  showHiredOverlay = false;
+  dataReady = false;
   private activeEmployeeId: string | null = null;
   private displayToken = 0;
 
   constructor(private router: Router) {}
+
+  get hiredCount(): number {
+    return this.hiredEmployees.length;
+  }
+
+  get finishDisabled(): boolean {
+    return this.hiredCount < 2;
+  }
+
+  get finishTooltip(): string {
+    return this.finishDisabled ? 'Hire at least two employees to finish' : '';
+  }
 
   async ngOnInit() {
     const segments = this.router.url.split('/');
@@ -120,8 +134,6 @@ export class ResumesComponent implements OnInit {
       } as Employee;
     });
 
-    this.hiredCount = temp.filter((e) => e.hired).length;
-
     for (const e of temp) {
       const sSnap = await getDocs(
         collection(db, `companies/${this.companyId}/employees/${e.id}/skills`)
@@ -131,11 +143,11 @@ export class ResumesComponent implements OnInit {
         .sort((a, b) => a.skill.localeCompare(b.skill));
     }
 
+    this.hiredEmployees = temp.filter((e) => e.hired);
     this.employees = temp.filter((x) => !x.hired);
     this.employees.forEach((e) => this.colorizeAvatar(e));
-    this.applyRoleFilters();
-    this.checkComplete();
     await this.syncDisplayedEmployee();
+    this.dataReady = true;
   }
 
   get rolesWithOpenings() {
@@ -145,7 +157,7 @@ export class ResumesComponent implements OnInit {
   get visibleRoles() {
     return this.roleDisplaySnapshot.length
       ? this.roleDisplaySnapshot
-      : this.rolesWithOpenings;
+      : this.roles;
   }
 
   get roleSelectionEnabled() {
@@ -175,7 +187,6 @@ export class ResumesComponent implements OnInit {
     await this.hireCandidate(this.currentEmployee);
     if (this.currentIndex >= this.employees.length)
       this.currentIndex = Math.max(0, this.employees.length - 1);
-    this.checkComplete();
     await this.syncDisplayedEmployee(this.currentIndex);
   }
 
@@ -183,7 +194,6 @@ export class ResumesComponent implements OnInit {
     if (
       this.autoHiring ||
       !this.companyId ||
-      !this.rolesWithOpenings.length ||
       !this.employees.length
     )
       return;
@@ -207,12 +217,9 @@ export class ResumesComponent implements OnInit {
       this.autoHiring = false;
       if (this.currentIndex >= this.employees.length)
         this.currentIndex = Math.max(0, this.employees.length - 1);
-      const finished = this.checkComplete();
-      if (!finished) {
-        this.roleDisplaySnapshot = [];
-        this.freezeDisplay = false;
-        this.frozenEmployee = null;
-      }
+      this.roleDisplaySnapshot = [];
+      this.freezeDisplay = false;
+      this.frozenEmployee = null;
       await this.syncDisplayedEmployee(this.currentIndex);
     }
   }
@@ -226,12 +233,7 @@ export class ResumesComponent implements OnInit {
   }
 
   private applyRoleFilters() {
-    const openTitles = new Set(
-      this.roles.filter((r) => r.openings > 0).map((r) => r.title)
-    );
-    this.employees = this.employees.filter(
-      (e) => openTitles.has(e.title) && !e.hired
-    );
+    this.employees = this.employees.filter((e) => !e.hired);
     if (this.currentIndex < 0) this.currentIndex = 0;
     if (this.employees.length === 0) {
       this.currentIndex = 0;
@@ -240,15 +242,22 @@ export class ResumesComponent implements OnInit {
     }
   }
 
-  private checkComplete(): boolean {
-    const stillNeeded = this.roles.some((r) => r.openings > 0);
-    const enoughHires = this.hiredCount >= 2;
-    const finished = !stillNeeded && enoughHires;
-    if (finished && !this.doneEmitted) {
-      this.doneEmitted = true;
-      this.hiringFinished.emit();
-    }
-    return finished;
+  finishHiring(): void {
+    if (this.finishDisabled || this.doneEmitted) return;
+    this.doneEmitted = true;
+    this.hiringFinished.emit();
+  }
+
+  openHiredOverlay(): void {
+    this.showHiredOverlay = true;
+  }
+
+  closeHiredOverlay(): void {
+    this.showHiredOverlay = false;
+  }
+
+  trackHire(_index: number, hire: Employee): string {
+    return hire.id;
   }
 
   private freezeCurrentResume() {
@@ -327,9 +336,10 @@ export class ResumesComponent implements OnInit {
       { hired: true }
     );
 
-    this.hiredCount++;
+    const hiredRecord = { ...employee, hired: true };
     employee.hired = true;
 
+    this.hiredEmployees = [...this.hiredEmployees, hiredRecord];
     this.employees = this.employees.filter((e) => e.id !== employee.id);
     this.applyRoleFilters();
   }

@@ -1,86 +1,131 @@
-<div *ngIf="displayedEmployee" class="resume-container">
-  <div class="resume-header">
-    <div class="avatar" [class.fallback]="!currentAvatarUrl && !avatarLoading" [class.loading]="avatarLoading">
-      <ng-container *ngIf="!avatarLoading; else avatarSkeleton">
-        <img
-          *ngIf="currentAvatarUrl"
-          [src]="currentAvatarUrl"
-          [alt]="displayedEmployee.name + ' avatar'"
-        />
-        <span *ngIf="!currentAvatarUrl" class="material-symbols-outlined">person</span>
-      </ng-container>
-      <ng-template #avatarSkeleton>
-        <div class="avatar-skeleton"></div>
-      </ng-template>
-    </div>
-    <div class="identity">
-      <h1>{{ displayedEmployee.name }}</h1>
-      <div class="subline">
-        <h2>{{ displayedEmployee.title }}</h2>
+<div class="resume-container" *ngIf="dataReady">
+  <ng-container *ngIf="displayedEmployee; else noResumes">
+    <div class="resume-header">
+      <div class="avatar" [class.fallback]="!currentAvatarUrl && !avatarLoading" [class.loading]="avatarLoading">
+        <ng-container *ngIf="!avatarLoading; else avatarSkeleton">
+          <img
+            *ngIf="currentAvatarUrl"
+            [src]="currentAvatarUrl"
+            [alt]="displayedEmployee.name + ' avatar'"
+          />
+          <span *ngIf="!currentAvatarUrl" class="material-symbols-outlined">person</span>
+        </ng-container>
+        <ng-template #avatarSkeleton>
+          <div class="avatar-skeleton"></div>
+        </ng-template>
       </div>
-    </div>
-  </div>
-  <p>{{ displayedEmployee.personality }}</p>
-  <ul *ngIf="!skillsLoading; else skillsSkeleton">
-    <li *ngFor="let skill of displayedEmployeeSkills">
-      <span class="skill-name">{{ skill.skill }}</span>
-      <div class="progress-bar">
-        <div
-          class="progress-fill"
-          [style.width.%]="(skill.level / 10) * 100"
-          [ngClass]="{ 'full-skill': skill.level === 10 }"
-        ></div>
-      </div>
-    </li>
-  </ul>
-  <ng-template #skillsSkeleton>
-    <ul class="skills-skeleton">
-      <li *ngFor="let _ of skillSkeletonRows">
-        <span class="skill-name skeleton-bar"></span>
-        <div class="progress-bar skeleton"></div>
-      </li>
-    </ul>
-  </ng-template>
-  <h3>
-    Salary: {{
-      displayedEmployee.salary | currency : "USD" : "symbol" : "1.0-0"
-    }}
-  </h3>
-  <div class="button-container">
-    <button class="hire-button" (click)="hireEmployee()" [disabled]="autoHiring">Hire</button>
-    <button (click)="prevResume()" [disabled]="currentIndex === 0 || autoHiring">
-      Previous
-    </button>
-    <button
-      (click)="nextResume()"
-      [disabled]="currentIndex === employees.length - 1 || autoHiring"
-    >
-      Next
-    </button>
-  </div>
-  <div class="bottom-container">
-    <div class="bottom-bar">
-      <div class="roles">
-        <div
-          class="role"
-          *ngFor="let role of visibleRoles"
-          [class.clickable]="roleSelectionEnabled"
-          (click)="selectRole(role.title)"
-        >
-          {{ role.title }} ({{ role.openings }})
+      <div class="identity">
+        <h1>{{ displayedEmployee.name }}</h1>
+        <div class="subline">
+          <h2>{{ displayedEmployee.title }}</h2>
         </div>
       </div>
+    </div>
+    <p>{{ displayedEmployee.personality }}</p>
+    <ul *ngIf="!skillsLoading; else skillsSkeleton">
+      <li *ngFor="let skill of displayedEmployeeSkills">
+        <span class="skill-name">{{ skill.skill }}</span>
+        <div class="progress-bar">
+          <div
+            class="progress-fill"
+            [style.width.%]="(skill.level / 10) * 100"
+            [ngClass]="{ 'full-skill': skill.level === 10 }"
+          ></div>
+        </div>
+      </li>
+    </ul>
+    <ng-template #skillsSkeleton>
+      <ul class="skills-skeleton">
+        <li *ngFor="let _ of skillSkeletonRows">
+          <span class="skill-name skeleton-bar"></span>
+          <div class="progress-bar skeleton"></div>
+        </li>
+      </ul>
+    </ng-template>
+    <h3>
+      Salary: {{
+        displayedEmployee.salary | currency : "USD" : "symbol" : "1.0-0"
+      }}
+    </h3>
+    <div class="button-container">
+      <button class="hire-button" (click)="hireEmployee()" [disabled]="autoHiring">Hire</button>
+      <button (click)="prevResume()" [disabled]="currentIndex === 0 || autoHiring">
+        Previous
+      </button>
+      <button
+        (click)="nextResume()"
+        [disabled]="currentIndex === employees.length - 1 || autoHiring"
+      >
+        Next
+      </button>
+    </div>
+  </ng-container>
+  <ng-template #noResumes>
+    <div class="empty-resumes">
+      <span class="material-symbols-outlined">hourglass_empty</span>
+      <div class="empty-copy">No more resumes to review.</div>
+      <div class="empty-subcopy">Hire more people whenever you like.</div>
+    </div>
+  </ng-template>
+  <div class="bottom-container">
+    <div class="action-bar">
+      <button
+        *ngIf="hiredEmployees.length"
+        type="button"
+        class="current-employees-button"
+        (click)="openHiredOverlay()"
+      >
+        Current employees
+      </button>
       <button
         class="auto-hire-button"
         (click)="automateHiring()"
-        [disabled]="
-          autoHiring || !rolesWithOpenings.length || !employees.length
-        "
+        [disabled]="autoHiring || !employees.length"
       >
-        {{
-          autoHiring ? "Automating Hiring..." : "Automate Hiring Powered by AI"
-        }}
+        {{ autoHiring ? "Automating Hiring..." : "Automate Hiring Powered by AI" }}
       </button>
+      <button
+        type="button"
+        class="finish-button"
+        (click)="finishHiring()"
+        [disabled]="finishDisabled"
+        [title]="finishTooltip"
+      >
+        Finish
+      </button>
+    </div>
+  </div>
+  <div class="current-employees-overlay" *ngIf="showHiredOverlay">
+    <div class="overlay-backdrop" (click)="closeHiredOverlay()"></div>
+    <div class="overlay-panel" role="dialog" aria-modal="true">
+      <div class="overlay-header">
+        <div class="overlay-title">
+          <span class="material-symbols-outlined">groups</span>
+          Current employees
+        </div>
+        <button
+          type="button"
+          class="close-overlay"
+          (click)="closeHiredOverlay()"
+          aria-label="Close current employees"
+        >
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div class="overlay-content">
+        <div class="empty-state" *ngIf="!hiredEmployees.length">
+          You haven't hired anyone yet.
+        </div>
+        <div
+          class="employee-row"
+          *ngFor="let hire of hiredEmployees; trackBy: trackHire"
+        >
+          <div class="employee-meta">
+            <div class="employee-name">{{ hire.name }}</div>
+            <div class="employee-title">{{ hire.title }}</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>

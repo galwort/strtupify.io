@@ -25,6 +25,9 @@ export class UiStateService {
   private _inboxPreferredEmailId = new BehaviorSubject<string | null>(null);
   readonly inboxPreferredEmailId$ = this._inboxPreferredEmailId.asObservable();
 
+  private _blockerNotice = new BehaviorSubject<string | null>(null);
+  readonly blockerNotice$ = this._blockerNotice.asObservable();
+
   setShowCompanyProfile(show: boolean) {
     this._showCompanyProfile.next(show);
   }
@@ -55,5 +58,13 @@ export class UiStateService {
 
   setInboxPreferredEmail(emailId: string | null) {
     this._inboxPreferredEmailId.next(emailId);
+  }
+
+  showBlockerNotice(message: string) {
+    this._blockerNotice.next(message);
+  }
+
+  clearBlockerNotice() {
+    this._blockerNotice.next(null);
   }
 }

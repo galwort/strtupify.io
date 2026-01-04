@@ -107,6 +107,20 @@
     [companyId]="currentCompanyId"
   ></app-clock>
   <div
+    *ngIf="blockerNotice"
+    class="blocker-toast"
+    role="status"
+    aria-live="polite"
+  >
+    <span class="material-symbols-outlined">error</span>
+    <div class="message">
+      <div class="message-title">Task has blockers</div>
+      <ng-container *ngFor="let line of blockerNotice.split('\n')">
+        <div class="message-line">{{ line }}</div>
+      </ng-container>
+    </div>
+  </div>
+  <div
     *ngIf="newEmailToast"
     class="email-toast"
     (click)="openInbox(newEmailToast.id)"

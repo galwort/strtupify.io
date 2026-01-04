@@ -130,6 +130,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   private readonly workdayStartHour = 8;
   private readonly workdayEndHour = 17;
   dragHoverColumn: 'todo' | 'doing' | 'done' | null = null;
+  private blockerNoticeTimer: any = null;
 
   constructor(
     private ui: UiStateService,
@@ -242,6 +243,11 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     if (this.unsubCompany) this.unsubCompany();
     if (this.unsubEmployees) this.unsubEmployees();
     this.stopLocalClock();
+    if (this.blockerNoticeTimer) {
+      clearTimeout(this.blockerNoticeTimer);
+      this.blockerNoticeTimer = null;
+    }
+    this.ui.clearBlockerNotice();
     if (this.endgameSub) {
       try {
         this.endgameSub.unsubscribe();
@@ -770,7 +776,8 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       this.dragHoverColumn = null;
       return;
     }
-    if (this.canDrop(it, target)) {
+    const reason = this.dropBlockReason(it, target);
+    if (!reason) {
       this.dragHoverColumn = target;
     } else if (this.dragHoverColumn === target) {
       this.dragHoverColumn = null;
@@ -786,21 +793,26 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     this.dragHoverColumn = null;
   }
 
-  private canDrop(it: WorkItem, target: 'todo' | 'doing' | 'done'): boolean {
-    if (!it || !target) return false;
-    if (target === 'done' || it.status === 'done') return false;
-    if (target === it.status) return false;
+  private dropBlockReason(it: WorkItem, target: 'todo' | 'doing' | 'done'): string | null {
+    if (!it || !target) return 'Invalid move.';
+    if (target === 'done' || it.status === 'done') return 'Completed items cannot be moved.';
+    if (target === it.status) return 'Already in this column.';
     if (target === 'doing') {
-      if (!it.assignee_id) return false;
+      if (!it.assignee_id) return 'Assign this task before starting.';
       const emp = this.empById.get(it.assignee_id);
-      if (emp && isBurnedOut(emp.status)) return false;
-      const blockers = Array.isArray(it.blockers) ? it.blockers : [];
-      for (const bid of blockers) {
-        const b = this.items.find((x) => x.id === bid);
-        if (!b || b.status !== 'done') return false;
+      if (emp && isBurnedOut(emp.status)) return 'Assignee is burned out.';
+      const blockers = this.unresolvedBlockerTitles(it);
+      if (blockers.length) {
+        return blockers.length === 1
+          ? `Blocked by ${blockers[0]}.`
+          : `Blocked by ${blockers.join(', ')}.`;
       }
     }
-    return true;
+    return null;
+  }
+
+  private canDrop(it: WorkItem, target: 'todo' | 'doing' | 'done'): boolean {
+    return !this.dropBlockReason(it, target);
   }
 
   async onDrop(ev: DragEvent, target: 'todo' | 'doing' | 'done') {
@@ -811,7 +823,17 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     if (!id) return;
     const it = this.items.find((x) => x.id === id);
     if (!it) return;
-    if (!this.canDrop(it, target)) return;
+    const blockReason = this.dropBlockReason(it, target);
+    if (blockReason) {
+      if (target === 'doing') {
+        const blockers = this.unresolvedBlockerTitles(it);
+        if (blockers.length) {
+          const msg = blockers.join('\n');
+          this.showBlockerNotice(msg);
+        }
+      }
+      return;
+    }
     if (typeof this.simTime !== 'number' || !Number.isFinite(this.simTime)) return;
     const simTime = this.simTime;
     const ref = doc(db, `companies/${this.companyId}/workitems/${id}`);
@@ -1176,6 +1198,28 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
         // best-effort persistence
       }
     }
+  }
+
+  private unresolvedBlockerTitles(it: WorkItem): string[] {
+    const ids = Array.isArray(it.blockers) ? it.blockers : [];
+    if (!ids.length) return [];
+    const titles: string[] = [];
+    for (const id of ids) {
+      const b = this.items.find((x) => x.id === id);
+      if (!b || b.status === 'done') continue;
+      const t = this.titleById.get(id) || b.title || id;
+      titles.push(t);
+    }
+    return titles;
+  }
+
+  private showBlockerNotice(message: string): void {
+    this.ui.showBlockerNotice(message);
+    if (this.blockerNoticeTimer) clearTimeout(this.blockerNoticeTimer);
+    this.blockerNoticeTimer = setTimeout(() => {
+      this.ui.clearBlockerNotice();
+      this.blockerNoticeTimer = null;
+    }, 4000);
   }
 
   blockerTitle(it: WorkItem): string {

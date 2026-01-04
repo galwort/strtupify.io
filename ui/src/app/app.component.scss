@@ -173,3 +173,43 @@
   white-space: nowrap;
   opacity: 0.8;
 }
+
+.blocker-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 2000;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff4f4;
+  border: 1.5px solid #f5c2c7;
+  color: #9b1c1f;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  min-width: 260px;
+  max-width: 360px;
+  width: min(360px, 92vw);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+  pointer-events: auto;
+
+  .material-symbols-outlined {
+    font-size: 20px;
+  }
+
+  .message {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    line-height: 1.4;
+
+    .message-title {
+      font-weight: 800;
+    }
+
+    .message-line {
+      font-weight: 500;
+    }
+  }
+}

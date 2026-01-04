@@ -66,6 +66,7 @@ export class AppComponent implements OnDestroy {
     subject?: string;
     preview?: string;
   } | null = null;
+  blockerNotice: string | null = null;
   inboxCount = 0;
   private meAddress = '';
   private isAuthenticated = false;
@@ -153,6 +154,10 @@ export class AppComponent implements OnDestroy {
     });
     this.ui.calendarEnabled$.subscribe((enabled) => {
       this.calendarEnabled = enabled;
+    });
+    this.ui.blockerNotice$.subscribe((msg) => {
+      this.blockerNotice = msg;
+      this.cdr.detectChanges();
     });
 
     this.endgameSub = this.endgame.state$.subscribe((state) => {

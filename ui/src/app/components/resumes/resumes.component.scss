@@ -252,7 +252,6 @@
     padding: 0.75rem 1rem;
     border-radius: 6px;
     font-size: 1rem;
-    font-weight: 600;
     cursor: pointer;
     min-width: 170px;
   }
@@ -402,12 +401,7 @@
   .skeleton-bar,
   .avatar.loading,
   .progress-bar.skeleton {
-    background: linear-gradient(
-      90deg,
-      #f3f4f6 0%,
-      #e5e7eb 50%,
-      #f3f4f6 100%
-    );
+    background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%);
     background-size: 200% 100%;
     animation: resumeShimmer 1.2s ease-in-out infinite;
   }

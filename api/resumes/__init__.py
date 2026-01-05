@@ -154,7 +154,7 @@ def generate_avatar_filename(gender: str) -> str:
     is_female = normalized == "female"
     prefix = "f" if is_female else "m"
 
-    number = randint(0, 296) if is_female else randint(297, 514)
+    number = randint(1, 296) if is_female else randint(297, 514)
     padded_number = f"{number:06d}"
 
     glasses = "glasses0" if random() < 0.75 else f"glasses{randint(1, 3)}"
@@ -167,7 +167,7 @@ def generate_avatar_filename(gender: str) -> str:
 
 
 def generate_consultant_avatar_filename() -> str:
-    return f"consultants/consultant_{randint(0, 62)}"
+    return f"consultants/consultant_{randint(1, 62)}"
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:

@@ -191,20 +191,27 @@ export class ResumesComponent implements OnInit {
   }
 
   async automateHiring() {
-    if (
-      this.autoHiring ||
-      !this.companyId ||
-      !this.employees.length
-    )
+    if (this.autoHiring || !this.companyId) return;
+
+    const rolesToFill = this.roles
+      .filter((r) => r.openings > 0)
+      .map((r) => ({ ...r }));
+
+    if (!rolesToFill.length) {
+      this.finishHiring();
       return;
+    }
+
+    if (!this.employees.length) return;
+
     this.autoHiring = true;
     this.freezeDisplay = true;
     await this.syncDisplayedEmployee(this.currentIndex);
     this.freezeCurrentResume();
-    this.roleDisplaySnapshot = this.rolesWithOpenings.map((r) => ({ ...r }));
+    this.roleDisplaySnapshot = rolesToFill.map((r) => ({ ...r }));
     try {
       const available: Employee[] = [...this.employees];
-      for (const role of this.roles.filter((r) => r.openings > 0)) {
+      for (const role of rolesToFill) {
         while (role.openings > 0) {
           const best = this.findBestCandidateForRole(available, role);
           if (!best) break;
@@ -213,6 +220,10 @@ export class ResumesComponent implements OnInit {
           if (idx >= 0) available.splice(idx, 1);
         }
       }
+      this.roles = this.roles.map((role) => {
+        const updated = rolesToFill.find((r) => r.id === role.id);
+        return updated ? { ...role, openings: updated.openings } : role;
+      });
     } finally {
       this.autoHiring = false;
       if (this.currentIndex >= this.employees.length)
@@ -221,6 +232,7 @@ export class ResumesComponent implements OnInit {
       this.freezeDisplay = false;
       this.frozenEmployee = null;
       await this.syncDisplayedEmployee(this.currentIndex);
+      this.finishHiring();
     }
   }
 

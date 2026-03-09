@@ -1,43 +1,42 @@
 .resume-container {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: flex-start;
+  gap: 6px;
+  min-height: calc(100dvh - 40px);
   margin-bottom: 0;
   color: var(--theme-text);
-  min-height: calc(100vh - 40px);
-  position: relative;
-  gap: 6px;
 
   h1 {
+    margin: 0;
+    color: var(--theme-text);
     font-size: min(3rem, 12vw);
     font-weight: 700;
-    color: var(--theme-text);
-    margin: 0;
   }
 
   h2 {
+    margin: 0;
+    color: var(--theme-text);
     font-size: min(1.5rem, 8vw);
     font-weight: 600;
-    margin-top: 0;
-    margin-bottom: 0;
-    color: var(--theme-text);
   }
 
   .resume-header {
+    width: 100%;
     display: flex;
     align-items: center;
     gap: 12px;
-    width: 100%;
 
     .avatar {
       width: 78px;
       height: 78px;
-      border-radius: 50%;
-      background: rgba(63, 140, 255, 0.06);
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      border-radius: 50%;
+      background: rgba(63, 140, 255, 0.06);
       overflow: hidden;
 
       img {
@@ -86,45 +85,47 @@
   }
 
   h3 {
-    font-size: min(1rem, 6vw);
-    font-weight: 600;
     margin-top: 0;
     margin-bottom: 20px;
     color: var(--theme-text);
+    font-size: min(1rem, 6vw);
+    font-weight: 600;
   }
 
   p {
-    font-size: min(1rem, 6vw);
     margin-top: 0;
-    line-height: 1.5rem;
     color: var(--theme-text);
+    font-size: min(1rem, 6vw);
+    line-height: 1.5rem;
   }
 
   ul {
+    width: 100%;
     list-style: none;
     padding: 0;
     margin-bottom: 20px;
   }
 
   li {
-    display: flex;
-    align-items: center;
     margin-bottom: 10px;
+    display: grid;
+    grid-template-columns: minmax(130px, 220px) 1fr;
+    align-items: center;
+    gap: 12px;
   }
 
   .skill-name {
-    flex: 1;
+    width: 100%;
     color: var(--theme-text);
-    width: 200px;
   }
 
   .progress-bar {
-    width: 200px;
+    width: 100%;
     height: 20px;
-    background: white;
+    position: relative;
     border: 1.5px solid var(--theme-primary);
     border-radius: 10px;
-    position: relative;
+    background: #fff;
   }
 
   .progress-fill {
@@ -140,9 +141,9 @@
   }
 
   .skeleton-bar {
-    display: inline-block;
     width: 160px;
     height: 14px;
+    display: inline-block;
     border-radius: 8px;
   }
 
@@ -151,30 +152,29 @@
     overflow: hidden;
   }
 
-  .skills-skeleton {
-    li {
-      gap: 12px;
-    }
+  .skills-skeleton li {
+    gap: 12px;
   }
 
   .button-container {
-    display: flex;
     width: 100%;
-    margin-top: 20px;
+    display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    margin-top: 20px;
 
     button {
-      width: 150px;
+      width: min(170px, 100%);
+      min-height: 44px;
+      margin-right: 0;
       padding: 0.75rem;
-      background: var(--theme-primary);
-      color: white;
       border: 1.5px solid var(--theme-primary);
       border-radius: 4px;
+      background: var(--theme-primary);
+      color: #fff;
       font-size: 1rem;
       cursor: pointer;
       transition: background 0.3s;
-      margin-right: 8px;
     }
 
     button:disabled {
@@ -183,37 +183,37 @@
     }
 
     button:hover:not(:disabled) {
-      border: 1.5px solid var(--theme-accent);
+      border-color: var(--theme-accent);
       box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
     }
 
     .hire-button {
+      border-color: var(--theme-accent);
       background: var(--theme-accent);
-      border: 1.5px solid var(--theme-accent);
     }
   }
 
   .empty-resumes {
     width: 100%;
-    padding: 28px 16px;
-    border: 1.5px dashed #d1d5db;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.65);
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 6px;
+    padding: 28px 16px;
+    border: 1.5px dashed #d1d5db;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.65);
     color: var(--theme-text);
     text-align: center;
 
     .material-symbols-outlined {
-      font-size: 40px;
       color: var(--theme-primary);
+      font-size: 40px;
     }
 
     .empty-copy {
-      font-weight: 700;
       font-size: 1rem;
+      font-weight: 700;
     }
 
     .empty-subcopy {
@@ -223,37 +223,38 @@
   }
 
   .bottom-container {
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 0;
     margin-top: auto;
-    width: 100%;
   }
 
   .action-bar {
+    width: 100%;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     flex-wrap: wrap;
     gap: 10px;
+    margin: 0 auto;
     padding: 12px 14px;
     border: 1.5px solid var(--theme-primary);
     border-radius: 8px;
-    min-width: 260px;
-    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
     background: rgba(255, 255, 255, 0.9);
-    margin: 0 auto;
-    width: auto;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
   }
 
   .current-employees-button,
   .auto-hire-button,
   .finish-button {
+    min-width: 170px;
+    min-height: 44px;
     padding: 0.75rem 1rem;
     border-radius: 6px;
     font-size: 1rem;
     cursor: pointer;
-    min-width: 170px;
   }
 
   .current-employees-button {
@@ -272,8 +273,8 @@
     &:disabled {
       opacity: 0.6;
       cursor: not-allowed;
-      background: #d5d7dc;
       border-color: #d5d7dc;
+      background: #d5d7dc;
       color: #4b5563;
       box-shadow: none;
     }
@@ -288,8 +289,8 @@
     &:disabled {
       opacity: 0.6;
       cursor: not-allowed;
-      background: #d5d7dc;
       border-color: #d5d7dc;
+      background: #d5d7dc;
       color: #4b5563;
       box-shadow: none;
     }
@@ -298,10 +299,10 @@
   .current-employees-overlay {
     position: fixed;
     inset: 0;
+    z-index: 999;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 999;
   }
 
   .overlay-backdrop {
@@ -315,12 +316,12 @@
     margin-top: 0;
     width: min(640px, 92vw);
     max-height: 80vh;
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
   }
 
   .overlay-header {
@@ -336,8 +337,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-weight: 700;
     color: var(--theme-text);
+    font-weight: 700;
 
     .material-symbols-outlined {
       color: var(--theme-primary);
@@ -345,11 +346,11 @@
   }
 
   .overlay-content {
-    padding: 12px 14px;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 10px;
+    padding: 12px 14px;
+    overflow-y: auto;
   }
 
   .employee-row {
@@ -369,8 +370,8 @@
   }
 
   .employee-name {
-    font-weight: 700;
     color: #111;
+    font-weight: 700;
   }
 
   .employee-title {
@@ -380,21 +381,21 @@
 
   .empty-state {
     padding: 10px 0;
-    text-align: center;
     color: #555;
+    text-align: center;
   }
 
   .close-overlay {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    color: #6b7280;
     padding: 6px;
+    border: none;
     border-radius: 6px;
+    background: transparent;
+    color: #6b7280;
+    cursor: pointer;
 
     &:hover {
-      background: rgba(0, 0, 0, 0.05);
       color: var(--theme-primary);
+      background: rgba(0, 0, 0, 0.05);
     }
   }
 
@@ -411,10 +412,45 @@
   }
 }
 
+@media (max-width: 900px) {
+  .resume-container {
+    min-height: auto;
+
+    li {
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+
+    .button-container {
+      button {
+        flex: 1 1 120px;
+      }
+    }
+
+    .action-bar {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .current-employees-button,
+    .auto-hire-button,
+    .finish-button {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .overlay-panel {
+      width: min(640px, 96vw);
+      max-height: 88dvh;
+    }
+  }
+}
+
 @keyframes resumeShimmer {
   0% {
     background-position: 200% 0;
   }
+
   100% {
     background-position: -200% 0;
   }

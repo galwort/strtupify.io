@@ -1,1 +1,13 @@
-﻿
+.page-container {
+  margin-left: var(--app-sidebar-width);
+  padding: 16px;
+  padding-bottom: calc(
+    16px + var(--app-bottom-nav-height) + env(safe-area-inset-bottom)
+  );
+}
+
+@media (max-width: 900px) {
+  .page-container {
+    margin-left: 0;
+  }
+}

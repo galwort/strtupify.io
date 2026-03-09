@@ -61,7 +61,7 @@
           <div
             class="card"
             *ngFor="let it of todo"
-            draggable="true"
+            [attr.draggable]="touchMode ? null : 'true'"
             (dragstart)="onDragStart($event, it)"
             (dragend)="onDragEnd()"
           >
@@ -72,6 +72,22 @@
             <ng-container *ngTemplateOutlet="assignSelect; context: { $implicit: it }"></ng-container>
             <div class="blockers" [attr.title]="blockerTitle(it)">Blockers: {{ remainingBlockers(it) }}</div>
             <div class="card-desc">{{ it.description }}</div>
+            <div class="mobile-move" *ngIf="touchMode">
+              <button
+                type="button"
+                (click)="moveItemTo(it, 'todo')"
+                [disabled]="!canMoveTo(it, 'todo')"
+              >
+                Do
+              </button>
+              <button
+                type="button"
+                (click)="moveItemTo(it, 'doing')"
+                [disabled]="!canMoveTo(it, 'doing')"
+              >
+                Doing
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -91,7 +107,7 @@
           <div
             class="card doing"
             *ngFor="let it of doing"
-            draggable="true"
+            [attr.draggable]="touchMode ? null : 'true'"
             (dragstart)="onDragStart($event, it)"
             (dragend)="onDragEnd()"
           >
@@ -106,6 +122,22 @@
             </div>
             <div class="blockers" [attr.title]="blockerTitle(it)">Blockers: {{ remainingBlockers(it) }}</div>
             <div class="card-desc">{{ it.description }}</div>
+            <div class="mobile-move" *ngIf="touchMode">
+              <button
+                type="button"
+                (click)="moveItemTo(it, 'todo')"
+                [disabled]="!canMoveTo(it, 'todo')"
+              >
+                Do
+              </button>
+              <button
+                type="button"
+                (click)="moveItemTo(it, 'doing')"
+                [disabled]="!canMoveTo(it, 'doing')"
+              >
+                Doing
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -124,7 +156,6 @@
           <div
             class="card done"
             *ngFor="let it of done"
-            [attr.draggable]="false"
           >
             <div class="card-header">
               <div class="card-title">{{ it.title }}</div>

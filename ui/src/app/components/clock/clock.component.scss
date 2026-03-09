@@ -1,6 +1,6 @@
 .clock {
   position: fixed;
-  bottom: 20px;
+  bottom: max(20px, env(safe-area-inset-bottom));
   right: 20px;
   background: #fff;
   color: var(--theme-text);
@@ -31,5 +31,20 @@
   .clock-time {
     font-size: 17px;
     font-weight: 600;
+  }
+}
+
+@media (max-width: 900px) {
+  .clock {
+    right: 10px;
+    bottom: calc(
+      var(--app-bottom-nav-height) + env(safe-area-inset-bottom) + 10px
+    );
+    padding: 5px 10px;
+    font-size: 13px;
+
+    .clock-time {
+      font-size: 15px;
+    }
   }
 }

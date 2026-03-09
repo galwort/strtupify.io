@@ -27,6 +27,13 @@
   transition: width 0.3s ease;
 }
 
+@media (max-width: 900px) {
+  .progress-bar {
+    width: 100%;
+    max-width: 420px;
+  }
+}
+
 .status-text {
   margin-top: 12px;
   opacity: 0.75;

@@ -3,6 +3,9 @@
   flex-direction: column;
   gap: 12px;
   padding: 24px;
+  padding-bottom: calc(
+    24px + var(--app-bottom-nav-height) + env(safe-area-inset-bottom)
+  );
   color: var(--theme-text);
 }
 
@@ -34,3 +37,15 @@
   margin: 0;
 }
 
+@media (max-width: 900px) {
+  .profile-container {
+    padding: 16px;
+    padding-bottom: calc(
+      16px + var(--app-bottom-nav-height) + env(safe-area-inset-bottom)
+    );
+  }
+
+  .name {
+    font-size: 24px;
+  }
+}

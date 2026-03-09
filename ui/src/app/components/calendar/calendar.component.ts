@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
+import { Component, HostListener, Input, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { initializeApp, getApps } from 'firebase/app';
@@ -96,8 +96,13 @@ export class CalendarComponent implements OnInit, OnDestroy {
   lastEarnedPoints: number | null = null;
   isSubmitting = false;
   timeTicks: string[] = [];
+  timeOptions: Array<{ minutes: number; label: string }> = [];
   calendarLocked = false;
   showSubmittedOverlay = false;
+  manualMoveDayIndex: number | null = null;
+  manualMoveStartMinutes: number | null = null;
+  manualMoveError = '';
+  touchMode = false;
   private calendarSubmittedWeekStart: number | null = null;
   private storedWeekStart: number | null = null;
   private storedMeetings: CalendarMeeting[] = [];
@@ -117,6 +122,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
   dragPreview: DragPreview | null = null;
 
   ngOnInit(): void {
+    this.updateTouchMode();
     this.buildTimeSlots();
     if (!this.companyId) return;
     this.subscribeToCompany();
@@ -132,6 +138,39 @@ export class CalendarComponent implements OnInit, OnDestroy {
     return this.meetings.filter((m) => m.owner === 'me');
   }
 
+  get selectedUserMeeting(): CalendarMeeting | null {
+    if (!this.selectedMeetingId) return null;
+    return this.userMeetings.find((m) => m.id === this.selectedMeetingId) || null;
+  }
+
+  get availableStartOptions(): Array<{ minutes: number; label: string }> {
+    const selected = this.selectedUserMeeting;
+    if (!selected) return this.timeOptions;
+    const durationMinutes = Math.max(
+      30,
+      Math.round((selected.end - selected.start) / 60000)
+    );
+    const maxStart = Math.max(0, this.workMinutes - durationMinutes);
+    return this.timeOptions.filter((slot) => slot.minutes <= maxStart);
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.updateTouchMode();
+  }
+
+  private updateTouchMode(): void {
+    if (typeof window === 'undefined') {
+      this.touchMode = false;
+      return;
+    }
+    const coarse =
+      typeof window.matchMedia === 'function'
+        ? window.matchMedia('(pointer: coarse)').matches
+        : false;
+    this.touchMode = coarse || window.innerWidth <= 900;
+  }
+
   toggleEmployee(id: string, checked: boolean): void {
     if (checked) this.selectedEmployees.add(id);
     else this.selectedEmployees.delete(id);
@@ -144,6 +183,8 @@ export class CalendarComponent implements OnInit, OnDestroy {
     this.selectedMeetingId = ev.id;
     this.statusMessage = '';
     this.statusError = '';
+    this.manualMoveError = '';
+    this.syncManualSelection();
   }
 
   get focusPointEstimate(): number {
@@ -351,6 +392,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
       this.computeFocusScore();
     }
     this.applyCalendarLock();
+    this.syncManualSelection();
   }
 
   private computeNextWeekStart(): Date | null {
@@ -383,10 +425,17 @@ export class CalendarComponent implements OnInit, OnDestroy {
 
   private buildTimeSlots(): void {
     this.timeTicks = [];
+    this.timeOptions = [];
     for (let h = this.workdayStartHour; h < this.workdayEndHour; h++) {
       const am = h < 12;
       const base = h % 12 === 0 ? 12 : h % 12;
       this.timeTicks.push(`${base} ${am ? 'AM' : 'PM'}`);
+    }
+    for (let minutes = 0; minutes <= this.workMinutes - 30; minutes += 30) {
+      this.timeOptions.push({
+        minutes,
+        label: this.formatSlotLabel(minutes),
+      });
     }
   }
 
@@ -609,6 +658,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
   }
 
   onMeetingDragStart(event: DragEvent, meeting: VisualMeeting): void {
+    if (this.touchMode) return;
     if (this.calendarLocked) return;
     if (meeting.owner !== 'me') return;
     this.draggingMeetingId = meeting.id;
@@ -625,6 +675,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
   }
 
   onDayDragOver(event: DragEvent, dayIndex: number): void {
+    if (this.touchMode) return;
     if (this.calendarLocked) return;
     if (!this.draggingMeetingId) return;
     const meeting = this.meetings.find(
@@ -658,6 +709,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
   }
 
   onDayDragLeave(_: DragEvent, dayIndex: number): void {
+    if (this.touchMode) return;
     if (this.calendarLocked) return;
     if (this.dragPreview && this.dragPreview.dayIndex === dayIndex) {
       this.dragPreview = null;
@@ -665,6 +717,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
   }
 
   onDayDrop(event: DragEvent, dayIndex: number): void {
+    if (this.touchMode) return;
     if (this.calendarLocked) return;
     if (!this.draggingMeetingId) return;
     event.preventDefault();
@@ -694,6 +747,60 @@ export class CalendarComponent implements OnInit, OnDestroy {
     this.draggingMeetingId = null;
     this.recomputeVisuals();
     this.computeFocusScore();
+    this.syncManualSelection();
+  }
+
+  applyManualMove(): void {
+    if (this.calendarLocked) return;
+    const meeting = this.selectedUserMeeting;
+    if (!meeting) {
+      this.manualMoveError = 'Select one of your meetings first.';
+      return;
+    }
+    if (
+      this.manualMoveDayIndex === null ||
+      this.manualMoveStartMinutes === null
+    ) {
+      this.manualMoveError = 'Choose a day and time.';
+      return;
+    }
+    const dayIndex = Number(this.manualMoveDayIndex);
+    const startMinutes = Number(this.manualMoveStartMinutes);
+    if (
+      !Number.isFinite(dayIndex) ||
+      dayIndex < 0 ||
+      dayIndex > 4 ||
+      !Number.isFinite(startMinutes)
+    ) {
+      this.manualMoveError = 'Invalid reschedule slot.';
+      return;
+    }
+
+    const durationMs = Math.max(30 * 60000, meeting.end - meeting.start);
+    const dayStart = this.dayStartMs(dayIndex);
+    const dayEnd = dayStart + this.workMinutes * 60000;
+    const startMs = dayStart + startMinutes * 60000;
+    const endMs = startMs + durationMs;
+    if (endMs > dayEnd) {
+      this.manualMoveError = 'Selected time is outside work hours.';
+      return;
+    }
+
+    const conflicts = this.overlappingConflicts(meeting, dayIndex, startMs, endMs);
+    if (conflicts.length) {
+      this.manualMoveError = `Can't move: overlaps with ${this.conflictSummary(
+        conflicts
+      )}`;
+      return;
+    }
+
+    this.updateMeetingTime(meeting, dayIndex, startMs, endMs);
+    this.manualMoveError = '';
+    this.statusError = '';
+    this.statusMessage = '';
+    this.recomputeVisuals();
+    this.computeFocusScore();
+    this.syncManualSelection();
   }
 
   private layoutDay(events: VisualMeeting[]): VisualMeeting[] {
@@ -965,11 +1072,34 @@ export class CalendarComponent implements OnInit, OnDestroy {
     const userList = this.userMeetings;
     if (!userList.length) {
       this.selectedMeetingId = null;
+      this.syncManualSelection();
       return;
     }
     const existing = userList.find((m) => m.id === this.selectedMeetingId);
     const pick = existing || userList[0];
     this.selectedMeetingId = pick.id;
+    this.syncManualSelection();
+  }
+
+  private syncManualSelection(): void {
+    const selected = this.selectedUserMeeting;
+    if (!selected) {
+      this.manualMoveDayIndex = null;
+      this.manualMoveStartMinutes = null;
+      return;
+    }
+    this.manualMoveDayIndex = selected.dayIndex;
+    const minutes = Math.max(
+      0,
+      Math.round((selected.start - this.dayStartMs(selected.dayIndex)) / 60000)
+    );
+    const durationMinutes = Math.max(
+      30,
+      Math.round((selected.end - selected.start) / 60000)
+    );
+    const maxStart = Math.max(0, this.workMinutes - durationMinutes);
+    const clamped = Math.max(0, Math.min(maxStart, minutes));
+    this.manualMoveStartMinutes = clamped;
   }
 
   private pickParticipants(count: number, rng: () => number): string[] {
@@ -1052,6 +1182,15 @@ export class CalendarComponent implements OnInit, OnDestroy {
 
   private pad(num: number): string {
     return num < 10 ? `0${num}` : `${num}`;
+  }
+
+  private formatSlotLabel(minutesFromStart: number): string {
+    const totalMinutes = this.workdayStartHour * 60 + minutesFromStart;
+    const hour24 = Math.floor(totalMinutes / 60);
+    const minute = totalMinutes % 60;
+    const suffix = hour24 >= 12 ? 'PM' : 'AM';
+    const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+    return `${hour12}:${this.pad(minute)} ${suffix}`;
   }
 
   private formatTimeValue(ms: number): string {

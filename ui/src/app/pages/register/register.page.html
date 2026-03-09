@@ -1,67 +1,66 @@
-<body>
-  <div class="container">
-    <div class="login-section">
-      <h1><b>Create account</b></h1>
-      <p>
-        Already have an account?
-        <a [routerLink]="['/login']" aria-label="Login">Login</a>
-      </p>
-      <form class="login-form" (ngSubmit)="register()">
-        <div class="form-group">
-          <label for="username">Username</label>
-          <input
-            type="text"
-            id="username"
-            name="username"
-            [(ngModel)]="username"
-            autocomplete="username"
-            required
-          />
-        </div>
-        <div class="form-group">
-          <label for="email">Email</label>
-          <input
-            type="email"
-            id="email"
-            name="email"
-            [(ngModel)]="email"
-            autocomplete="email"
-            required
-          />
-        </div>
-        <div class="form-group">
-          <label for="password">Password</label>
-          <input
-            type="password"
-            id="password"
-            name="password"
-            [(ngModel)]="password"
-            autocomplete="new-password"
-            required
-          />
-        </div>
-        <div class="checkbox-group">
-          <input type="checkbox" id="terms" />
-          <label for="terms"
-            >I agree to the
-            <a
-              href="https://termify.io/generate-terms-and-conditions"
-              target="_blank"
-              >Terms of Service</a
-            >
-          </label>
-        </div>
-        <div class="checkbox-group">
-          <input type="checkbox" id="newsletter" checked />
-          <label for="newsletter">Sign up for the daily newsletter</label>
-        </div>
-        <p *ngIf="errorMessage" class="error">{{ errorMessage }}</p>
+<div class="container">
+  <div class="login-section">
+    <h1><b>Create account</b></h1>
+    <p>
+      Already have an account?
+      <a [routerLink]="['/login']" aria-label="Login">Login</a>
+    </p>
+    <form class="login-form" (ngSubmit)="register()">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input
+          type="text"
+          id="username"
+          name="username"
+          [(ngModel)]="username"
+          autocomplete="username"
+          required
+        />
+      </div>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          [(ngModel)]="email"
+          autocomplete="email"
+          required
+        />
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input
+          type="password"
+          id="password"
+          name="password"
+          [(ngModel)]="password"
+          autocomplete="new-password"
+          required
+        />
+      </div>
+      <div class="checkbox-group">
+        <input type="checkbox" id="terms" />
+        <label for="terms"
+          >I agree to the
+          <a
+            href="https://termify.io/generate-terms-and-conditions"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Terms of Service</a
+          >
+        </label>
+      </div>
+      <div class="checkbox-group">
+        <input type="checkbox" id="newsletter" checked />
+        <label for="newsletter">Sign up for the daily newsletter</label>
+      </div>
+      <p *ngIf="errorMessage" class="error">{{ errorMessage }}</p>
 
-        <button type="submit" class="login-btn" [disabled]="isSubmitting">
-          Start your strtupify.io journey
-        </button>
-      </form>
-    </div>
-    <div class="graphic-section"></div>
+      <button type="submit" class="login-btn" [disabled]="isSubmitting">
+        Start your strtupify.io journey
+      </button>
+    </form>
   </div>
-</body>
+  <div class="graphic-section"></div>
+</div>

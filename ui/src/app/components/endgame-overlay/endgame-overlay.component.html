@@ -18,10 +18,11 @@
           [style.left.%]="btnLeft"
           [style.top.%]="btnTop"
           (mouseenter)="nudge()"
+          (touchstart)="nudge()"
           (focus)="nudge()"
           (click)="clickReset()"
         >
-          {{ resetting ? "Resetting…" : "Reset system" }}
+          {{ resetting ? "Resetting..." : "Reset system" }}
         </button>
       </div>
       <div class="hint" aria-live="polite">{{ hint }}</div>

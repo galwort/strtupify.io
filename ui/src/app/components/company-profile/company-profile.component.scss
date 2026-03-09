@@ -16,37 +16,37 @@
 .logo {
   width: 120px;
   height: 120px;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: white;
   border: 1px solid var(--theme-primary);
   border-radius: 8px;
-  position: relative;
+  background: #fff;
 }
 
 .logo .material-symbols-outlined {
-  font-size: 96px;
   color: var(--theme-primary);
+  font-size: 96px;
 }
 
 .name {
+  margin: 0;
   font-size: 28px;
   font-weight: 700;
-  margin: 0;
 }
 
 .description {
+  margin: 0;
   font-size: 16px;
   line-height: 1.6;
-  margin: 0;
 }
 
 .section {
   margin-top: 8px;
   border: 1.5px solid #e0e0e0;
   border-radius: 8px;
-  background: white;
+  background: #fff;
 }
 
 .section .row {
@@ -55,16 +55,20 @@
   padding: 10px 12px;
   border-bottom: 1px dashed #eee;
 }
+
 .section .row:last-child {
   border-bottom: none;
 }
+
 .section .row.header {
   background: #f9fafb;
   font-weight: 600;
 }
+
 .section .label {
   color: #555;
 }
+
 .section .value {
   color: #111;
   font-weight: 600;
@@ -76,17 +80,21 @@
   gap: 8px;
   padding: 10px 12px;
 }
+
 .person .material-symbols-outlined {
   color: var(--theme-primary);
 }
+
 .person .meta {
   display: flex;
   flex-direction: column;
 }
+
 .person .meta .n {
-  font-weight: 600;
   color: #111;
+  font-weight: 600;
 }
+
 .person .meta .t {
   color: #555;
   font-size: 13px;
@@ -96,30 +104,33 @@
   position: absolute;
   top: 6px;
   right: 6px;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
   border: none;
+  border-radius: 50%;
+  background: #fff;
   color: var(--theme-primary);
   cursor: pointer;
   opacity: 0;
   transform: translateY(-2px);
   transition: opacity 0.15s ease, transform 0.15s ease, color 0.15s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
 .edit-icon .material-symbols-outlined {
-  font-size: 18px;
   color: currentColor;
+  font-size: 18px;
 }
 
 .edit-icon:hover {
   color: var(--theme-accent);
 }
 
-.logo:hover .edit-icon {
+.logo:hover .edit-icon,
+.logo:focus-within .edit-icon {
   opacity: 1;
   transform: translateY(0);
 }
@@ -128,15 +139,15 @@
   margin-top: 8px;
   border: 1.5px solid #e0e0e0;
   border-radius: 8px;
-  background: white;
+  background: #fff;
 }
 
 .icon-grid {
+  max-height: 320px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 8px;
   padding: 12px;
-  max-height: 320px;
   overflow: auto;
 }
 
@@ -146,9 +157,9 @@
   align-items: center;
   gap: 6px;
   padding: 8px;
-  background: #fff;
   border: 1px solid #eee;
   border-radius: 6px;
+  background: #fff;
   cursor: pointer;
 }
 
@@ -158,13 +169,13 @@
 }
 
 .icon-tile .material-symbols-outlined {
-  font-size: 28px;
   color: var(--theme-primary);
+  font-size: 28px;
 }
 
 .icon-tile .name {
-  font-size: 12px;
   color: #555;
+  font-size: 12px;
 }
 
 .picker-overlay {
@@ -172,8 +183,8 @@
   top: 0;
   right: 0;
   bottom: 0;
-  left: 50px; /* sidebar width */
-  z-index: 999;
+  left: var(--app-sidebar-width);
+  z-index: 1600;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -187,15 +198,14 @@
 
 .picker-panel {
   position: relative;
-  margin-top: 0;
   width: min(960px, 94vw);
   max-height: 80vh;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
 }
 
 .picker-header {
@@ -209,13 +219,14 @@
 
 .picker-header input {
   flex: 1;
+  height: 40px;
+  padding: 6px 10px;
   border: 1.5px solid var(--theme-primary);
   border-radius: 6px;
-  padding: 6px 10px;
+  box-sizing: border-box;
   background: #fff;
   color: var(--theme-text);
-  height: 40px;
-  box-sizing: border-box;
+  font-size: 16px;
 }
 
 .picker-header input::placeholder {
@@ -241,8 +252,8 @@
 }
 
 .loading-text {
-  font-size: 13px;
   color: #444;
+  font-size: 13px;
 }
 
 .error-inline {
@@ -252,16 +263,16 @@
 }
 
 .brand-colors {
-  padding: 12px;
-  border-top: 1px solid #eee;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding: 12px;
+  border-top: 1px solid #eee;
 }
 
 .brand-colors__title {
-  font-weight: 700;
   color: #111;
+  font-weight: 700;
 }
 
 .brand-colors__inputs {
@@ -281,17 +292,8 @@
 
 .color-error {
   padding: 0 0 4px;
-  font-weight: 600;
   color: #c0392b;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  font-weight: 600;
 }
 
 .actions {
@@ -302,24 +304,91 @@
   border-top: 1px solid #eee;
 }
 
+.actions .primary,
+.actions .secondary {
+  min-height: 40px;
+  padding: 6px 12px;
+  border-radius: 6px;
+}
+
 .actions .primary {
+  border: 1.5px solid var(--theme-primary);
   background: var(--theme-primary);
   color: #fff;
-  border: 1.5px solid var(--theme-primary);
-  border-radius: 6px;
-  padding: 6px 12px;
 }
 
 .actions .secondary {
+  border: 1.5px solid #ccc;
   background: #fff;
   color: var(--theme-text);
-  border: 1.5px solid #ccc;
-  border-radius: 6px;
-  padding: 6px 12px;
 }
 
 .no-results {
   padding: 12px;
-  text-align: center;
   color: #666;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .profile-container {
+    padding: 12px;
+  }
+
+  .logo {
+    width: 100px;
+    height: 100px;
+  }
+
+  .logo .material-symbols-outlined {
+    font-size: 76px;
+  }
+
+  .edit-icon {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .section .row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .picker-overlay {
+    left: 0;
+  }
+
+  .picker-panel {
+    width: min(960px, 96vw);
+    max-height: 88dvh;
+  }
+
+  .icon-grid {
+    grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+    max-height: 38dvh;
+  }
+
+  .brand-colors__inputs input[type='color'] {
+    width: 72px;
+    height: 44px;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .actions .primary,
+  .actions .secondary {
+    width: 100%;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }

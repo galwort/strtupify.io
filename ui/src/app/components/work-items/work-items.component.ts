@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
+import { Component, HostListener, Input, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { initializeApp, getApps } from 'firebase/app';
 import { Subscription } from 'rxjs';
@@ -130,6 +130,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   private readonly workdayStartHour = 8;
   private readonly workdayEndHour = 17;
   dragHoverColumn: 'todo' | 'doing' | 'done' | null = null;
+  touchMode = false;
   private blockerNoticeTimer: any = null;
 
   constructor(
@@ -139,6 +140,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.updateTouchMode();
     if (!this.companyId) return;
 
     this.endgame.setCompany(this.companyId);
@@ -236,6 +238,23 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
 
     this.subscribeToHires();
     void this.ensureProductInfo();
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.updateTouchMode();
+  }
+
+  private updateTouchMode(): void {
+    if (typeof window === 'undefined') {
+      this.touchMode = false;
+      return;
+    }
+    const coarse =
+      typeof window.matchMedia === 'function'
+        ? window.matchMedia('(pointer: coarse)').matches
+        : false;
+    this.touchMode = coarse || window.innerWidth <= 900;
   }
 
   ngOnDestroy(): void {
@@ -760,12 +779,14 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   }
 
   onDragStart(ev: DragEvent, it: WorkItem) {
+    if (this.touchMode) return;
     this.draggingId = it.id;
     this.dragHoverColumn = null;
     if (ev.dataTransfer) ev.dataTransfer.setData('text/plain', it.id);
   }
 
   onDragOver(ev: DragEvent, target: 'todo' | 'doing' | 'done') {
+    if (this.touchMode) return;
     ev.preventDefault();
     if (!this.draggingId) {
       this.dragHoverColumn = null;
@@ -815,7 +836,16 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     return !this.dropBlockReason(it, target);
   }
 
+  canMoveTo(it: WorkItem, target: 'todo' | 'doing' | 'done'): boolean {
+    return this.canDrop(it, target);
+  }
+
+  async moveItemTo(it: WorkItem, target: 'todo' | 'doing' | 'done'): Promise<void> {
+    await this.updateItemStatus(it, target);
+  }
+
   async onDrop(ev: DragEvent, target: 'todo' | 'doing' | 'done') {
+    if (this.touchMode) return;
     ev.preventDefault();
     const id = (ev.dataTransfer && ev.dataTransfer.getData('text/plain')) || this.draggingId;
     this.draggingId = null;
@@ -823,6 +853,13 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     if (!id) return;
     const it = this.items.find((x) => x.id === id);
     if (!it) return;
+    await this.updateItemStatus(it, target);
+  }
+
+  private async updateItemStatus(
+    it: WorkItem,
+    target: 'todo' | 'doing' | 'done'
+  ): Promise<void> {
     const blockReason = this.dropBlockReason(it, target);
     if (blockReason) {
       if (target === 'doing') {
@@ -836,7 +873,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     }
     if (typeof this.simTime !== 'number' || !Number.isFinite(this.simTime)) return;
     const simTime = this.simTime;
-    const ref = doc(db, `companies/${this.companyId}/workitems/${id}`);
+    const ref = doc(db, `companies/${this.companyId}/workitems/${it.id}`);
     const workedMs = this.totalWorkedMs(it);
     const update: any = { status: target, worked_ms: workedMs };
     if (target === 'doing') {

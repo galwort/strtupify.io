@@ -26,6 +26,15 @@
 :root {
   --scrollbar-size: 10px;
   --scrollbar-radius: 8px;
+  --app-sidebar-width: 50px;
+  --app-bottom-nav-height: 0px;
+}
+
+@media (max-width: 900px) {
+  :root {
+    --app-sidebar-width: 0px;
+    --app-bottom-nav-height: 72px;
+  }
 }
 
 

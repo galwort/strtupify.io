@@ -5,12 +5,10 @@
   padding: 12px;
   color: var(--theme-text);
 
-  .header {
-    .title {
-      font-size: 40px;
-      font-weight: 600;
-      padding: 4px 0;
-    }
+  .header .title {
+    padding: 4px 0;
+    font-size: clamp(30px, 5vw, 40px);
+    font-weight: 600;
   }
 }
 
@@ -26,9 +24,9 @@
   padding: 16px;
   border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 6px;
-  text-align: center;
   background: #fff;
   color: rgba(0, 0, 0, 0.65);
+  text-align: center;
 }
 
 .focus-bank {
@@ -42,31 +40,31 @@
 
   .bank-top {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
     gap: 10px;
   }
 
   .bank-label {
-    font-weight: 600;
     font-size: 16px;
+    font-weight: 600;
   }
 
   .bank-sub {
-    font-size: 12px;
     color: rgba(0, 0, 0, 0.6);
+    font-size: 12px;
   }
 
   .bank-balance {
+    color: var(--theme-primary);
     font-size: 26px;
     font-weight: 700;
-    color: var(--theme-primary);
     white-space: nowrap;
   }
 
   .bank-status {
-    font-size: 13px;
     color: rgba(0, 0, 0, 0.7);
+    font-size: 13px;
 
     .error {
       color: #c24141;
@@ -98,11 +96,11 @@
     .avatar {
       width: 52px;
       height: 52px;
-      border-radius: 50%;
-      background: rgba(63, 140, 255, 0.06);
       display: flex;
       align-items: center;
       justify-content: center;
+      border-radius: 50%;
+      background: rgba(63, 140, 255, 0.06);
       overflow: hidden;
 
       img {
@@ -134,12 +132,12 @@
 
   .status {
     margin-left: auto;
-    font-size: 12px;
-    text-transform: uppercase;
-    font-weight: 600;
     padding: 2px 10px;
     border-radius: 999px;
     color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
 
     &.bandwidth {
       background: #f2c94c;
@@ -156,8 +154,8 @@
 }
 
 .subtitle {
-  font-size: 12px;
   color: rgba(0, 0, 0, 0.6);
+  font-size: 12px;
 }
 
 .description {
@@ -193,26 +191,26 @@
   }
 
   .label {
+    color: rgba(0, 0, 0, 0.6);
     font-size: 12px;
     text-transform: uppercase;
-    color: rgba(0, 0, 0, 0.6);
     letter-spacing: 0.02em;
   }
 
   .value {
-    font-weight: 600;
     color: var(--theme-text);
     font-size: 14px;
+    font-weight: 600;
   }
 }
 
 .progress-bar {
   width: 100%;
   height: 12px;
-  border-radius: 10px;
-  background: #ffffff;
-  border: 1.5px solid rgba(0, 0, 0, 0.12);
   position: relative;
+  border: 1.5px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  background: #fff;
 
   &.bandwidth {
     border-color: #f2c94c;
@@ -229,9 +227,9 @@
 
 .progress-fill {
   height: 100%;
-  background: var(--theme-primary, #3f8cff);
   border-top-left-radius: 10px;
   border-bottom-left-radius: 10px;
+  background: var(--theme-primary, #3f8cff);
   transition: width 0.3s ease;
 
   &.bandwidth {
@@ -259,14 +257,16 @@
 }
 
 .skills {
+  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  width: 100%;
   align-items: flex-start;
+  gap: 8px;
 }
 
 .skill-pill {
+  width: 100%;
+  max-width: 720px;
   display: grid;
   grid-template-columns: minmax(170px, 1fr) 1fr 60px 130px;
   align-items: center;
@@ -275,8 +275,6 @@
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 6px;
   background: #fff;
-  width: 100%;
-  max-width: 720px;
 }
 
 .skill-name {
@@ -285,43 +283,44 @@
   gap: 2px;
 
   .skill-label {
-    font-weight: 600;
     color: var(--theme-text);
+    font-weight: 600;
   }
 
   .skill-cost {
-    font-size: 12px;
     color: rgba(0, 0, 0, 0.6);
+    font-size: 12px;
   }
 }
 
 .skill-meter {
   width: 100%;
   height: 8px;
-  background: rgba(0, 0, 0, 0.04);
-  border-radius: 6px;
-  overflow: hidden;
   border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.04);
+  overflow: hidden;
 }
 
 .skill-fill {
   height: 100%;
-  background: var(--theme-primary, #3f8cff);
   border-radius: 6px;
+  background: var(--theme-primary, #3f8cff);
 }
 
 .skill-level {
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.7);
-  text-align: left;
   min-width: 40px;
+  color: rgba(0, 0, 0, 0.7);
+  font-size: 12px;
+  text-align: left;
 }
 
 .skill-upgrade {
   justify-self: end;
+  min-height: 40px;
   padding: 8px 12px;
-  border-radius: 6px;
   border: 1px solid var(--theme-primary);
+  border-radius: 6px;
   background: var(--theme-primary);
   color: #fff;
   font-weight: 600;
@@ -333,10 +332,49 @@
   }
 
   &:disabled {
+    border-color: rgba(0, 0, 0, 0.1);
     background: rgba(0, 0, 0, 0.08);
     color: rgba(0, 0, 0, 0.5);
-    border-color: rgba(0, 0, 0, 0.1);
     cursor: not-allowed;
     box-shadow: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .content-container {
+    padding: 8px 0;
+
+    .header .title {
+      padding: 4px 0;
+    }
+  }
+
+  .focus-bank .bank-top {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .card-head {
+    flex-direction: column;
+
+    .status {
+      margin-left: 0;
+    }
+  }
+
+  .skill-pill {
+    max-width: none;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .skill-level {
+    min-width: 0;
+  }
+
+  .skill-upgrade {
+    justify-self: stretch;
+    width: 100%;
+    min-height: 44px;
   }
 }

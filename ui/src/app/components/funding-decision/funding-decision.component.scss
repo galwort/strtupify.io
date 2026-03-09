@@ -2,62 +2,94 @@
   width: 100%;
   color: var(--theme-text);
 }
+
 .top {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 1.5rem;
 }
+
 .logo .material-symbols-outlined {
   font-size: 28px;
 }
+
 .company-name {
   font-size: 20px;
   font-weight: 600;
 }
+
 .status {
   margin-bottom: 0.5rem;
   font-size: 22px;
   font-weight: 600;
 }
+
 .status.approved {
   color: var(--theme-accent);
 }
+
 .status.rejected {
   color: var(--ion-color-danger);
 }
+
 .details {
   margin-bottom: 1.5rem;
 }
+
 .details p {
   margin: 6px 0;
 }
+
 .button-container {
-  display: flex;
   width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   padding-top: 20px;
 }
+
 .button-container button {
-  width: 300px;
+  width: min(300px, 100%);
+  min-height: 44px;
+  margin-right: 0;
   padding: 0.75rem;
-  background: var(--theme-primary);
-  color: white;
   border: 1.5px solid var(--theme-primary);
   border-radius: 4px;
+  background: var(--theme-primary);
+  color: #fff;
   font-size: 1rem;
   cursor: pointer;
   transition: background 0.3s;
-  margin-right: 8px;
 }
+
 .button-container button:hover {
-  border: 1.5px solid var(--theme-accent);
+  border-color: var(--theme-accent);
   box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
 }
-.button-container .accept-button {
-  background: var(--theme-accent);
-  border: 1.5px solid var(--theme-accent);
-}
+
+.button-container .accept-button,
 .button-container .ai-button {
+  border-color: var(--theme-accent);
   background: var(--theme-accent);
-  border: 1.5px solid var(--theme-accent);
+}
+
+@media (max-width: 900px) {
+  .top {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .status {
+    font-size: 20px;
+  }
+
+  .button-container {
+    flex-direction: column;
+  }
+
+  .button-container button {
+    width: 100%;
+  }
 }

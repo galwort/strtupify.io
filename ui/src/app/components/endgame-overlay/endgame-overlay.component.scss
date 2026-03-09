@@ -54,6 +54,7 @@
 .reset-btn {
   position: absolute;
   transform: translate(-50%, -50%);
+  min-height: 44px;
   padding: 0.75rem;
   background: var(--theme-primary);
   color: #fff;
@@ -84,4 +85,28 @@
   margin-top: 2px;
   font-size: 14px;
   color: rgba(255, 255, 255, 0.7);
+}
+
+@media (max-width: 900px) {
+  .content {
+    width: 92%;
+    gap: 12px;
+  }
+
+  .face {
+    font-size: 60px;
+  }
+
+  .headline {
+    font-size: 18px;
+  }
+
+  .button-field {
+    height: 180px;
+  }
+
+  .hint,
+  .footnote {
+    font-size: 13px;
+  }
 }

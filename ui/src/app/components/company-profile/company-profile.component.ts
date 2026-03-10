@@ -9,6 +9,7 @@ import { firstValueFrom } from 'rxjs';
 import { environment } from 'src/environments/environment';
 import { MATERIAL_ICONS, RESERVED_ICONS } from './icons';
 import { ThemeColors, ThemeColorKey, ThemeService } from '../../services/theme.service';
+import { FundingDecision, toFundingDecision } from 'src/app/models/funding-decision.model';
 
 const app = initializeApp(environment.firebase);
 const db = getFirestore(app);
@@ -37,7 +38,7 @@ export class CompanyProfileComponent implements OnInit {
   private searchToken = 0;
   private lastSearchText = '';
   private recommended: string[] = [];
-  funding: { approved: boolean; amount: number; grace_period_days: number; first_payment: number } | null = null;
+  funding: FundingDecision | null = null;
   foundedAt: string = '';
   hires: { id: string; name: string; title: string }[] = [];
   themeColors: ThemeColors;
@@ -62,16 +63,7 @@ export class CompanyProfileComponent implements OnInit {
     this.selectedIcon = this.logo;
     this.originalLogo = (data as any)?.original_logo || this.logo || '';
     const f = data?.funding || null;
-    if (f) {
-      this.funding = {
-        approved: !!f.approved,
-        amount: Number(f.amount || 0),
-        grace_period_days: Number(f.grace_period_days || 0),
-        first_payment: Number(f.first_payment || 0),
-      };
-    } else {
-      this.funding = null;
-    }
+    this.funding = f ? toFundingDecision(f) : null;
     this.foundedAt = data?.founded_at || '';
     const themeFromCompany = this.theme.extractFromCompany(data);
     this.themeColors = this.theme.normalizeTheme(themeFromCompany);

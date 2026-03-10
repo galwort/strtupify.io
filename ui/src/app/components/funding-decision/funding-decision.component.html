@@ -10,6 +10,9 @@
   <div class="status rejected" *ngIf="decision && !decision.approved">
     Loan Rejected
   </div>
+  <p class="rejection-reason" *ngIf="decision && !decision.approved && decision.reason">
+    {{ decision.reason }}
+  </p>
 
   <div class="details" *ngIf="decision?.approved">
     <p>

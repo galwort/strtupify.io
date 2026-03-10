@@ -19,8 +19,10 @@ def gen_funding(company_description):
     system_message = (
         "You are a startup loan officer. "
         + "Given a company description, decide whether to approve a loan and return a strict JSON object. "
-        + "Respond with keys: approved (boolean), amount (number), grace_period_days (integer), first_payment (number). "
-        + "If you cannot decide, set approved to false and other numbers to 0. "
+        + "Respond with keys: approved (boolean), amount (number), grace_period_days (integer), first_payment (number), reason (string). "
+        + "If approved is false, reason must be a concise sentence explaining the rejection. "
+        + "If approved is true, reason must be an empty string. "
+        + "If you cannot decide, set approved to false, the numeric fields to 0, and provide a rejection reason. "
         + "No prose, JSON only."
     )
 
@@ -51,6 +53,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         amount = float(data.get("amount", 0))
         grace_period_days = int(data.get("grace_period_days", 0))
         first_payment = float(data.get("first_payment", 0))
+        reason = str(data.get("reason", "") or "").strip()
+        if approved:
+            reason = ""
         return func.HttpResponse(
             dumps(
                 {
@@ -58,8 +63,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                     "amount": amount,
                     "grace_period_days": grace_period_days,
                     "first_payment": first_payment,
+                    "reason": reason,
                 }
             ),
             mimetype="application/json",
         )
-

@@ -19,6 +19,11 @@ import {
 import { environment } from 'src/environments/environment';
 import { firstValueFrom } from 'rxjs';
 import { getAuth } from 'firebase/auth';
+import {
+  FundingDecision,
+  rejectedFundingDecision,
+  toFundingDecision,
+} from 'src/app/models/funding-decision.model';
 
 export const app = initializeApp(environment.firebase);
 export const db = getFirestore(app);
@@ -35,7 +40,7 @@ export class ApplicationPage implements OnInit {
   companyDescription: string = '';
   showDecision = false;
   logoValue: string = '';
-  fundingDecision: { approved: boolean; amount: number; grace_period_days: number; first_payment: number } | null = null;
+  fundingDecision: FundingDecision | null = null;
   private pendingRoles: string[] = [];
   private originalApplicationText: string = '';
 
@@ -82,29 +87,19 @@ export class ApplicationPage implements OnInit {
       const jobsUrl = 'https://fa-strtupifyio.azurewebsites.net/api/jobs';
 
       const [funding, jobs] = await Promise.all([
-        firstValueFrom(this.http.post<any>(fundingUrl, { company_description: this.companyDescription })),
+        firstValueFrom(this.http.post<FundingDecision>(fundingUrl, { company_description: this.companyDescription })),
         firstValueFrom(this.http.post<any>(jobsUrl, { company_description: this.companyDescription })),
       ]);
 
-
       this.pendingRoles = Array.isArray(jobs?.jobs) ? jobs.jobs : [];
       const insufficientRoles = !this.pendingRoles || this.pendingRoles.length === 0;
-
-      const computedDecision = {
-        approved: !!funding?.approved && !insufficientRoles,
-        amount: Number(funding?.amount || 0),
-        grace_period_days: Number(funding?.grace_period_days || 0),
-        first_payment: Number(funding?.first_payment || 0),
-      };
-      if (insufficientRoles) {
-
-        computedDecision.approved = false;
-        computedDecision.amount = 0;
-        computedDecision.grace_period_days = 0;
-        computedDecision.first_payment = 0;
-      }
-
-      this.fundingDecision = computedDecision;
+      const computedDecision = toFundingDecision(funding);
+      this.fundingDecision =
+        insufficientRoles && computedDecision.approved
+          ? rejectedFundingDecision(
+              'We could not identify any initial hires needed to get this business off the ground.'
+            )
+          : computedDecision;
       this.showDecision = true;
     } catch (e) {
       this.presentErrorAlert('An unexpected error occurred. Please try again.');

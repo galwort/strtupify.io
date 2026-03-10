@@ -793,8 +793,15 @@ def llm_plan(
 ) -> List[Dict[str, object]]:
     sys = (
         "Create a comprehensive set of work items to deliver the proposed MVP end-to-end. "
-        "Return strict JSON {\"workitems\": [...]} where each item has title, description, assignee_name, category, complexity. "
+        "Return strict JSON {\"workitems\": [...]} where each item has title, description, assignee_name, category, complexity, blocker_orders. "
         "complexity is 1-5. Assign tasks to employees aligned with their titles/skills. "
+        "blocker_orders is an array of 1-based work item order numbers that must be completed first. "
+        f"The first {BLOCKER_MIN_FREE_PREFIX} work items must have an empty blocker_orders array. "
+        "About 30% of the returned work items should have blockers, give or take a few. "
+        "Most blocked items should have exactly one blocker. "
+        f"Never put more than {BLOCKER_MAX_PER_ITEM} blocker orders on a work item. "
+        "Only reference earlier work item order numbers. "
+        "Use blockers loosely for believable sequencing and pacing, not perfect dependency modeling. "
         "Ground the plan in the boardroom_history transcript. Include early revenue work if funding is a loan."
     )
     transcript = "\n".join(f"{h['speaker']}: {h['msg']}" for h in boardroom_history)
@@ -847,6 +854,8 @@ def llm_plan(
 WORK_START_HOUR = 10
 WORK_END_HOUR = 20
 WORK_HOURS_PER_DAY = WORK_END_HOUR - WORK_START_HOUR
+BLOCKER_MIN_FREE_PREFIX = 2
+BLOCKER_MAX_PER_ITEM = 2
 
 
 def align_to_work(hour: float) -> float:
@@ -857,6 +866,37 @@ def align_to_work(hour: float) -> float:
     if hour_in_day >= WORK_END_HOUR:
         return (day + 1) * 24 + WORK_START_HOUR
     return hour
+
+
+def map_blocker_orders(items: List[Dict[str, object]]) -> Dict[int, List[str]]:
+    blockers_by_idx: Dict[int, List[str]] = {idx: [] for idx in range(len(items))}
+    for idx, item in enumerate(items):
+        raw_orders = item.get("blocker_orders")
+        if raw_orders is None:
+            raw_orders = []
+        if not isinstance(raw_orders, list):
+            raise RuntimeError(f"Work item {idx + 1} blocker_orders must be a list")
+        if len(raw_orders) > BLOCKER_MAX_PER_ITEM:
+            raise RuntimeError(f"Work item {idx + 1} has too many blockers")
+        order_ids: List[str] = []
+        for raw_order in raw_orders:
+            try:
+                order = int(raw_order)
+            except (TypeError, ValueError):
+                raise RuntimeError(
+                    f"Work item {idx + 1} has invalid blocker order {raw_order}"
+                )
+            if order < 1 or order > idx:
+                raise RuntimeError(
+                    f"Work item {idx + 1} has invalid blocker order {raw_order}"
+                )
+            order_ids.append(str(items[order - 1]["id"]))
+        if len(order_ids) != len(set(order_ids)):
+            raise RuntimeError(f"Work item {idx + 1} has duplicate blocker orders")
+        if idx < BLOCKER_MIN_FREE_PREFIX and order_ids:
+            raise RuntimeError(f"Work item {idx + 1} must not have blockers")
+        blockers_by_idx[idx] = order_ids
+    return blockers_by_idx
 
 
 def add_work_hours(start_hour: float, hours: float) -> float:
@@ -1110,34 +1150,11 @@ def plan_work(
                 "category": category,
                 "assignee_name": assignee_name,
                 "complexity": complexity,
+                "blocker_orders": item.get("blocker_orders"),
             }
         )
 
-    def rank(cat: str) -> int:
-        c = cat.lower()
-        if any(k in c for k in ["foundation", "infra", "setup", "architecture"]):
-            return 1
-        if any(k in c for k in ["product", "design", "build", "engineering"]):
-            return 2
-        if any(k in c for k in ["qa", "testing", "analytics"]):
-            return 3
-        if any(k in c for k in ["marketing", "growth", "sales"]):
-            return 4
-        if any(k in c for k in ["launch", "release", "support"]):
-            return 5
-        return 2
-
-    blockers_by_idx: Dict[int, List[str]] = {}
-    for j, item in enumerate(normalized):
-        rj = rank(item["category"])
-        blockers: List[str] = []
-        for i in range(j):
-            prev = normalized[i]
-            if rank(prev["category"]) < rj:
-                blockers.append(prev["id"])
-            if len(blockers) >= 3:
-                break
-        blockers_by_idx[j] = blockers
+    blockers_by_idx = map_blocker_orders(normalized)
 
     emp_by_name = {e.name: e for e in employees}
     enriched: List[Dict[str, object]] = []

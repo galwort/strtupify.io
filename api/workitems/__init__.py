@@ -45,6 +45,8 @@ MIN_RATE = 0.1
 MAX_RATE = 5.0
 ASSIST_PROBABILITY = 0.1
 ASSIST_PROGRESS_MAX = 85
+BLOCKER_MIN_FREE_PREFIX = 2
+BLOCKER_MAX_PER_ITEM = 2
 
 logger = logging.getLogger("workitems_llm")
 
@@ -88,6 +90,34 @@ def _assist_trigger_value(
         return None
     pct = secrets.randbelow(ASSIST_PROGRESS_MAX) + 1
     return pct
+
+
+def _map_blocker_orders(
+    items: List[Dict[str, Any]], doc_ids: List[str]
+) -> Dict[int, List[str]]:
+    blockers_by_idx: Dict[int, List[str]] = {idx: [] for idx in range(len(items))}
+    for idx, item in enumerate(items):
+        raw_orders = item.get("blocker_orders")
+        if raw_orders is None:
+            raw_orders = []
+        if not isinstance(raw_orders, list):
+            raise ValueError(f"work item {idx + 1} blocker_orders must be a list")
+        if len(raw_orders) > BLOCKER_MAX_PER_ITEM:
+            raise ValueError(f"work item {idx + 1} has too many blockers")
+        order_numbers: List[int] = []
+        for raw_order in raw_orders:
+            order = _safe_int(raw_order, -1)
+            if order < 1 or order > idx:
+                raise ValueError(
+                    f"work item {idx + 1} has invalid blocker order {raw_order}"
+                )
+            order_numbers.append(order)
+        if len(order_numbers) != len(set(order_numbers)):
+            raise ValueError(f"work item {idx + 1} has duplicate blocker orders")
+        if idx < BLOCKER_MIN_FREE_PREFIX and order_numbers:
+            raise ValueError(f"work item {idx + 1} must not have blockers")
+        blockers_by_idx[idx] = [doc_ids[order - 1] for order in order_numbers]
+    return blockers_by_idx
 
 
 def _prepare_employees_for_rates(
@@ -390,8 +420,15 @@ def llm_plan(ctx):
     sys = (
         "Create a comprehensive set of work items to deliver the proposed MVP end to end. "
         "Return strict JSON with key 'workitems' as a list. Each item must have: "
-        "title, description, assignee_name, complexity. "
+        "title, description, assignee_name, complexity, blocker_orders. "
         "complexity is an integer 1 to 5. "
+        "blocker_orders is an array of 1-based work item order numbers that must be completed first. "
+        f"The first {BLOCKER_MIN_FREE_PREFIX} work items must have an empty blocker_orders array. "
+        "About 30% of the returned work items should have blockers, give or take a few. "
+        "Most blocked items should have exactly one blocker. "
+        f"Never put more than {BLOCKER_MAX_PER_ITEM} blocker orders on a work item. "
+        "Only reference earlier work item order numbers. "
+        "Use blockers loosely for believable sequencing and pacing, not perfect dependency modeling. "
         "Use employees names and titles to assign appropriately, matching skills and seniority. "
         "Cover cross functional needs. "
         "Ground the plan in the boardroom_history transcript so the tasks reflect the ideas, objections, and decisions the team discussed. "
@@ -474,6 +511,7 @@ def ensure_items(company, ctx, items, start_at):
                         "description": "Initialize repository, CI, and environments",
                         "assignee_name": e.get("name"),
                         "complexity": 2,
+                        "blocker_orders": [],
                     }
                 )
                 fallback.append(
@@ -482,6 +520,7 @@ def ensure_items(company, ctx, items, start_at):
                         "description": "Deliver the first user facing capability",
                         "assignee_name": e.get("name"),
                         "complexity": 4,
+                        "blocker_orders": [],
                     }
                 )
             elif "design" in title:
@@ -491,6 +530,7 @@ def ensure_items(company, ctx, items, start_at):
                         "description": "Create wireframes for primary flows",
                         "assignee_name": e.get("name"),
                         "complexity": 3,
+                        "blocker_orders": [],
                     }
                 )
             elif "product" in title:
@@ -500,6 +540,7 @@ def ensure_items(company, ctx, items, start_at):
                         "description": "Define MVP scope and acceptance criteria",
                         "assignee_name": e.get("name"),
                         "complexity": 2,
+                        "blocker_orders": [],
                     }
                 )
             elif "marketing" in title or "growth" in title:
@@ -509,6 +550,7 @@ def ensure_items(company, ctx, items, start_at):
                         "description": "Draft channels, messaging, and KPIs",
                         "assignee_name": e.get("name"),
                         "complexity": 3,
+                        "blocker_orders": [],
                     }
                 )
         items = fallback
@@ -531,6 +573,7 @@ def ensure_items(company, ctx, items, start_at):
                 "complexity": cx,
                 "assignee_name": nm,
                 "assignee_id": emp.get("id", ""),
+                "blocker_orders": wi.get("blocker_orders"),
             }
         )
 
@@ -550,15 +593,7 @@ def ensure_items(company, ctx, items, start_at):
     start_tid = reserve_tids(len(normalized)) if normalized else 0
     doc_ids = [str(start_tid + i) for i in range(len(normalized))]
 
-    blockers_by_idx = {}
-    for j, wj in enumerate(normalized):
-        blockers = []
-        for i in range(j):
-            wi = normalized[i]
-            blockers.append(doc_ids[i])
-            if len(blockers) >= 3:
-                break
-        blockers_by_idx[j] = blockers
+    blockers_by_idx = _map_blocker_orders(normalized, doc_ids)
     created_items: List[Dict[str, Any]] = []
     for idx, wi in enumerate(normalized):
         assignee_name = wi.get("assignee_name", "")

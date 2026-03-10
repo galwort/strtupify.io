@@ -120,7 +120,6 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   private assistFailureCooldownMs = 5 * 60 * 1000;
   private assistStartedSim = new Map<string, number>();
   private assistMinSimMs = 20_000;
-  private assistTriggerById = new Map<string, number | null>();
   private endgameStatus: EndgameStatus = 'idle';
   private endgameSub: Subscription | null = null;
   private companySnapshotSeen = false;
@@ -322,34 +321,8 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   }
 
   private getAssistTriggerPct(it: WorkItem): number | null {
-    if (!it || !it.id) return null;
-    const stored = this.parseAssistTrigger((it as any).assist_trigger_pct);
-    if (stored !== undefined) {
-      this.assistTriggerById.set(it.id, stored);
-      return stored;
-    }
-    if (this.assistTriggerById.has(it.id)) {
-      const cached = this.assistTriggerById.get(it.id);
-      return cached === undefined ? null : cached;
-    }
-    const derived = this.deriveAssistTrigger(it.id);
-    this.assistTriggerById.set(it.id, derived);
-    return derived;
-  }
-
-  private deriveAssistTrigger(workitemId: string): number | null {
-    if (!workitemId) return null;
-    const hash = this.simpleHash(workitemId);
-    const pct = (hash % this.assistProgressCeiling) + 1;
-    return pct;
-  }
-
-  private simpleHash(value: string): number {
-    let h = 0;
-    for (let i = 0; i < value.length; i++) {
-      h = (h * 31 + value.charCodeAt(i)) >>> 0;
-    }
-    return h;
+    const stored = this.parseAssistTrigger(it?.assist_trigger_pct);
+    return stored === undefined ? null : stored;
   }
 
   progress(it: WorkItem): number {
@@ -625,7 +598,6 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     const assigneeTitle = (assignee.title || '').trim();
     if (!assigneeName || !assigneeTitle) {
       console.warn('Skipping assistance email due to missing assignee identity', assignee);
-      this.assistTriggerById.set(it.id, null);
       this.assistFailedAt.set(it.id, Date.now());
       return;
     }
@@ -637,7 +609,6 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
         title: workTitle,
         descriptionLength: workDescription.length,
       });
-      this.assistTriggerById.set(it.id, null);
       this.assistFailedAt.set(it.id, Date.now());
       return;
     }
@@ -754,7 +725,6 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
       it.started_at = 0;
       it.worked_ms = totalWorked;
       this.partition();
-      if (targetPct !== null) this.assistTriggerById.set(it.id, targetPct);
       this.assistFailedAt.delete(it.id);
       this.assistStartedSim.delete(it.id);
     } catch (err) {
@@ -772,9 +742,6 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     }
     for (const id of Array.from(this.assistStartedSim.keys())) {
       if (!activeIds.has(id)) this.assistStartedSim.delete(id);
-    }
-    for (const id of Array.from(this.assistTriggerById.keys())) {
-      if (!activeIds.has(id)) this.assistTriggerById.delete(id);
     }
   }
 

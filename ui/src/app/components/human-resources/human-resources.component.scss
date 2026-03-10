@@ -286,11 +286,6 @@
     color: var(--theme-text);
     font-weight: 600;
   }
-
-  .skill-cost {
-    color: rgba(0, 0, 0, 0.6);
-    font-size: 12px;
-  }
 }
 
 .skill-meter {
@@ -304,8 +299,14 @@
 
 .skill-fill {
   height: 100%;
-  border-radius: 6px;
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
   background: var(--theme-primary, #3f8cff);
+
+  &.full-skill {
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+  }
 }
 
 .skill-level {
@@ -366,6 +367,23 @@
     max-width: none;
     grid-template-columns: 1fr;
     gap: 8px;
+  }
+
+  .skill-meter {
+    height: 20px;
+    border: 1.5px solid var(--theme-primary);
+    border-radius: 10px;
+    background: #fff;
+  }
+
+  .skill-fill {
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
+
+    &.full-skill {
+      border-top-right-radius: 10px;
+      border-bottom-right-radius: 10px;
+    }
   }
 
   .skill-level {

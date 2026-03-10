@@ -72,12 +72,13 @@
         <div class="skill-pill" *ngFor="let skill of emp.skills">
           <div class="skill-name">
             <div class="skill-label">{{ skill.name }}</div>
-            <div class="skill-cost" *ngIf="skill.level < 10">
-              {{ skillPointCost | number: '1.0-0' }} pts to add 1 level
-            </div>
           </div>
           <div class="skill-meter">
-            <div class="skill-fill" [style.width.%]="(skill.level / 10) * 100"></div>
+            <div
+              class="skill-fill"
+              [style.width.%]="(skill.level / 10) * 100"
+              [class.full-skill]="skill.level >= 10"
+            ></div>
           </div>
           <span class="skill-level">{{ skill.level }}/10</span>
           <button

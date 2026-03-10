@@ -25,7 +25,7 @@
   background: #fff;
 }
 
-.logo .material-symbols-outlined {
+.logo > .material-symbols-outlined {
   color: var(--theme-primary);
   font-size: 96px;
 }
@@ -339,7 +339,7 @@
     height: 100px;
   }
 
-  .logo .material-symbols-outlined {
+  .logo > .material-symbols-outlined {
     font-size: 76px;
   }
 

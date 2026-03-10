@@ -1,6 +1,6 @@
 import { Component, HostListener, OnDestroy } from '@angular/core';
 import { ChangeDetectorRef } from '@angular/core';
-import { Router } from '@angular/router';
+import { NavigationEnd, Router } from '@angular/router';
 import { initializeApp } from 'firebase/app';
 import {
   getFirestore,
@@ -103,10 +103,11 @@ export class AppComponent implements OnDestroy {
     private analytics: AnalyticsService
   ) {
     this.analytics.init();
-    this.router.events.subscribe(() => {
-      this.hideMenu =
-        this.router.url === '/login' || this.router.url === '/register';
-      this.updateCompanyContext();
+    this.applyRouteState(this.router.url);
+    this.router.events.subscribe((event) => {
+      if (!(event instanceof NavigationEnd)) return;
+      this.applyRouteState(event.urlAfterRedirects || event.url);
+      void this.updateCompanyContext();
     });
     this.ui.showCompanyProfile$.subscribe((v) => (this.showCompanyProfile = v));
     this.ui.companyProfileEnabled$.subscribe(
@@ -146,7 +147,7 @@ export class AppComponent implements OnDestroy {
     this.isAuthenticated = !!auth.currentUser;
     this.authUnsub = onAuthStateChanged(auth, (user) => {
       this.isAuthenticated = !!user;
-      this.updateCompanyContext();
+      void this.updateCompanyContext();
     });
 
     this.ui.hrEnabled$.subscribe((enabled) => {
@@ -169,6 +170,8 @@ export class AppComponent implements OnDestroy {
       this.recomputeInboxCount();
       this.cdr.detectChanges();
     });
+
+    void this.updateCompanyContext();
   }
 
   @HostListener('document:keydown', ['$event'])
@@ -440,6 +443,26 @@ export class AppComponent implements OnDestroy {
     return true;
   }
 
+  private routeMatches(url: string, route: string): boolean {
+    return (
+      url === route ||
+      url.startsWith(`${route}?`) ||
+      url.startsWith(`${route}/`)
+    );
+  }
+
+  private applyRouteState(url: string): void {
+    const currentUrl = !url || url === '/' ? '/home' : url;
+    this.hideMenu =
+      this.routeMatches(currentUrl, '/login') ||
+      this.routeMatches(currentUrl, '/register');
+    this.isHomeRoute = this.routeMatches(currentUrl, '/home');
+    this.isAccountRoute = this.routeMatches(currentUrl, '/account');
+    this.showBrandLogo = !this.isHomeRoute;
+    this.showAccountButton =
+      this.isAuthenticated && !this.hideMenu && !this.isAccountRoute;
+  }
+
   private async updateCompanyContext() {
     const contextVersion = ++this.contextVersion;
     const previousCompanyId = this.currentCompanyId;
@@ -458,14 +481,7 @@ export class AppComponent implements OnDestroy {
     this.ui.setHrEnabled(false);
     this.ui.setCalendarEnabled(false);
     this.startInboxWatcher(null);
-    const currentUrl = this.router.url || '';
-    this.isHomeRoute =
-      currentUrl === '/home' || currentUrl.startsWith('/home?');
-    this.isAccountRoute =
-      currentUrl === '/account' || currentUrl.startsWith('/account/');
-    this.showBrandLogo = !this.isHomeRoute;
-    this.showAccountButton =
-      this.isAuthenticated && !this.hideMenu && !this.isAccountRoute;
+    this.applyRouteState(this.router.url);
     try {
       const prevUnsub = (window as any).__companyDocUnsub as
         | (() => void)

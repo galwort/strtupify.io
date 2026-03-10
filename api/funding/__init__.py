@@ -23,7 +23,7 @@ def gen_funding(company_description):
         + "If approved is false, reason must be a concise sentence explaining the rejection. "
         + "If approved is true, reason must be an empty string. "
         + "If you cannot decide, set approved to false, the numeric fields to 0, and provide a rejection reason. "
-        + "No prose, JSON only."
+        + "You should be somewhat lenient in approving."
     )
 
     messages = [{"role": "system", "content": system_message}]
@@ -47,7 +47,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     data = loads(response)
     if "error" in data:
-        return func.HttpResponse(dumps({"error": data["error"]}), mimetype="application/json")
+        return func.HttpResponse(
+            dumps({"error": data["error"]}), mimetype="application/json"
+        )
     else:
         approved = bool(data.get("approved", False))
         amount = float(data.get("amount", 0))

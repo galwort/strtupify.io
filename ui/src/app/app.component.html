@@ -1,102 +1,98 @@
 ﻿<ion-app>
   <div *ngIf="!hideMenu" class="sidebar">
-    <ion-toolbar>
-      <ion-buttons class="buttons">
-        <a
-          *ngIf="showBrandLogo"
-          class="logo"
-          [routerLink]="['/home']"
-          aria-label="Home"
-        >
-          <img src="assets/favicon.svg" alt="strtupify.io" />
-        </a>
+    <nav class="buttons" aria-label="Primary navigation">
+      <a
+        *ngIf="showBrandLogo"
+        class="logo"
+        [routerLink]="['/home']"
+        aria-label="Home"
+      >
+        <img src="assets/favicon.svg" alt="strtupify.io" />
+      </a>
 
-        <button
-          *ngIf="currentCompanyId && companyProfileEnabled"
-          type="button"
-          class="company-logo"
-          (click)="openCompanyProfile()"
-          aria-label="Company profile"
-          [class.active]="showCompanyProfile"
-        >
-          <span class="material-symbols-outlined"> {{ companyLogo }} </span>
-        </button>
+      <button
+        *ngIf="currentCompanyId && companyProfileEnabled"
+        type="button"
+        class="company-logo"
+        (click)="openCompanyProfile()"
+        aria-label="Company profile"
+        [class.active]="showCompanyProfile"
+      >
+        <span class="material-symbols-outlined"> {{ companyLogo }} </span>
+      </button>
 
-        <button
-          *ngIf="currentCompanyId && inboxEnabled"
-          type="button"
-          class="company-logo"
-          (click)="openInbox()"
-          aria-label="Inbox"
-          [class.active]="currentModule === 'inbox' && !showCompanyProfile"
-        >
-          <span class="material-symbols-outlined"> mail </span>
-          <span *ngIf="inboxCount > 0" class="mail-badge">{{
-            inboxCount
-          }}</span>
-        </button>
-        <button
-          *ngIf="currentCompanyId && calendarEnabled"
-          type="button"
-          class="company-logo"
-          (click)="openCalendar()"
-          aria-label="Calendar"
-          [class.active]="currentModule === 'calendar' && !showCompanyProfile"
-        >
-          <span class="material-symbols-outlined"> event </span>
-        </button>
-        <button
-          *ngIf="currentCompanyId && workEnabled"
-          type="button"
-          class="company-logo"
-          (click)="openWork()"
-          aria-label="Kanban"
-          [class.active]="currentModule === 'work' && !showCompanyProfile"
-        >
-          <span class="material-symbols-outlined"> task </span>
-        </button>
-        <button
-          *ngIf="currentCompanyId && hrEnabled"
-          type="button"
-          class="company-logo"
-          (click)="openHR()"
-          aria-label="Human Resources"
-          [class.active]="currentModule === 'hr' && !showCompanyProfile"
-        >
-          <span class="material-symbols-outlined"> group </span>
-        </button>
-        <button
-          *ngIf="currentCompanyId && ledgerEnabled"
-          type="button"
-          class="company-logo"
-          (click)="openLedger()"
-          aria-label="General Ledger"
-          [class.active]="currentModule === 'ledger' && !showCompanyProfile"
-        >
-          <span class="material-symbols-outlined"> account_balance </span>
-        </button>
+      <button
+        *ngIf="currentCompanyId && inboxEnabled"
+        type="button"
+        class="company-logo"
+        (click)="openInbox()"
+        aria-label="Inbox"
+        [class.active]="currentModule === 'inbox' && !showCompanyProfile"
+      >
+        <span class="material-symbols-outlined"> mail </span>
+        <span *ngIf="inboxCount > 0" class="mail-badge">{{ inboxCount }}</span>
+      </button>
+      <button
+        *ngIf="currentCompanyId && calendarEnabled"
+        type="button"
+        class="company-logo"
+        (click)="openCalendar()"
+        aria-label="Calendar"
+        [class.active]="currentModule === 'calendar' && !showCompanyProfile"
+      >
+        <span class="material-symbols-outlined"> event </span>
+      </button>
+      <button
+        *ngIf="currentCompanyId && workEnabled"
+        type="button"
+        class="company-logo"
+        (click)="openWork()"
+        aria-label="Kanban"
+        [class.active]="currentModule === 'work' && !showCompanyProfile"
+      >
+        <span class="material-symbols-outlined"> task </span>
+      </button>
+      <button
+        *ngIf="currentCompanyId && hrEnabled"
+        type="button"
+        class="company-logo"
+        (click)="openHR()"
+        aria-label="Human Resources"
+        [class.active]="currentModule === 'hr' && !showCompanyProfile"
+      >
+        <span class="material-symbols-outlined"> group </span>
+      </button>
+      <button
+        *ngIf="currentCompanyId && ledgerEnabled"
+        type="button"
+        class="company-logo"
+        (click)="openLedger()"
+        aria-label="General Ledger"
+        [class.active]="currentModule === 'ledger' && !showCompanyProfile"
+      >
+        <span class="material-symbols-outlined"> account_balance </span>
+      </button>
 
-        <a
-          class="company-logo discord"
-          href="https://discord.gg/sZqDRPqf"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Join our Discord"
-        >
-          <ion-icon name="logo-discord" aria-hidden="true"></ion-icon>
-        </a>
+      <a
+        class="company-logo discord"
+        href="https://discord.gg/sZqDRPqf"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Join our Discord"
+      >
+        <ion-icon name="logo-discord" aria-hidden="true"></ion-icon>
+      </a>
 
-        <button
-          *ngIf="showAccountButton"
-          type="button"
-          class="company-logo account"
-          (click)="openAccount()"
-          aria-label="Account"
-        >
-          <span class="material-symbols-outlined"> account_circle </span>
-        </button>
-      </ion-buttons>
-    </ion-toolbar>
+      <button
+        *ngIf="showAccountButton"
+        type="button"
+        class="company-logo account"
+        (click)="openAccount()"
+        aria-label="Account"
+      >
+        <span class="material-symbols-outlined"> account_circle </span>
+      </button>
+    </nav>
   </div>
   <ion-content>
     <ion-router-outlet id="main-content"></ion-router-outlet>

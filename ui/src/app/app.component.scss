@@ -12,14 +12,6 @@
   z-index: 1200;
   display: flex;
 
-  ion-toolbar {
-    --background: var(--theme-primary);
-    --border-width: 0;
-    --padding-start: 0;
-    --padding-end: 0;
-    --min-height: 100%;
-  }
-
   .buttons {
     display: flex;
     flex-direction: column;
@@ -230,23 +222,23 @@
     top: auto;
     right: 0;
     bottom: 0;
+    width: 100%;
     height: auto;
-
-    ion-toolbar {
-      --min-height: 0;
-    }
+    overflow: hidden;
 
     .buttons {
+      flex: 1 1 auto;
       flex-direction: row;
       justify-content: flex-start;
       align-items: center;
+      min-width: 0;
       width: 100%;
       min-height: 0;
       height: calc(var(--app-bottom-nav-height) + env(safe-area-inset-bottom));
-      padding: 6px max(8px, env(safe-area-inset-right))
-        calc(6px + env(safe-area-inset-bottom))
-        max(8px, env(safe-area-inset-left));
-      gap: 4px;
+      padding: 3px max(4px, env(safe-area-inset-right))
+        calc(3px + env(safe-area-inset-bottom))
+        max(4px, env(safe-area-inset-left));
+      gap: 1px;
       overflow-x: auto;
       overflow-y: hidden;
       -webkit-overflow-scrolling: touch;
@@ -259,20 +251,33 @@
 
     .buttons .logo,
     .buttons .company-logo {
-      width: 48px;
-      height: 48px;
+      width: 37px;
+      height: 37px;
       flex: 0 0 auto;
-      border-radius: 8px;
+      border-radius: 5px;
+    }
+
+    .buttons .logo img {
+      width: 20px;
+      height: 20px;
     }
 
     .buttons .company-logo .material-symbols-outlined {
-      font-size: 24px;
-      line-height: 24px;
+      font-size: 19px;
+      line-height: 19px;
+    }
+
+    .buttons .company-logo.discord ion-icon {
+      font-size: 19px;
+      margin-bottom: 0;
     }
 
     .buttons .mail-badge {
-      top: 6px;
-      right: 2px;
+      top: 3px;
+      right: 0;
+      min-width: 11px;
+      padding: 1px 2px;
+      font-size: 8px;
     }
 
     .buttons .company-logo.account {

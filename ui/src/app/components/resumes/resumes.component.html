@@ -255,4 +255,29 @@
       </div>
     </div>
   </div>
+  <div class="minimum-hire-notice-overlay" *ngIf="showMinimumHireNotice">
+    <div class="overlay-backdrop" (click)="closeMinimumHireNotice()"></div>
+    <div
+      class="overlay-panel minimum-hire-notice-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Minimum staffing requirement met"
+      (click)="$event.stopPropagation()"
+    >
+      <button
+        type="button"
+        class="close-overlay minimum-hire-notice-close"
+        (click)="closeMinimumHireNotice()"
+        aria-label="Close minimum hires notice"
+      >
+        <span class="material-symbols-outlined">close</span>
+      </button>
+      <div class="overlay-content minimum-hire-notice-content">
+        <p class="minimum-hire-notice-copy">
+          You've met the minimum staffing requirement. You may continue hiring
+          resources, or click Finish to move forward.
+        </p>
+      </div>
+    </div>
+  </div>
 </div>

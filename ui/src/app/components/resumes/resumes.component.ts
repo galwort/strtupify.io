@@ -59,6 +59,7 @@ interface Role {
 export class ResumesComponent implements OnInit {
   @Output() hiringFinished = new EventEmitter<void>();
 
+  readonly minimumHiresRequired = 2;
   companyId = '';
   employees: Employee[] = [];
   hiredEmployees: Employee[] = [];
@@ -77,6 +78,7 @@ export class ResumesComponent implements OnInit {
   skillSkeletonRows = Array.from({ length: 4 });
   showHiredOverlay = false;
   showAutoHirePopover = false;
+  showMinimumHireNotice = false;
   dataReady = false;
   private activeEmployeeId: string | null = null;
   private displayToken = 0;
@@ -88,11 +90,13 @@ export class ResumesComponent implements OnInit {
   }
 
   get finishDisabled(): boolean {
-    return this.hiredCount < 2;
+    return this.hiredCount < this.minimumHiresRequired;
   }
 
   get finishTooltip(): string {
-    return this.finishDisabled ? 'Hire at least two employees to finish' : '';
+    return this.finishDisabled
+      ? `Hire at least ${this.minimumHiresRequired} employees to finish`
+      : '';
   }
 
   async ngOnInit() {
@@ -266,12 +270,14 @@ export class ResumesComponent implements OnInit {
   finishHiring(): void {
     if (this.finishDisabled || this.doneEmitted) return;
     this.closeAutoHirePopover();
+    this.closeMinimumHireNotice();
     this.doneEmitted = true;
     this.hiringFinished.emit();
   }
 
   openHiredOverlay(): void {
     this.closeAutoHirePopover();
+    this.closeMinimumHireNotice();
     this.showHiredOverlay = true;
   }
 
@@ -287,6 +293,10 @@ export class ResumesComponent implements OnInit {
 
   closeAutoHirePopover(): void {
     this.showAutoHirePopover = false;
+  }
+
+  closeMinimumHireNotice(): void {
+    this.showMinimumHireNotice = false;
   }
 
   async confirmAutomateHiring(event?: Event): Promise<void> {
@@ -360,6 +370,7 @@ export class ResumesComponent implements OnInit {
     employee: Employee,
     roleOverride?: Role
   ): Promise<void> {
+    const previousHiredCount = this.hiredCount;
     const role =
       roleOverride || this.roles.find((r) => r.title === employee.title);
     if (role && role.openings > 0) {
@@ -380,6 +391,15 @@ export class ResumesComponent implements OnInit {
     this.hiredEmployees = [...this.hiredEmployees, hiredRecord];
     this.employees = this.employees.filter((e) => e.id !== employee.id);
     this.applyRoleFilters();
+    this.maybeShowMinimumHireNotice(previousHiredCount);
+  }
+
+  private maybeShowMinimumHireNotice(previousHiredCount: number): void {
+    if (this.autoHiring) return;
+    if (previousHiredCount >= this.minimumHiresRequired) return;
+    if (this.hiredCount < this.minimumHiresRequired) return;
+    this.closeAutoHirePopover();
+    this.showMinimumHireNotice = true;
   }
 
   private async ensureCurrentEmployeeSkillsLoaded(

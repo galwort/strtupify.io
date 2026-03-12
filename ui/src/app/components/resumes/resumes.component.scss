@@ -357,7 +357,8 @@
     }
   }
 
-  .current-employees-overlay {
+  .current-employees-overlay,
+  .minimum-hire-notice-overlay {
     position: fixed;
     inset: 0;
     z-index: 999;
@@ -458,6 +459,31 @@
       color: var(--theme-primary);
       background: rgba(0, 0, 0, 0.05);
     }
+  }
+
+  .minimum-hire-notice-panel {
+    width: min(420px, 92vw);
+    max-height: none;
+  }
+
+  .minimum-hire-notice-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1;
+  }
+
+  .minimum-hire-notice-content {
+    gap: 16px;
+    padding: 20px 18px 18px;
+    padding-right: 52px;
+  }
+
+  .minimum-hire-notice-copy {
+    margin: 0;
+    color: var(--theme-text);
+    font-size: 1rem;
+    line-height: 1.55;
   }
 
   .skeleton-bar,
@@ -743,6 +769,15 @@
     .overlay-panel {
       width: min(640px, 96vw);
       max-height: 88dvh;
+    }
+
+    .minimum-hire-notice-panel {
+      width: min(420px, 94vw);
+    }
+
+    .minimum-hire-notice-copy {
+      font-size: 0.94rem;
+      line-height: 1.5;
     }
   }
 }

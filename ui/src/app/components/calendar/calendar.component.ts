@@ -52,6 +52,8 @@ type DragPreview = {
   dayIndex: number;
   top: number;
   height: number;
+  left: number;
+  width: number;
   conflict: boolean;
   conflictsWith: string[];
   conflicts: ConflictDetail[];
@@ -62,6 +64,19 @@ type ConflictDetail = {
   owner: string;
   attendees: string[];
   shared: string[];
+};
+
+type DropPlacement = {
+  startMs: number;
+  endMs: number;
+  top: number;
+  height: number;
+  left: number;
+  width: number;
+  conflict: boolean;
+  conflictsWith: string[];
+  conflicts: ConflictDetail[];
+  outOfBounds: boolean;
 };
 
 const fbApp = getApps().length
@@ -117,9 +132,21 @@ export class CalendarComponent implements OnInit, OnDestroy {
   private readonly workdayEndHour = 17;
   private readonly workMinutes =
     (this.workdayEndHour - this.workdayStartHour) * 60;
+  private readonly mobileDragHoldMs = 320;
+  private readonly mobileDragMoveTolerancePx = 10;
   private readonly calendarByPerson = new Map<string, CalendarMeeting[]>();
   draggingMeetingId: string | null = null;
   dragPreview: DragPreview | null = null;
+  private mobileDragState: {
+    meetingId: string;
+    startX: number;
+    startY: number;
+    lastX: number;
+    lastY: number;
+    holdTimer: ReturnType<typeof setTimeout> | null;
+    dragging: boolean;
+  } | null = null;
+  private suppressMeetingClickId: string | null = null;
 
   ngOnInit(): void {
     this.updateTouchMode();
@@ -132,6 +159,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.unsubCompany) this.unsubCompany();
     if (this.unsubEmployees) this.unsubEmployees();
+    this.clearMobileDragState();
   }
 
   get userMeetings(): CalendarMeeting[] {
@@ -157,6 +185,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
   @HostListener('window:resize')
   onWindowResize(): void {
     this.updateTouchMode();
+    this.buildTimeSlots();
   }
 
   private updateTouchMode(): void {
@@ -179,12 +208,93 @@ export class CalendarComponent implements OnInit, OnDestroy {
   }
 
   onMeetingClick(ev: VisualMeeting): void {
+    if (this.suppressMeetingClickId === ev.id) {
+      this.suppressMeetingClickId = null;
+      return;
+    }
     if (ev.owner !== 'me') return;
     this.selectedMeetingId = ev.id;
     this.statusMessage = '';
     this.statusError = '';
     this.manualMoveError = '';
     this.syncManualSelection();
+  }
+
+  onMeetingTouchStart(event: TouchEvent, meeting: VisualMeeting): void {
+    if (!this.touchMode || this.calendarLocked || meeting.owner !== 'me') return;
+    if (event.touches.length !== 1) return;
+    this.clearMobileDragState();
+    const touch = event.touches[0];
+    const holdTimer = setTimeout(() => {
+      if (!this.mobileDragState || this.mobileDragState.meetingId !== meeting.id) {
+        return;
+      }
+      this.mobileDragState.dragging = true;
+      this.draggingMeetingId = meeting.id;
+      this.selectedMeetingId = meeting.id;
+      this.manualMoveError = '';
+      this.statusMessage = '';
+      this.updateMobileDragPreview(
+        this.mobileDragState.lastX,
+        this.mobileDragState.lastY
+      );
+    }, this.mobileDragHoldMs);
+
+    this.mobileDragState = {
+      meetingId: meeting.id,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      lastX: touch.clientX,
+      lastY: touch.clientY,
+      holdTimer,
+      dragging: false,
+    };
+  }
+
+  onMeetingTouchMove(event: TouchEvent): void {
+    if (!this.mobileDragState || !event.touches.length) return;
+    const touch = event.touches[0];
+    this.mobileDragState.lastX = touch.clientX;
+    this.mobileDragState.lastY = touch.clientY;
+    if (!this.mobileDragState.dragging) {
+      const deltaX = touch.clientX - this.mobileDragState.startX;
+      const deltaY = touch.clientY - this.mobileDragState.startY;
+      if (Math.hypot(deltaX, deltaY) > this.mobileDragMoveTolerancePx) {
+        this.clearMobileDragState();
+      }
+      return;
+    }
+    if (event.cancelable) event.preventDefault();
+    this.updateMobileDragPreview(touch.clientX, touch.clientY);
+  }
+
+  onMeetingTouchEnd(event: TouchEvent): void {
+    if (!this.mobileDragState) return;
+    const touch = event.changedTouches[0];
+    const wasDragging = this.mobileDragState.dragging;
+    const meetingId = this.mobileDragState.meetingId;
+    if (touch) {
+      this.mobileDragState.lastX = touch.clientX;
+      this.mobileDragState.lastY = touch.clientY;
+    }
+    if (wasDragging) {
+      if (event.cancelable) event.preventDefault();
+      this.finishMobileDrag(
+        this.mobileDragState.lastX,
+        this.mobileDragState.lastY
+      );
+      this.suppressMeetingClickId = meetingId;
+      setTimeout(() => {
+        if (this.suppressMeetingClickId === meetingId) {
+          this.suppressMeetingClickId = null;
+        }
+      }, 300);
+    }
+    this.clearMobileDragState();
+  }
+
+  onMeetingTouchCancel(): void {
+    this.clearMobileDragState();
   }
 
   get focusPointEstimate(): number {
@@ -244,12 +354,29 @@ export class CalendarComponent implements OnInit, OnDestroy {
 
   dayLabel(d: Date | null): string {
     if (!d) return '';
-    const fmt = d.toLocaleDateString(undefined, {
+    if (this.touchMode) return this.dayDateLabel(d);
+    return `${this.dayNameLabel(d)} ${this.dayDateLabel(d)}`;
+  }
+
+  dayNameLabel(d: Date | null): string {
+    if (!d) return '';
+    if (this.touchMode) {
+      return ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][d.getDay()] || '';
+    }
+    return d.toLocaleDateString(undefined, {
       weekday: 'short',
+    });
+  }
+
+  dayDateLabel(d: Date | null): string {
+    if (!d) return '';
+    if (this.touchMode) {
+      return `${d.getMonth() + 1}/${d.getDate()}`;
+    }
+    return d.toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric',
     });
-    return fmt;
   }
 
   private subscribeToCompany(): void {
@@ -427,9 +554,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
     this.timeTicks = [];
     this.timeOptions = [];
     for (let h = this.workdayStartHour; h < this.workdayEndHour; h++) {
-      const am = h < 12;
-      const base = h % 12 === 0 ? 12 : h % 12;
-      this.timeTicks.push(`${base} ${am ? 'AM' : 'PM'}`);
+      this.timeTicks.push(this.formatTimeTickLabel(h));
     }
     for (let minutes = 0; minutes <= this.workMinutes - 30; minutes += 30) {
       this.timeOptions.push({
@@ -620,41 +745,54 @@ export class CalendarComponent implements OnInit, OnDestroy {
     const visible = new Set<string>(this.selectedEmployees);
     const byDay: VisualMeeting[][] = [[], [], [], [], []];
     for (const meeting of this.meetings) {
-      const attendees = this.attendeesOf(meeting).filter((p) => p !== 'me');
-      const shouldShow =
-        meeting.owner === 'me' ||
-        (attendees.length > 0 && attendees.every((p) => visible.has(p)));
-      if (!shouldShow) continue;
-      const { top, height } = this.computeBlockPosition(
-        meeting.dayIndex,
-        meeting.start,
-        meeting.end
-      );
-      const bg = meeting.owner === 'me' ? '#fff' : this.colorFor(meeting.owner);
-      const border =
-        meeting.owner === 'me' ? '#d8e2ec' : this.colorFor(meeting.owner);
-      const dots =
-        meeting.owner === 'me'
-          ? meeting.participants
-              .filter((p) => p !== 'me')
-              .map((p) => this.colorFor(p))
-          : [];
-      const v: VisualMeeting = {
-        ...meeting,
-        top,
-        height,
-        left: 0,
-        width: 100,
-        bg,
-        border,
-        participantDots: dots,
-      };
-      byDay[meeting.dayIndex].push(v);
+      if (!this.shouldShowMeeting(meeting, visible)) continue;
+      byDay[meeting.dayIndex].push(this.toVisualMeeting(meeting));
     }
     for (let i = 0; i < byDay.length; i++) {
       byDay[i] = this.layoutDay(byDay[i]);
     }
     this.visualByDay = byDay;
+  }
+
+  private shouldShowMeeting(
+    meeting: CalendarMeeting,
+    visible: ReadonlySet<string>
+  ): boolean {
+    const attendees = this.attendeesOf(meeting).filter((p) => p !== 'me');
+    return (
+      meeting.owner === 'me' ||
+      (attendees.length > 0 && attendees.every((p) => visible.has(p)))
+    );
+  }
+
+  private toVisualMeeting(
+    meeting: CalendarMeeting,
+    dayIndex: number = meeting.dayIndex,
+    start: number = meeting.start,
+    end: number = meeting.end
+  ): VisualMeeting {
+    const { top, height } = this.computeBlockPosition(dayIndex, start, end);
+    const bg = meeting.owner === 'me' ? '#fff' : this.colorFor(meeting.owner);
+    const border = meeting.owner === 'me' ? '#d8e2ec' : this.colorFor(meeting.owner);
+    const dots =
+      meeting.owner === 'me'
+        ? meeting.participants
+            .filter((p) => p !== 'me')
+            .map((p) => this.colorFor(p))
+        : [];
+    return {
+      ...meeting,
+      dayIndex,
+      start,
+      end,
+      top,
+      height,
+      left: 0,
+      width: 100,
+      bg,
+      border,
+      participantDots: dots,
+    };
   }
 
   onMeetingDragStart(event: DragEvent, meeting: VisualMeeting): void {
@@ -696,6 +834,8 @@ export class CalendarComponent implements OnInit, OnDestroy {
       dayIndex,
       top: placement.top,
       height: placement.height,
+      left: placement.left,
+      width: placement.width,
       conflict: placement.conflict,
       conflictsWith: placement.conflictsWith,
       conflicts: placement.conflicts,
@@ -840,23 +980,27 @@ export class CalendarComponent implements OnInit, OnDestroy {
     event: DragEvent,
     meeting: CalendarMeeting,
     dayIndex: number
-  ):
-    | {
-        startMs: number;
-        endMs: number;
-        top: number;
-        height: number;
-        conflict: boolean;
-        conflictsWith: string[];
-        conflicts: ConflictDetail[];
-        outOfBounds: boolean;
-      }
-    | null {
+  ): DropPlacement | null {
     if (!this.weekStart) return null;
     const targetEl = event.currentTarget as HTMLElement | null;
     if (!targetEl) return null;
+    return this.computeDropPlacementForPoint(
+      event.clientY,
+      targetEl,
+      meeting,
+      dayIndex
+    );
+  }
+
+  private computeDropPlacementForPoint(
+    clientY: number,
+    targetEl: HTMLElement,
+    meeting: CalendarMeeting,
+    dayIndex: number
+  ): DropPlacement | null {
+    if (!this.weekStart) return null;
     const rect = targetEl.getBoundingClientRect();
-    const y = event.clientY - rect.top;
+    const y = clientY - rect.top;
     const clampedY = Math.max(0, Math.min(rect.height, y));
     const minutes = (clampedY / rect.height) * this.workMinutes;
     const durationMs = Math.max(30 * 60000, meeting.end - meeting.start);
@@ -886,6 +1030,12 @@ export class CalendarComponent implements OnInit, OnDestroy {
       startMs,
       endMs
     );
+    const previewLayout = this.previewLayoutForPlacement(
+      meeting,
+      dayIndex,
+      startMs,
+      endMs
+    );
     return {
       startMs,
       endMs,
@@ -895,7 +1045,136 @@ export class CalendarComponent implements OnInit, OnDestroy {
       outOfBounds,
       top,
       height,
+      left: previewLayout.left,
+      width: previewLayout.width,
     };
+  }
+
+  private previewLayoutForPlacement(
+    movingMeeting: CalendarMeeting,
+    dayIndex: number,
+    startMs: number,
+    endMs: number
+  ): { left: number; width: number } {
+    const visible = new Set<string>(this.selectedEmployees);
+    const dayEvents: VisualMeeting[] = [];
+    for (const meeting of this.meetings) {
+      if (meeting.id === movingMeeting.id || meeting.dayIndex !== dayIndex) continue;
+      if (!this.shouldShowMeeting(meeting, visible)) continue;
+      dayEvents.push(this.toVisualMeeting(meeting));
+    }
+    dayEvents.push(this.toVisualMeeting(movingMeeting, dayIndex, startMs, endMs));
+    const laidOut = this.layoutDay(dayEvents);
+    const preview = laidOut.find((meeting) => meeting.id === movingMeeting.id);
+    return preview ? { left: preview.left, width: preview.width } : { left: 0, width: 100 };
+  }
+
+  private updateMobileDragPreview(clientX: number, clientY: number): void {
+    if (!this.draggingMeetingId) return;
+    const meeting = this.meetings.find(
+      (m) => m.id === this.draggingMeetingId && m.owner === 'me'
+    );
+    if (!meeting) {
+      this.dragPreview = null;
+      this.draggingMeetingId = null;
+      return;
+    }
+    const target = this.findDayBodyAtPoint(clientX, clientY);
+    if (!target) {
+      this.dragPreview = null;
+      this.statusError = '';
+      return;
+    }
+    const placement = this.computeDropPlacementForPoint(
+      clientY,
+      target.element,
+      meeting,
+      target.dayIndex
+    );
+    if (!placement || placement.outOfBounds) {
+      this.dragPreview = null;
+      this.statusError = '';
+      return;
+    }
+    this.dragPreview = {
+      dayIndex: target.dayIndex,
+      top: placement.top,
+      height: placement.height,
+      left: placement.left,
+      width: placement.width,
+      conflict: placement.conflict,
+      conflictsWith: placement.conflictsWith,
+      conflicts: placement.conflicts,
+    };
+    if (placement.conflict && placement.conflicts.length) {
+      this.statusError = `Overlaps with ${this.conflictSummary(placement.conflicts)}`;
+      this.statusMessage = '';
+      return;
+    }
+    this.statusError = '';
+  }
+
+  private finishMobileDrag(clientX: number, clientY: number): void {
+    if (!this.draggingMeetingId) return;
+    const meeting = this.meetings.find(
+      (m) => m.id === this.draggingMeetingId && m.owner === 'me'
+    );
+    if (!meeting) {
+      this.dragPreview = null;
+      this.draggingMeetingId = null;
+      return;
+    }
+    const target = this.findDayBodyAtPoint(clientX, clientY);
+    if (!target) {
+      this.dragPreview = null;
+      this.draggingMeetingId = null;
+      return;
+    }
+    const placement = this.computeDropPlacementForPoint(
+      clientY,
+      target.element,
+      meeting,
+      target.dayIndex
+    );
+    this.dragPreview = null;
+    this.draggingMeetingId = null;
+    if (!placement || placement.outOfBounds || placement.conflict) {
+      if (placement?.conflicts?.length) {
+        this.statusError = `Can't move: overlaps with ${this.conflictSummary(
+          placement.conflicts
+        )}`;
+        this.statusMessage = '';
+      }
+      return;
+    }
+    this.updateMeetingTime(meeting, target.dayIndex, placement.startMs, placement.endMs);
+    this.statusError = '';
+    this.statusMessage = '';
+    this.recomputeVisuals();
+    this.computeFocusScore();
+    this.syncManualSelection();
+  }
+
+  private findDayBodyAtPoint(
+    clientX: number,
+    clientY: number
+  ): { element: HTMLElement; dayIndex: number } | null {
+    if (typeof document === 'undefined') return null;
+    const node = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+    const dayBody = node?.closest('.day-body') as HTMLElement | null;
+    if (!dayBody) return null;
+    const rawDayIndex = Number(dayBody.dataset['dayIndex']);
+    if (!Number.isFinite(rawDayIndex)) return null;
+    return { element: dayBody, dayIndex: rawDayIndex };
+  }
+
+  private clearMobileDragState(): void {
+    if (this.mobileDragState?.holdTimer) {
+      clearTimeout(this.mobileDragState.holdTimer);
+    }
+    this.mobileDragState = null;
+    this.dragPreview = null;
+    this.draggingMeetingId = null;
   }
 
   private attendeesOf(meeting: CalendarMeeting): string[] {
@@ -1191,6 +1470,16 @@ export class CalendarComponent implements OnInit, OnDestroy {
     const suffix = hour24 >= 12 ? 'PM' : 'AM';
     const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
     return `${hour12}:${this.pad(minute)} ${suffix}`;
+  }
+
+  private formatTimeTickLabel(hour24: number): string {
+    const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+    if (!this.touchMode) {
+      return `${hour12} ${hour24 >= 12 ? 'PM' : 'AM'}`;
+    }
+    if (hour24 === this.workdayStartHour) return `${hour12}a`;
+    if (hour24 === this.workdayEndHour - 1) return `${hour12}p`;
+    return `${hour12}`;
   }
 
   private formatTimeValue(ms: number): string {

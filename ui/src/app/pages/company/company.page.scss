@@ -19,7 +19,8 @@
 
 .page-container.module-scroll-active > app-inbox,
 .page-container.module-scroll-active > app-general-ledger,
-.page-container.module-scroll-active > app-work-items {
+.page-container.module-scroll-active > app-work-items,
+.page-container.module-scroll-active > app-calendar {
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;

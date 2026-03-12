@@ -48,7 +48,10 @@ export class CompanyPage implements OnInit {
   accessResolved = false;
 
   get moduleOwnsScroll(): boolean {
-    return !this.showCompanyProfile && (this.showInbox || this.showLedger || this.showWork);
+    return (
+      !this.showCompanyProfile &&
+      (this.showInbox || this.showLedger || this.showWork || this.showCalendar)
+    );
   }
 
   constructor(private router: Router, private ui: UiStateService) {}

@@ -6,7 +6,7 @@
   <div class="content-body">
     <div class="layout">
       <div class="calendar-shell">
-        <div class="calendar" [class.locked]="calendarLocked">
+        <div class="calendar" [class.locked]="calendarLocked" [class.mobile-drag-active]="touchMode && !!draggingMeetingId">
           <div class="submitted-watermark" *ngIf="showSubmittedOverlay">
             <div class="watermark-text">RESCHEDULES SENT FOR THIS WEEK</div>
           </div>
@@ -14,9 +14,13 @@
             <div class="time-slot" *ngFor="let t of timeTicks">{{ t }}</div>
           </div>
           <div class="day-column" *ngFor="let d of weekDays; let di = index">
-            <div class="day-header">{{ dayLabel(d) }}</div>
+            <div class="day-header">
+              <span class="day-name" *ngIf="!touchMode">{{ dayNameLabel(d) }}</span>
+              <span class="day-date">{{ dayDateLabel(d) }}</span>
+            </div>
             <div
               class="day-body"
+              [attr.data-day-index]="di"
               (dragover)="onDayDragOver($event, di)"
               (dragleave)="onDayDragLeave($event, di)"
               (drop)="onDayDrop($event, di)"
@@ -37,6 +41,10 @@
                 (click)="onMeetingClick(ev)"
                 (dragstart)="onMeetingDragStart($event, ev)"
                 (dragend)="onMeetingDragEnd()"
+                (touchstart)="onMeetingTouchStart($event, ev)"
+                (touchmove)="onMeetingTouchMove($event)"
+                (touchend)="onMeetingTouchEnd($event)"
+                (touchcancel)="onMeetingTouchCancel()"
                 [attr.title]="meetingTitle(ev)"
               >
                 <div class="dots" *ngIf="ev.participantDots.length">
@@ -49,6 +57,8 @@
                 [class.conflict]="dragPreview.conflict"
                 [style.top.%]="dragPreview.top"
                 [style.height.%]="dragPreview.height"
+                [style.left.%]="dragPreview.left"
+                [style.width.%]="dragPreview.width"
               ></div>
             </div>
           </div>
@@ -57,7 +67,7 @@
 
       <div class="sidebar">
         <div class="panel focus-panel">
-          <div class="week-label" *ngIf="weekLabel">{{ weekLabel }}</div>
+          <div class="week-label" *ngIf="weekLabel && !touchMode">{{ weekLabel }}</div>
           <div class="score">Focus score: {{ focusScore | number: '1.0-1' }}</div>
           <button
             type="button"
@@ -75,48 +85,7 @@
           </button>
         </div>
 
-        <div class="panel" *ngIf="touchMode && selectedUserMeeting as selected">
-          <div class="control-title">Reschedule selected meeting</div>
-          <div class="reschedule-meta">{{ meetingTitle($any(selected)) }}</div>
-          <div class="reschedule-form">
-            <label>
-              Day
-              <select
-                [ngModel]="manualMoveDayIndex"
-                (ngModelChange)="manualMoveDayIndex = $event"
-              >
-                <option *ngFor="let day of weekDays; let di = index" [ngValue]="di">
-                  {{ dayLabel(day) }}
-                </option>
-              </select>
-            </label>
-            <label>
-              Start
-              <select
-                [ngModel]="manualMoveStartMinutes"
-                (ngModelChange)="manualMoveStartMinutes = $event"
-              >
-                <option
-                  *ngFor="let slot of availableStartOptions"
-                  [ngValue]="slot.minutes"
-                >
-                  {{ slot.label }}
-                </option>
-              </select>
-            </label>
-          </div>
-          <button
-            type="button"
-            class="submit"
-            [disabled]="calendarLocked"
-            (click)="applyManualMove()"
-          >
-            Move meeting
-          </button>
-          <div class="error" *ngIf="manualMoveError">{{ manualMoveError }}</div>
-        </div>
-
-        <div class="panel">
+        <div class="panel" *ngIf="!touchMode">
           <div class="control-title">Calendars</div>
           <div class="employees">
             <label *ngFor="let emp of employees">

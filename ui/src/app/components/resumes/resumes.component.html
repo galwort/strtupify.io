@@ -48,15 +48,40 @@
       }}
     </h3>
     <div class="button-container">
-      <button class="hire-button" (click)="hireEmployee()" [disabled]="autoHiring">Hire</button>
-      <button (click)="prevResume()" [disabled]="currentIndex === 0 || autoHiring">
-        Previous
+      <button
+        class="resume-nav-button prev-button"
+        (click)="prevResume()"
+        [disabled]="currentIndex === 0 || autoHiring"
+        aria-label="Previous resume"
+      >
+        <svg
+          class="nav-icon"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M15 5.5L9.75 10.75Q8.75 11.75 8.75 12Q8.75 12.25 9.75 13.25L15 18.5"></path>
+        </svg>
+        <span class="button-label">Previous</span>
+      </button>
+      <button class="hire-button" (click)="hireEmployee()" [disabled]="autoHiring">
+        <span class="button-label">Hire</span>
       </button>
       <button
+        class="resume-nav-button next-button"
         (click)="nextResume()"
         [disabled]="currentIndex === employees.length - 1 || autoHiring"
+        aria-label="Next resume"
       >
-        Next
+        <span class="button-label">Next</span>
+        <svg
+          class="nav-icon"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M9 5.5L14.25 10.75Q15.25 11.75 15.25 12Q15.25 12.25 14.25 13.25L9 18.5"></path>
+        </svg>
       </button>
     </div>
   </ng-container>

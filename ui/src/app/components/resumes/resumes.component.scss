@@ -196,9 +196,36 @@
       background: var(--theme-primary);
       color: #fff;
       font-size: 1rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
       cursor: pointer;
       transition: background 0.3s;
     }
+
+    .prev-button {
+      order: 1;
+    }
+
+    .hire-button {
+      order: 0;
+    }
+
+    .next-button {
+      order: 2;
+    }
+
+      .resume-nav-button .nav-icon {
+        display: none;
+        width: 20px;
+        height: 20px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 3.2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
 
     button:disabled {
       opacity: 0.5;
@@ -208,6 +235,13 @@
     button:hover:not(:disabled) {
       border-color: var(--theme-accent);
       box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    }
+
+    button:focus,
+    button:focus-visible,
+    button:active {
+      outline: none;
+      box-shadow: none;
     }
 
     .hire-button {
@@ -498,12 +532,78 @@
     }
 
     .button-container {
+      width: fit-content;
+      max-width: 100%;
+      display: grid;
+      grid-template-columns: 40px auto 40px;
+      gap: 10px;
       margin-top: 16px;
+      align-self: center;
+      align-items: center;
 
       button {
-        flex: 1 1 120px;
+        width: auto;
         font-size: 0.95rem;
-        padding: 0.7rem;
+        min-height: 42px;
+        padding: 0.6rem 0.9rem;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      button:hover:not(:disabled),
+      button:focus,
+      button:focus-visible,
+      button:active {
+        box-shadow: none;
+        outline: none;
+      }
+
+      .prev-button,
+      .hire-button,
+      .next-button {
+        order: initial;
+      }
+
+      .resume-nav-button {
+        width: 40px;
+        min-width: 40px;
+        min-height: 40px;
+        padding: 0;
+        border: none;
+        border-radius: 0;
+        background: transparent;
+        color: var(--theme-primary);
+        box-shadow: none;
+
+        .button-label {
+          display: none;
+        }
+
+        .nav-icon {
+          display: inline-flex;
+          width: 28px;
+          height: 28px;
+        }
+      }
+
+      .hire-button {
+        width: auto;
+        min-width: 0;
+        border-radius: 999px;
+        padding: 0.55rem 1rem;
+        font-weight: 700;
+      }
+
+      .resume-nav-button:disabled {
+        opacity: 1;
+        color: #c9ced6;
+      }
+
+      .resume-nav-button:disabled .nav-icon {
+        stroke: #c9ced6;
+      }
+
+      .hire-button:disabled {
+        opacity: 0.65;
       }
     }
 

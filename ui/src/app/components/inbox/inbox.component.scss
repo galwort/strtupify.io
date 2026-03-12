@@ -1,24 +1,31 @@
 @use "sass:math";
 
+:host {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
 .content-container {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
+  align-items: stretch;
   color: var(--theme-text);
+  flex: 1 1 auto;
   width: 100%;
-  min-height: calc(100dvh - 40px);
+  min-height: 0;
+  height: 100%;
   position: relative;
-  margin-left: 0;
   background: #fff;
   border: 1px solid #e0e0e0;
   border-radius: 10px;
+  overflow: hidden;
 
   .header {
     display: flex;
     flex-direction: column;
-    align-items: left;
-    justify-content: flex-start;
+    align-items: stretch;
     width: 100%;
     background-color: var(--theme-background);
     border-bottom: 1px solid #e0e0e0;
@@ -27,7 +34,6 @@
     .title {
       font-size: 40px;
       padding: 8px;
-      background-color: var(--theme-background);
       margin-left: 20px;
     }
   }
@@ -126,17 +132,26 @@
 
   .inbox-body {
     display: flex;
-    flex: 1;
+    flex: 1 1 auto;
     width: 100%;
+    min-height: 0;
     overflow: hidden;
     background: #fff;
 
-    .email-list {
+    .email-list-panel {
       width: 300px;
+      min-width: 300px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
       border-right: 1px solid #ccc;
+      overflow: hidden;
+    }
+
+    .email-list {
+      flex: 1 1 auto;
+      min-height: 0;
       overflow-y: auto;
-      background: #fff;
-      height: 100%;
 
       &.empty {
         display: flex;
@@ -270,6 +285,7 @@
 
     .email-preview {
       flex: 1;
+      min-width: 0;
       padding: 16px;
       overflow-y: auto;
       background: #fff;
@@ -282,15 +298,35 @@
       -ms-user-select: text;
       user-select: text;
 
-      h2 {
-        margin: 0 0 16px 0;
-        font-weight: bold;
-      }
-
       h4 {
         margin: 0;
         font-weight: normal;
         color: #555;
+      }
+
+      .email-content-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 12px;
+
+        h2 {
+          flex: 1 1 auto;
+          min-width: 0;
+          margin: 0;
+          line-height: 1.15;
+        }
+      }
+
+      .mobile-close-btn {
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #6b7280;
+
+        .material-symbols-outlined {
+          font-size: 20px;
+        }
       }
 
       .sender-row {
@@ -451,12 +487,6 @@
           gap: 8px;
         }
 
-        .original-sep {
-          margin-top: 12px;
-          color: #666;
-          font-size: 12px;
-          text-align: left;
-        }
       }
 
       .compose-container {
@@ -646,28 +676,16 @@
   margin: 0;
 }
 
-.clock {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  background: #fff;
-  color: var(--theme-text);
-  border: 1.5px solid var(--theme-primary);
-  border-radius: 4px;
-  padding: 4px 10px;
-  font-size: 16px;
-  z-index: 1000;
-  pointer-events: none;
-}
-
 @media (max-width: 900px) {
   .content-container {
-    min-height: auto;
+    min-height: 0;
 
-    .header .title {
-      margin-left: 0;
-      padding: 8px 12px;
-      font-size: clamp(30px, 8vw, 40px);
+    .header {
+      .title {
+        margin-left: 0;
+        padding: 8px 12px;
+        font-size: clamp(24px, 7vw, 32px);
+      }
     }
 
     .filter-container {
@@ -708,15 +726,21 @@
       flex-direction: column;
       min-height: 0;
 
+      .email-list-panel {
+        width: 100%;
+        min-width: 0;
+        flex: 1 1 auto;
+        border-right: none;
+      }
+
       .email-list {
         width: 100%;
-        max-height: 38dvh;
-        border-right: none;
-        border-bottom: 1px solid #ccc;
+        max-height: none;
       }
 
       .email-preview {
-        min-height: 42dvh;
+        flex: 1 1 auto;
+        min-height: 0;
         padding: 12px;
       }
 
@@ -765,10 +789,6 @@
 
     .filter-container .filter-btn .label {
       display: none;
-    }
-
-    .inbox-body .email-list {
-      max-height: 34dvh;
     }
   }
 }

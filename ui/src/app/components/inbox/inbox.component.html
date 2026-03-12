@@ -1,6 +1,6 @@
 <div class="content-container">
   <div class="header">
-    <div class="title">Inbox</div>
+    <div class="title">{{ mailboxTitle }}</div>
   </div>
   <div class="filter-container" *ngIf="showInboxControls">
     <div class="filter-actions-row">
@@ -54,58 +54,60 @@
     </div>
   </div>
   <div class="inbox-body">
-    <div class="email-list" [class.empty]="!inbox.length">
-      <ng-container *ngIf="inbox.length; else emptyInbox">
-        <div
-          class="email-item"
-          *ngFor="let email of inbox"
-          [class.selected]="email === selectedEmail"
-          [class.unread]="!email.read"
-          (click)="selectEmail(email)"
-        >
-          <div class="avatar" [class.fallback]="!email.senderAvatarUrl">
-            <img
-              *ngIf="email.senderAvatarUrl"
-              [src]="email.senderAvatarUrl"
-              [alt]="(email.displaySender || email.sender) + ' avatar'"
-            />
-            <span *ngIf="!email.senderAvatarUrl">{{
-              email.senderInitials
-            }}</span>
-          </div>
-          <div class="email-meta">
-            <div class="top-row">
-              <div class="sender">
-                {{
-                  showSent
-                    ? email.displayRecipient ||
-                      email.to ||
-                      email.displaySender ||
-                      email.sender
-                    : email.displaySender || email.sender
-                }}
-              </div>
-              <div class="timestamp">
-                {{ email.timestamp | date : "short" }}
-              </div>
+    <div class="email-list-panel" *ngIf="showListPanel">
+      <div class="email-list" [class.empty]="!inbox.length">
+        <ng-container *ngIf="inbox.length; else emptyInbox">
+          <div
+            class="email-item"
+            *ngFor="let email of inbox"
+            [class.selected]="email === selectedEmail"
+            [class.unread]="!email.read"
+            (click)="selectEmail(email)"
+          >
+            <div class="avatar" [class.fallback]="!email.senderAvatarUrl">
+              <img
+                *ngIf="email.senderAvatarUrl"
+                [src]="email.senderAvatarUrl"
+                [alt]="(email.displaySender || email.sender) + ' avatar'"
+              />
+              <span *ngIf="!email.senderAvatarUrl">{{
+                email.senderInitials
+              }}</span>
             </div>
-            <div class="subject">{{ email.subject }}</div>
-            <div class="preview-text">{{ email.preview }}</div>
+            <div class="email-meta">
+              <div class="top-row">
+                <div class="sender">
+                  {{
+                    showSent
+                      ? email.displayRecipient ||
+                        email.to ||
+                        email.displaySender ||
+                        email.sender
+                      : email.displaySender || email.sender
+                  }}
+                </div>
+                <div class="timestamp">
+                  {{ email.timestamp | date : "short" }}
+                </div>
+              </div>
+              <div class="subject">{{ email.subject }}</div>
+              <div class="preview-text">{{ email.preview }}</div>
+            </div>
           </div>
-        </div>
-      </ng-container>
-      <ng-template #emptyInbox>
-        <div class="empty-inbox">
-          <img
-            src="assets/unchained.png"
-            alt="Empty inbox illustration"
-            class="empty-img"
-          />
-          <div class="empty-text">Your inbox is empty</div>
-        </div>
-      </ng-template>
+        </ng-container>
+        <ng-template #emptyInbox>
+          <div class="empty-inbox">
+            <img
+              src="assets/unchained.png"
+              alt="Empty inbox illustration"
+              class="empty-img"
+            />
+            <div class="empty-text">Your inbox is empty</div>
+          </div>
+        </ng-template>
+      </div>
     </div>
-    <div class="email-preview" *ngIf="selectedEmail || showComposeBox">
+    <div class="email-preview" *ngIf="showDetailPanel">
       <ng-container *ngIf="showComposeBox; else emailReadView">
         <div class="compose-container">
           <div class="compose-header">
@@ -204,7 +206,18 @@
         </div>
 
         <div class="email-content">
-          <h2>{{ selectedEmail?.subject }}</h2>
+          <div class="email-content-header">
+            <h2>{{ selectedEmail?.subject }}</h2>
+            <button
+              *ngIf="showMobileMessageClose"
+              type="button"
+              class="mobile-close-btn"
+              (click)="openMobileList()"
+              aria-label="Back to email list"
+            >
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
           <div class="sender-row" *ngIf="selectedEmail">
             <div
               class="avatar"

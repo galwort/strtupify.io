@@ -809,6 +809,9 @@ export class InboxComponent implements OnInit, OnDestroy {
   meAddress = '';
   showSent = false;
   searchQuery = '';
+  isMobileView = false;
+  private mobilePane: 'list' | 'detail' = 'list';
+  private readonly mobileBreakpoint = 900;
 
   get aiDeleteEnabled(): boolean {
     return this.aiDeleteEmailSent;
@@ -816,6 +819,29 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   get showInboxControls(): boolean {
     return this.endgameStatus === 'idle';
+  }
+
+  get mailboxTitle(): string {
+    if (this.showSent) return this.showDeleted ? 'Sent Archive' : 'Sent';
+    return this.showDeleted ? 'Inbox Archive' : 'Inbox';
+  }
+
+  get showMobileMessageClose(): boolean {
+    return (
+      this.isMobileView &&
+      this.showDetailPanel &&
+      !!this.selectedEmail &&
+      !this.showComposeBox
+    );
+  }
+
+  get showListPanel(): boolean {
+    return !this.isMobileView || this.mobilePane === 'list';
+  }
+
+  get showDetailPanel(): boolean {
+    if (!this.selectedEmail && !this.showComposeBox) return false;
+    return !this.isMobileView || this.mobilePane === 'detail';
   }
 
   private inboxSub: Subscription | null = null;
@@ -836,6 +862,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   ) {}
 
   async ngOnInit(): Promise<void> {
+    this.updateViewportState();
     if (!this.companyId) return;
     void this.inboxService.ensureWelcomeEmail(this.companyId).catch(() => {});
     this.primeVladWelcomeEmail();
@@ -964,7 +991,13 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.showComposeBox = false;
     this.composeError = '';
     this.replyText = '';
+    this.openMobileDetail();
     this.markEmailAsRead(email);
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.updateViewportState();
   }
 
   private markEmailAsRead(email: InboxEmail | null): void {
@@ -1050,7 +1083,9 @@ export class InboxComponent implements OnInit, OnDestroy {
   archiveEmails(): void {
     this.showDeleted = !this.showDeleted;
     this.showComposeBox = false;
+    this.showReplyBox = false;
     this.composeError = '';
+    this.openMobileList();
     this.subscribeToInbox();
   }
 
@@ -1883,6 +1918,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.composeError = '';
     this.showReplyBox = true;
     this.replyText = '';
+    this.openMobileDetail();
     setTimeout(() => this.replyTextarea?.nativeElement?.focus(), 0);
   }
 
@@ -1904,6 +1940,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.sendingCompose = false;
     this.composeClicked = false;
     this.showComposeBox = true;
+    this.openMobileDetail();
   }
 
   closeCompose(): void {
@@ -1915,6 +1952,7 @@ export class InboxComponent implements OnInit, OnDestroy {
     }
     this.composeClicked = false;
     this.composeError = '';
+    this.openMobileList();
   }
 
   onComposeKeydown(event: KeyboardEvent): void {
@@ -1962,6 +2000,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         this.composeBody = '';
         this.composeError = '';
         this.selectedEmail = null;
+        this.openMobileList();
       } catch (err) {
         console.error('Failed to send multi-recipient notice', err);
         this.composeError = 'We could not send your message. Please try again.';
@@ -1997,6 +2036,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       this.composeBody = '';
       this.composeError = '';
       this.selectedEmail = null;
+      this.openMobileList();
     } catch (err) {
       console.error('Failed to send email', err);
       this.composeError = 'We could not send your message. Please try again.';
@@ -2008,7 +2048,9 @@ export class InboxComponent implements OnInit, OnDestroy {
   toggleSent(): void {
     this.showSent = !this.showSent;
     this.showComposeBox = false;
+    this.showReplyBox = false;
     this.composeError = '';
+    this.openMobileList();
     this.updateInboxView(this.allEmails);
   }
 
@@ -2406,18 +2448,20 @@ export class InboxComponent implements OnInit, OnDestroy {
     });
 
     const preferredFromState = this.preferredInboxEmailId;
-    let desiredId =
+    const requestedId =
       opts?.preferredId ??
       preferredFromState ??
       this.pendingSelectionId ??
-      this.selectedEmail?.id ??
       null;
+    const desiredId = requestedId ?? this.selectedEmail?.id ?? null;
     if (desiredId && !avoid.has(desiredId)) {
       const found = this.inbox.find((e) => e.id === desiredId);
       if (found) {
         this.selectedEmail = found;
         this.pendingSelectionId = null;
         this.preferredInboxEmailId = null;
+        if (requestedId) this.openMobileDetail();
+        if (!this.isMobileView) this.mobilePane = 'detail';
         this.markEmailAsRead(this.selectedEmail);
         return;
       }
@@ -2426,7 +2470,35 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.selectedEmail = first || null;
     this.pendingSelectionId = null;
     this.preferredInboxEmailId = null;
+    if (!this.selectedEmail) {
+      this.showReplyBox = false;
+      this.mobilePane = this.isMobileView ? 'list' : 'detail';
+    } else if (!this.isMobileView) {
+      this.mobilePane = 'detail';
+    }
     this.markEmailAsRead(this.selectedEmail);
+  }
+
+  openMobileList(): void {
+    if (!this.isMobileView) return;
+    this.mobilePane = 'list';
+  }
+
+  private openMobileDetail(): void {
+    if (!this.isMobileView) return;
+    this.mobilePane = 'detail';
+  }
+
+  private updateViewportState(): void {
+    if (typeof window === 'undefined') {
+      this.isMobileView = false;
+      this.mobilePane = 'detail';
+      return;
+    }
+    const mobile = window.innerWidth <= this.mobileBreakpoint;
+    this.isMobileView = mobile;
+    if (!mobile) this.mobilePane = 'detail';
+    else if (this.mobilePane !== 'detail') this.mobilePane = 'list';
   }
 
   private mergeSeedEmails(emails: InboxEmail[]): InboxEmail[] {

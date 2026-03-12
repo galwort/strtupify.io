@@ -1865,7 +1865,7 @@ export class InboxComponent implements OnInit, OnDestroy {
           } as Email);
           seed.isSeed = true;
           this.seedEmails.set(seed.id, seed);
-          this.updateInboxView(this.allEmails, { preferredId: seed.id });
+          this.updateInboxView(this.allEmails);
         },
         error: () => {},
       });
@@ -2466,8 +2466,7 @@ export class InboxComponent implements OnInit, OnDestroy {
         return;
       }
     }
-    const first = this.inbox.find((e) => !avoid.has(e.id));
-    this.selectedEmail = first || null;
+    this.selectedEmail = null;
     this.pendingSelectionId = null;
     this.preferredInboxEmailId = null;
     if (!this.selectedEmail) {

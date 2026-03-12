@@ -1,5 +1,10 @@
+<div class="loading-state" *ngIf="!transcriptReady" aria-live="polite">
+  <ion-spinner name="crescent"></ion-spinner>
+  <div class="loading-copy">Loading boardroom...</div>
+</div>
+
 <div class="content-container" *ngIf="transcriptReady">
-  <div class="header" #headerBox>
+  <div class="header">
     <div class="title">Boardroom Transcript</div>
   </div>
 
@@ -22,11 +27,6 @@
   </div>
 
   <div class="bottom-container" *ngIf="outcome.name || outcome.description" #bottomBox>
-    <div class="bottom-bar summary-bar" *ngIf="showAiSummary">
-      <h2>AI Summary</h2>
-      <p>{{ aiSummary }}</p>
-    </div>
-
     <div class="bottom-bar">
       <h2>Proposed product</h2>
       <p>
@@ -37,8 +37,40 @@
 
     <div class="button-container">
       <button class="accept-button" (click)="accept()">Accept</button>
-      <button (click)="restart()">Reject</button>
-      <button (click)="summarizeWithAi()">Summarize with AI</button>
+      <button class="reject-button" (click)="restart()">Reject</button>
+      <button
+        type="button"
+        class="summary-button"
+        (click)="openAiSummaryPopover()"
+        aria-label="Summarize with AI"
+      >
+        <span class="summary-button__label">Summarize with AI</span>
+        <span class="material-symbols-outlined">auto_awesome</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="ai-summary-overlay" *ngIf="showAiSummaryPopover">
+  <div class="overlay-backdrop" (click)="closeAiSummaryPopover()"></div>
+  <div
+    class="overlay-panel ai-summary-panel"
+    role="dialog"
+    aria-modal="true"
+    aria-label="AI summary"
+    (click)="$event.stopPropagation()"
+  >
+    <button
+      type="button"
+      class="close-overlay ai-summary-close"
+      (click)="closeAiSummaryPopover()"
+      aria-label="Close AI summary"
+    >
+      <span class="material-symbols-outlined">close</span>
+    </button>
+    <div class="overlay-content ai-summary-content">
+      <h2 class="ai-summary-title">AI Summary</h2>
+      <p class="ai-summary-copy">{{ aiSummary }}</p>
     </div>
   </div>
 </div>

@@ -50,7 +50,13 @@ export class CompanyPage implements OnInit {
   get moduleOwnsScroll(): boolean {
     return (
       !this.showCompanyProfile &&
-      (this.showInbox || this.showLedger || this.showWork || this.showCalendar)
+      (
+        this.showInbox ||
+        this.showBoardroom ||
+        this.showLedger ||
+        this.showWork ||
+        this.showCalendar
+      )
     );
   }
 

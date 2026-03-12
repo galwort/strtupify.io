@@ -11,6 +11,7 @@
   EventEmitter,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { IonicModule } from '@ionic/angular';
 import { BoardroomService } from '../../services/boardroom.service';
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, doc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore';
@@ -33,13 +34,12 @@ interface TranscriptEntry {
   templateUrl: './boardroom.component.html',
   styleUrls: ['./boardroom.component.scss'],
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, IonicModule],
 })
 export class BoardroomComponent implements OnInit, AfterViewInit {
   @Input() companyId = '';
   @Output() acceptedProduct = new EventEmitter<void>();
   @ViewChild('scrollBox') private scrollBox?: ElementRef<HTMLDivElement>;
-  @ViewChild('headerBox') private headerBox?: ElementRef<HTMLDivElement>;
   @ViewChild('bottomBox') private bottomBox?: ElementRef<HTMLDivElement>;
 
   productId = '';
@@ -49,7 +49,7 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
   busy = false;
   finished = false;
   typing = false;
-  showAiSummary = false;
+  showAiSummaryPopover = false;
   aiSummary = '';
   private employeeAvatars = new Map<string, string>();
   private avatarColorCache = new Map<string, string>();
@@ -93,7 +93,7 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
           this.stage = r.stage;
           this.finished = r.done;
           this.busy = false;
-          if (this.showAiSummary) {
+          if (this.showAiSummaryPopover) {
             this.aiSummary = this.buildAiSummary();
           }
 
@@ -116,7 +116,7 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
     this.busy = false;
     this.finished = false;
     this.typing = false;
-    this.showAiSummary = false;
+    this.showAiSummaryPopover = false;
     this.aiSummary = '';
     this.transcriptReady = false;
     this.startConversation();
@@ -130,14 +130,13 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
     this.acceptedProduct.emit();
   }
 
-  summarizeWithAi(): void {
+  openAiSummaryPopover(): void {
     this.aiSummary = this.buildAiSummary();
-    this.showAiSummary = true;
-    this.cdr.detectChanges();
-    setTimeout(() => {
-      this.updateLayout();
-      this.scrollToBottom();
-    });
+    this.showAiSummaryPopover = true;
+  }
+
+  closeAiSummaryPopover(): void {
+    this.showAiSummaryPopover = false;
   }
 
   private scrollToBottom(): void {
@@ -152,24 +151,31 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
   }
 
   private updateLayout(): void {
-    if (!this.scrollBox || !this.headerBox || !this.transcriptReady) return;
+    if (!this.scrollBox || !this.transcriptReady) return;
     const scroll = this.scrollBox.nativeElement;
-    const header = this.headerBox.nativeElement;
+    const pageContainer = scroll.closest('.page-container');
+    if (!(pageContainer instanceof HTMLElement)) return;
+
+    const content = scroll.parentElement;
+    if (!(content instanceof HTMLElement)) return;
+
     const bottom = this.bottomBox?.nativeElement ?? null;
-
-    const pageVerticalPadding = 40; 
-    const gridGaps = bottom ? 40 : 20; 
-    const safetyPadding = 12;
-
     const viewport = window.innerHeight || document.documentElement.clientHeight;
+    const scrollTop = scroll.getBoundingClientRect().top;
+    const pagePaddingBottom =
+      parseFloat(getComputedStyle(pageContainer).paddingBottom) || 0;
+    const contentStyles = getComputedStyle(content);
+    const contentPaddingBottom =
+      parseFloat(contentStyles.paddingBottom) || 0;
+    const rowGap = parseFloat(contentStyles.rowGap) || 0;
+    const bottomSectionHeight = bottom ? bottom.offsetHeight + rowGap : 0;
     const available = Math.max(
       0,
       viewport -
-        pageVerticalPadding -
-        header.offsetHeight -
-        (bottom?.offsetHeight ?? 0) -
-        gridGaps -
-        safetyPadding
+        scrollTop -
+        pagePaddingBottom -
+        contentPaddingBottom -
+        bottomSectionHeight
     );
 
     scroll.style.maxHeight = `${available}px`;
@@ -233,6 +239,7 @@ export class BoardroomComponent implements OnInit, AfterViewInit {
   }
 
   private startConversation(): void {
+    this.transcriptReady = false;
     this.api.start(this.companyId).subscribe((r) => {
       this.productId = r.productId;
       this.transcript.push(this.buildTranscriptEntry(r.speaker, r.line));

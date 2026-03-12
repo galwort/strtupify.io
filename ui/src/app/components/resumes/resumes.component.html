@@ -93,7 +93,7 @@
     </div>
   </ng-template>
   <div class="bottom-container">
-    <div class="action-bar">
+    <div class="action-bar desktop-action-bar">
       <button
         *ngIf="hiredEmployees.length"
         type="button"
@@ -115,6 +115,108 @@
         (click)="finishHiring()"
         [disabled]="finishDisabled"
         [title]="finishTooltip"
+      >
+        Finish
+      </button>
+    </div>
+    <div class="mobile-action-bar">
+      <div *ngIf="displayedEmployee" class="mobile-nav-group">
+        <button
+          type="button"
+          class="resume-nav-button mobile-nav-button"
+          (click)="prevResume()"
+          [disabled]="currentIndex === 0 || autoHiring"
+          aria-label="Previous resume"
+        >
+          <svg
+            class="nav-icon"
+            viewBox="8 4 8 16"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M15 5.5L9.75 10.75Q8.75 11.75 8.75 12Q8.75 12.25 9.75 13.25L15 18.5"></path>
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="resume-nav-button mobile-nav-button"
+          (click)="nextResume()"
+          [disabled]="currentIndex === employees.length - 1 || autoHiring"
+          aria-label="Next resume"
+        >
+          <svg
+            class="nav-icon"
+            viewBox="8 4 8 16"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M9 5.5L14.25 10.75Q15.25 11.75 15.25 12Q15.25 12.25 14.25 13.25L9 18.5"></path>
+          </svg>
+        </button>
+      </div>
+      <button
+        *ngIf="displayedEmployee"
+        type="button"
+        class="hire-button mobile-pill-button"
+        (click)="hireEmployee()"
+        [disabled]="autoHiring"
+      >
+        Hire
+      </button>
+      <button
+        *ngIf="hiredEmployees.length"
+        type="button"
+        class="mobile-icon-button current-employees-icon-button"
+        (click)="openHiredOverlay()"
+        aria-label="Current employees"
+      >
+        <span class="material-symbols-outlined">group</span>
+      </button>
+      <div
+        class="mobile-auto-hire"
+        [class.open]="showAutoHirePopover"
+        (click)="$event.stopPropagation()"
+      >
+        <button
+          type="button"
+          class="mobile-icon-button ai-hire-icon-button"
+          (click)="toggleAutoHirePopover($event)"
+          [disabled]="autoHiring || !employees.length"
+          aria-label="Automate hiring with AI"
+        >
+          <span class="material-symbols-outlined">auto_awesome</span>
+        </button>
+        <div
+          *ngIf="showAutoHirePopover"
+          class="auto-hire-popover"
+          role="dialog"
+          aria-modal="false"
+          aria-label="Automate hiring with AI"
+        >
+          <div class="auto-hire-popover__message">Automate hiring with AI?</div>
+          <div class="auto-hire-popover__actions">
+            <button
+              type="button"
+              class="popover-secondary-button"
+              (click)="closeAutoHirePopover()"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="popover-primary-button"
+              (click)="confirmAutomateHiring($event)"
+            >
+              Automate
+            </button>
+          </div>
+        </div>
+      </div>
+      <button
+        *ngIf="!finishDisabled"
+        type="button"
+        class="finish-button mobile-pill-button mobile-finish-button"
+        (click)="finishHiring()"
       >
         Finish
       </button>

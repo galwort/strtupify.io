@@ -1,16 +1,25 @@
-﻿import { Injectable } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
+
+export type AppModule =
+  | 'inbox'
+  | 'roles'
+  | 'resumes'
+  | 'boardroom'
+  | 'work'
+  | 'ledger'
+  | 'hr'
+  | 'calendar';
 
 @Injectable({ providedIn: 'root' })
 export class UiStateService {
   private _showCompanyProfile = new BehaviorSubject<boolean>(false);
   readonly showCompanyProfile$ = this._showCompanyProfile.asObservable();
 
-
   private _companyProfileEnabled = new BehaviorSubject<boolean>(false);
   readonly companyProfileEnabled$ = this._companyProfileEnabled.asObservable();
 
-  private _currentModule = new BehaviorSubject<'inbox' | 'roles' | 'resumes' | 'boardroom' | 'work' | 'ledger' | 'hr' | 'calendar'>('roles');
+  private _currentModule = new BehaviorSubject<AppModule>('roles');
   readonly currentModule$ = this._currentModule.asObservable();
 
   private _workEnabled = new BehaviorSubject<boolean>(false);
@@ -40,7 +49,7 @@ export class UiStateService {
     this._companyProfileEnabled.next(enabled);
   }
 
-  setCurrentModule(m: 'inbox' | 'roles' | 'resumes' | 'boardroom' | 'work' | 'ledger' | 'hr' | 'calendar') {
+  setCurrentModule(m: AppModule) {
     this._currentModule.next(m);
   }
 

@@ -216,17 +216,6 @@
       order: 2;
     }
 
-      .resume-nav-button .nav-icon {
-        display: none;
-        width: 20px;
-        height: 20px;
-        fill: none;
-        stroke: currentColor;
-        stroke-width: 3.2;
-        stroke-linecap: round;
-        stroke-linejoin: round;
-      }
-
     button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
@@ -248,6 +237,21 @@
       border-color: var(--theme-accent);
       background: var(--theme-accent);
     }
+  }
+
+  .resume-nav-button .nav-icon {
+    display: none;
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 3.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .mobile-action-bar {
+    display: none;
   }
 
   .empty-resumes {
@@ -531,93 +535,191 @@
       max-width: var(--resume-skill-label-width-mobile);
     }
 
-    .button-container {
-      width: fit-content;
-      max-width: 100%;
-      display: grid;
-      grid-template-columns: 40px auto 40px;
-      gap: 10px;
-      margin-top: 16px;
-      align-self: center;
-      align-items: center;
-
-      button {
-        width: auto;
-        font-size: 0.95rem;
-        min-height: 42px;
-        padding: 0.6rem 0.9rem;
-        -webkit-tap-highlight-color: transparent;
-      }
-
-      button:hover:not(:disabled),
-      button:focus,
-      button:focus-visible,
-      button:active {
-        box-shadow: none;
-        outline: none;
-      }
-
-      .prev-button,
-      .hire-button,
-      .next-button {
-        order: initial;
-      }
-
-      .resume-nav-button {
-        width: 40px;
-        min-width: 40px;
-        min-height: 40px;
-        padding: 0;
-        border: none;
-        border-radius: 0;
-        background: transparent;
-        color: var(--theme-primary);
-        box-shadow: none;
-
-        .button-label {
-          display: none;
-        }
-
-        .nav-icon {
-          display: inline-flex;
-          width: 28px;
-          height: 28px;
-        }
-      }
-
-      .hire-button {
-        width: auto;
-        min-width: 0;
-        border-radius: 999px;
-        padding: 0.55rem 1rem;
-        font-weight: 700;
-      }
-
-      .resume-nav-button:disabled {
-        opacity: 1;
-        color: #c9ced6;
-      }
-
-      .resume-nav-button:disabled .nav-icon {
-        stroke: #c9ced6;
-      }
-
-      .hire-button:disabled {
-        opacity: 0.65;
-      }
-    }
-
-    .action-bar {
-      align-items: stretch;
-      flex-direction: column;
-    }
-
-    .current-employees-button,
-    .auto-hire-button,
-    .finish-button {
+    .bottom-container {
       width: 100%;
+      padding-top: 16px;
+    }
+
+    .button-container,
+    .desktop-action-bar {
+      display: none;
+    }
+
+    .mobile-action-bar {
+      position: relative;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      flex-wrap: nowrap;
+    }
+
+    .mobile-nav-group {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+
+    .mobile-action-bar button:hover:not(:disabled),
+    .mobile-action-bar button:focus,
+    .mobile-action-bar button:focus-visible,
+    .mobile-action-bar button:active {
+      box-shadow: none;
+      outline: none;
+    }
+
+    .mobile-nav-button,
+    .mobile-icon-button {
+      width: 38px;
+      min-width: 38px;
+      min-height: 38px;
+      padding: 0;
+      border: 1.5px solid transparent;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--theme-primary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .mobile-nav-button {
+      width: 30px;
+      min-width: 30px;
+
+      .nav-icon {
+        display: inline-flex;
+        width: 24px;
+        height: 24px;
+      }
+    }
+
+    .mobile-nav-button:disabled {
+      opacity: 1;
+      color: #c9ced6;
+    }
+
+    .mobile-nav-button:disabled .nav-icon {
+      stroke: #c9ced6;
+    }
+
+    .mobile-pill-button {
       min-width: 0;
-      font-size: 0.95rem;
+      min-height: 38px;
+      padding: 0.5rem 0.9rem;
+      border-radius: 999px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .mobile-pill-button.hire-button {
+      min-width: 70px;
+      margin-right: 6px;
+      border: 1.5px solid var(--theme-accent);
+      background: var(--theme-accent);
+      color: #fff;
+    }
+
+    .mobile-finish-button {
+      min-width: 62px;
+      margin-left: 6px;
+      padding-inline: 0.85rem;
+    }
+
+    .mobile-pill-button:disabled {
+      opacity: 0.65;
+    }
+
+    .mobile-icon-button {
+      background: #fff;
+      border-color: var(--theme-primary);
+      color: var(--theme-primary);
+
+      .material-symbols-outlined {
+        font-size: 20px;
+        line-height: 1;
+      }
+    }
+
+    .ai-hire-icon-button {
+      border-color: var(--theme-accent);
+      color: var(--theme-accent);
+    }
+
+    .mobile-icon-button:disabled {
+      border-color: #d5d7dc;
+      color: #c9ced6;
+    }
+
+    .mobile-auto-hire {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .auto-hire-popover {
+      position: absolute;
+      right: 0;
+      bottom: calc(100% + 10px);
+      z-index: 20;
+      width: min(220px, calc(100vw - 32px));
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+
+      &::after {
+        content: '';
+        position: absolute;
+        right: 11px;
+        top: 100%;
+        border-width: 7px 7px 0;
+        border-style: solid;
+        border-color: #fff transparent transparent;
+      }
+    }
+
+    .auto-hire-popover__message {
+      color: var(--theme-text);
+      font-size: 0.88rem;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    .auto-hire-popover__actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .popover-secondary-button,
+    .popover-primary-button {
+      min-height: 32px;
+      padding: 0.45rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .popover-secondary-button {
+      border: 1.5px solid #d5d7dc;
+      background: #fff;
+      color: var(--theme-text);
+    }
+
+    .popover-primary-button {
+      border: 1.5px solid var(--theme-accent);
+      background: var(--theme-accent);
+      color: #fff;
     }
 
     .empty-resumes {

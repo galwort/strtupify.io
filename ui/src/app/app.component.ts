@@ -109,7 +109,9 @@ export class AppComponent implements OnDestroy {
       this.applyRouteState(event.urlAfterRedirects || event.url);
       void this.updateCompanyContext();
     });
-    this.ui.showCompanyProfile$.subscribe((v) => (this.showCompanyProfile = v));
+    this.ui.showCompanyProfile$.subscribe((v) => {
+      this.showCompanyProfile = v;
+    });
     this.ui.companyProfileEnabled$.subscribe(
       (v) => (this.companyProfileEnabled = v)
     );

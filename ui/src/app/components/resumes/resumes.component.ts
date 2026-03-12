@@ -1,5 +1,6 @@
 ﻿import { Component, OnInit, Output, EventEmitter } from '@angular/core';
 import { initializeApp } from 'firebase/app';
+import { HostListener } from '@angular/core';
 import {
   getFirestore,
   collection,
@@ -75,6 +76,7 @@ export class ResumesComponent implements OnInit {
   skillsLoading = false;
   skillSkeletonRows = Array.from({ length: 4 });
   showHiredOverlay = false;
+  showAutoHirePopover = false;
   dataReady = false;
   private activeEmployeeId: string | null = null;
   private displayToken = 0;
@@ -150,6 +152,11 @@ export class ResumesComponent implements OnInit {
     this.dataReady = true;
   }
 
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.closeAutoHirePopover();
+  }
+
   get rolesWithOpenings() {
     return this.roles.filter((r) => r.openings > 0);
   }
@@ -184,6 +191,7 @@ export class ResumesComponent implements OnInit {
 
   async hireEmployee() {
     if (!this.currentEmployee || this.autoHiring) return;
+    this.closeAutoHirePopover();
     await this.hireCandidate(this.currentEmployee);
     if (this.currentIndex >= this.employees.length)
       this.currentIndex = Math.max(0, this.employees.length - 1);
@@ -192,6 +200,7 @@ export class ResumesComponent implements OnInit {
 
   async automateHiring() {
     if (this.autoHiring || !this.companyId) return;
+    this.closeAutoHirePopover();
 
     const rolesToFill = this.roles
       .filter((r) => r.openings > 0)
@@ -256,16 +265,33 @@ export class ResumesComponent implements OnInit {
 
   finishHiring(): void {
     if (this.finishDisabled || this.doneEmitted) return;
+    this.closeAutoHirePopover();
     this.doneEmitted = true;
     this.hiringFinished.emit();
   }
 
   openHiredOverlay(): void {
+    this.closeAutoHirePopover();
     this.showHiredOverlay = true;
   }
 
   closeHiredOverlay(): void {
     this.showHiredOverlay = false;
+  }
+
+  toggleAutoHirePopover(event: Event): void {
+    event.stopPropagation();
+    if (this.autoHiring || !this.employees.length) return;
+    this.showAutoHirePopover = !this.showAutoHirePopover;
+  }
+
+  closeAutoHirePopover(): void {
+    this.showAutoHirePopover = false;
+  }
+
+  async confirmAutomateHiring(event?: Event): Promise<void> {
+    event?.stopPropagation();
+    await this.automateHiring();
   }
 
   trackHire(_index: number, hire: Employee): string {
@@ -373,12 +399,14 @@ export class ResumesComponent implements OnInit {
   }
 
   async nextResume() {
+    this.closeAutoHirePopover();
     if (this.currentIndex < this.employees.length - 1) {
       await this.syncDisplayedEmployee(this.currentIndex + 1);
     }
   }
 
   async prevResume() {
+    this.closeAutoHirePopover();
     if (this.currentIndex > 0) {
       await this.syncDisplayedEmployee(this.currentIndex - 1);
     }

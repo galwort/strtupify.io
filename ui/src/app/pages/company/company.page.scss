@@ -11,13 +11,15 @@
   box-sizing: border-box;
 }
 
-.page-container.inbox-active {
+.page-container.module-scroll-active {
   height: 100%;
   min-height: 100%;
   overflow: hidden;
 }
 
-.page-container.inbox-active > app-inbox {
+.page-container.module-scroll-active > app-inbox,
+.page-container.module-scroll-active > app-general-ledger,
+.page-container.module-scroll-active > app-work-items {
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;

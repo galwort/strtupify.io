@@ -3,6 +3,19 @@
     <div class="title">Kanban</div>
   </div>
 
+  <div class="filter-container" *ngIf="touchMode">
+    <button
+      type="button"
+      class="filter-btn"
+      *ngFor="let filter of mobileFilters"
+      [class.active]="mobileFilter === filter.id"
+      (click)="setMobileFilter(filter.id)"
+    >
+      <span>{{ filter.label }}</span>
+      <span class="count">{{ mobileFilterCount(filter.id) }}</span>
+    </button>
+  </div>
+
   <div class="content-body">
     <ng-template #avatarBubble let-item>
       <ng-container *ngIf="hiresLoading; else avatarResolved">
@@ -45,7 +58,56 @@
       </div>
     </ng-template>
 
-    <div class="kanban">
+    <ng-template #taskCard let-it>
+      <div
+        class="card"
+        [class.doing]="isDoingStatus(it)"
+        [class.done]="it.status === 'done'"
+        [attr.draggable]="canDrag(it) ? 'true' : null"
+        (dragstart)="onDragStart($event, it)"
+        (dragend)="onDragEnd()"
+      >
+        <div class="card-header">
+          <div class="card-title">{{ it.title }}</div>
+          <ng-container
+            *ngTemplateOutlet="avatarBubble; context: { $implicit: it }"
+          ></ng-container>
+        </div>
+        <ng-container
+          *ngTemplateOutlet="assignSelect; context: { $implicit: it }"
+        ></ng-container>
+        <div class="progress" *ngIf="isDoingStatus(it)">
+          <div class="bar">
+            <div class="fill" [style.width.%]="progress(it)"></div>
+          </div>
+          <div class="pct">{{ progress(it) }}%</div>
+        </div>
+        <div class="blockers" [attr.title]="blockerTitle(it)">
+          Blockers: {{ remainingBlockers(it) }}
+        </div>
+        <div class="card-desc">{{ it.description }}</div>
+        <div class="mobile-status" *ngIf="touchMode">
+          <button
+            *ngIf="it.status !== 'done'; else mobileDoneState"
+            type="button"
+            class="status-toggle"
+            [class.doing]="isMobileToggleDoing(it)"
+            [class.pending]="isMobileStatusPending(it)"
+            [disabled]="isMobileStatusPending(it)"
+            (click)="toggleMobileStatus(it)"
+          >
+            <span class="status-thumb"></span>
+            <span class="status-option">Do</span>
+            <span class="status-option">Doing</span>
+          </button>
+          <ng-template #mobileDoneState>
+            <div class="done-chip">Done</div>
+          </ng-template>
+        </div>
+      </div>
+    </ng-template>
+
+    <div class="kanban" *ngIf="!touchMode; else mobileListView">
       <div
         class="column"
         [class.drop-target]="dragHoverColumn === 'todo'"
@@ -58,37 +120,11 @@
           <div class="count">{{ todo.length }}</div>
         </div>
         <div class="cards">
-          <div
-            class="card"
-            *ngFor="let it of todo"
-            [attr.draggable]="touchMode ? null : 'true'"
-            (dragstart)="onDragStart($event, it)"
-            (dragend)="onDragEnd()"
-          >
-            <div class="card-header">
-              <div class="card-title">{{ it.title }}</div>
-              <ng-container *ngTemplateOutlet="avatarBubble; context: { $implicit: it }"></ng-container>
-            </div>
-            <ng-container *ngTemplateOutlet="assignSelect; context: { $implicit: it }"></ng-container>
-            <div class="blockers" [attr.title]="blockerTitle(it)">Blockers: {{ remainingBlockers(it) }}</div>
-            <div class="card-desc">{{ it.description }}</div>
-            <div class="mobile-move" *ngIf="touchMode">
-              <button
-                type="button"
-                (click)="moveItemTo(it, 'todo')"
-                [disabled]="!canMoveTo(it, 'todo')"
-              >
-                Do
-              </button>
-              <button
-                type="button"
-                (click)="moveItemTo(it, 'doing')"
-                [disabled]="!canMoveTo(it, 'doing')"
-              >
-                Doing
-              </button>
-            </div>
-          </div>
+          <ng-container *ngFor="let it of todo">
+            <ng-container
+              *ngTemplateOutlet="taskCard; context: { $implicit: it }"
+            ></ng-container>
+          </ng-container>
         </div>
       </div>
 
@@ -104,41 +140,11 @@
           <div class="count">{{ doing.length }}</div>
         </div>
         <div class="cards">
-          <div
-            class="card doing"
-            *ngFor="let it of doing"
-            [attr.draggable]="touchMode ? null : 'true'"
-            (dragstart)="onDragStart($event, it)"
-            (dragend)="onDragEnd()"
-          >
-            <div class="card-header">
-              <div class="card-title">{{ it.title }}</div>
-              <ng-container *ngTemplateOutlet="avatarBubble; context: { $implicit: it }"></ng-container>
-            </div>
-            <ng-container *ngTemplateOutlet="assignSelect; context: { $implicit: it }"></ng-container>
-            <div class="progress">
-              <div class="bar"><div class="fill" [style.width.%]="progress(it)"></div></div>
-              <div class="pct">{{ progress(it) }}%</div>
-            </div>
-            <div class="blockers" [attr.title]="blockerTitle(it)">Blockers: {{ remainingBlockers(it) }}</div>
-            <div class="card-desc">{{ it.description }}</div>
-            <div class="mobile-move" *ngIf="touchMode">
-              <button
-                type="button"
-                (click)="moveItemTo(it, 'todo')"
-                [disabled]="!canMoveTo(it, 'todo')"
-              >
-                Do
-              </button>
-              <button
-                type="button"
-                (click)="moveItemTo(it, 'doing')"
-                [disabled]="!canMoveTo(it, 'doing')"
-              >
-                Doing
-              </button>
-            </div>
-          </div>
+          <ng-container *ngFor="let it of doing">
+            <ng-container
+              *ngTemplateOutlet="taskCard; context: { $implicit: it }"
+            ></ng-container>
+          </ng-container>
         </div>
       </div>
 
@@ -153,20 +159,31 @@
           <div class="count">{{ done.length }}</div>
         </div>
         <div class="cards">
-          <div
-            class="card done"
-            *ngFor="let it of done"
-          >
-            <div class="card-header">
-              <div class="card-title">{{ it.title }}</div>
-              <ng-container *ngTemplateOutlet="avatarBubble; context: { $implicit: it }"></ng-container>
-            </div>
-            <ng-container *ngTemplateOutlet="assignSelect; context: { $implicit: it }"></ng-container>
-            <div class="blockers" [attr.title]="blockerTitle(it)">Blockers: {{ remainingBlockers(it) }}</div>
-            <div class="card-desc">{{ it.description }}</div>
-          </div>
+          <ng-container *ngFor="let it of done">
+            <ng-container
+              *ngTemplateOutlet="taskCard; context: { $implicit: it }"
+            ></ng-container>
+          </ng-container>
         </div>
       </div>
     </div>
+
+    <ng-template #mobileListView>
+      <div class="mobile-list">
+        <ng-container *ngIf="mobileListItems.length; else emptyMobileList">
+          <ng-container *ngFor="let it of mobileListItems">
+            <ng-container
+              *ngTemplateOutlet="taskCard; context: { $implicit: it }"
+            ></ng-container>
+          </ng-container>
+        </ng-container>
+        <ng-template #emptyMobileList>
+          <div class="empty-state">
+            <div class="empty-title">No cards in this view</div>
+            <div class="empty-copy">Try another filter.</div>
+          </div>
+        </ng-template>
+      </div>
+    </ng-template>
   </div>
 </div>

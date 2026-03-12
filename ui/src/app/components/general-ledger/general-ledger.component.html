@@ -26,21 +26,33 @@
   </div>
 
   <div class="ledger-body" *ngIf="!loading">
-    <div class="ledger-table" *ngIf="filteredRows.length; else noMatches">
-      <div class="thead">
-        <div class="th date">Date</div>
-        <div class="th desc">Description</div>
-        <div class="th payee">Payee</div>
-        <div class="th right amt">Amount</div>
-        <div class="th right">Balance</div>
-      </div>
-      <div class="tbody">
-        <div class="tr" *ngFor="let r of filteredRows" [class.sub]="r.sub">
-          <div class="td date">{{ r.date }}</div>
-          <div class="td desc">{{ r.description }}</div>
-          <div class="td payee">{{ r.payee || '' }}</div>
-          <div class="td right amt" [class.neg]="r.amount < 0">{{ r.amount ? (r.amount | currency: 'USD':'symbol') : '' }}</div>
-          <div class="td right">{{ r.balance !== null ? (r.balance | currency: 'USD':'symbol') : '' }}</div>
+    <div class="ledger-table-scroll" *ngIf="filteredRows.length; else noMatches">
+      <div class="ledger-table">
+        <div class="thead">
+          <div class="th date">Date</div>
+          <div class="th desc">Description</div>
+          <div class="th payee">Payee</div>
+          <div class="th right amt">Amount</div>
+          <div class="th right balance">Balance</div>
+        </div>
+        <div class="tbody">
+          <div class="tr" *ngFor="let r of filteredRows" [class.sub]="r.sub">
+            <div class="td date">
+              <span class="date-desktop">{{ r.date }}</span>
+              <span class="date-mobile">{{ r.dateCompact || r.date }}</span>
+            </div>
+            <div class="td desc">
+              <span class="desc-main">{{ r.description }}</span>
+              <span class="desc-meta" *ngIf="r.payee">{{ r.payee }}</span>
+            </div>
+            <div class="td payee">{{ r.payee || '' }}</div>
+            <div class="td right amt" [class.neg]="r.amount < 0">
+              {{ r.amount ? (r.amount | currency: 'USD':'symbol') : '' }}
+            </div>
+            <div class="td right balance">
+              {{ r.balance !== null ? (r.balance | currency: 'USD':'symbol') : '' }}
+            </div>
+          </div>
         </div>
       </div>
     </div>

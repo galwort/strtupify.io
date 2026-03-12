@@ -47,6 +47,10 @@ export class CompanyPage implements OnInit {
   private currentUser: User | null = null;
   accessResolved = false;
 
+  get moduleOwnsScroll(): boolean {
+    return !this.showCompanyProfile && (this.showInbox || this.showLedger || this.showWork);
+  }
+
   constructor(private router: Router, private ui: UiStateService) {}
 
   async ngOnInit() {

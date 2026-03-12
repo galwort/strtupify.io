@@ -76,6 +76,8 @@ type ProductInfo = {
   description: string;
 };
 
+type MobileFilter = 'all' | 'todo' | 'doing' | 'done';
+
 const fbApp = getApps().length ? getApps()[0] : initializeApp(environment.firebase);
 const db = getFirestore(fbApp);
 
@@ -96,6 +98,14 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   simTime: number | null = null;
   hires: HireSummary[] = [];
   hiresLoading = true;
+  mobileFilter: MobileFilter = 'all';
+  readonly mobileFilters: ReadonlyArray<{ id: MobileFilter; label: string }> = [
+    { id: 'all', label: 'All' },
+    { id: 'todo', label: 'Do' },
+    { id: 'doing', label: 'Doing' },
+    { id: 'done', label: 'Done' },
+  ];
+  private readonly mobileToggleDelayMs = 220;
 
   private speed = 8;
   private tickMs = 150;
@@ -131,6 +141,7 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
   dragHoverColumn: 'todo' | 'doing' | 'done' | null = null;
   touchMode = false;
   private blockerNoticeTimer: any = null;
+  private mobilePendingStatus = new Map<string, 'todo' | 'doing'>();
 
   constructor(
     private ui: UiStateService,
@@ -244,6 +255,25 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     this.updateTouchMode();
   }
 
+  get mobileListItems(): WorkItem[] {
+    const ordered = [...this.items].sort((a, b) =>
+      a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' })
+    );
+    if (this.mobileFilter === 'all') return ordered;
+    return ordered.filter((it) => {
+      switch (this.mobileFilter) {
+        case 'todo':
+          return (it.status || 'todo') === 'todo';
+        case 'doing':
+          return this.isDoingStatus(it);
+        case 'done':
+          return it.status === 'done';
+        default:
+          return true;
+      }
+    });
+  }
+
   private updateTouchMode(): void {
     if (typeof window === 'undefined') {
       this.touchMode = false;
@@ -297,6 +327,60 @@ export class WorkItemsComponent implements OnInit, OnDestroy {
     }
     this.pruneAssistTracking();
     this.checkEndgameCondition();
+  }
+
+  setMobileFilter(filter: MobileFilter): void {
+    this.mobileFilter = filter;
+  }
+
+  mobileFilterCount(filter: MobileFilter): number {
+    switch (filter) {
+      case 'todo':
+        return this.todo.length;
+      case 'doing':
+        return this.doing.length;
+      case 'done':
+        return this.done.length;
+      default:
+        return this.items.length;
+    }
+  }
+
+  isDoingStatus(it: WorkItem): boolean {
+    return it.status === 'doing' || it.status === 'in_progress';
+  }
+
+  canDrag(it: WorkItem): boolean {
+    return !this.touchMode && it.status !== 'done';
+  }
+
+  isMobileStatusPending(it: WorkItem): boolean {
+    return this.mobilePendingStatus.has(it.id);
+  }
+
+  isMobileToggleDoing(it: WorkItem): boolean {
+    const pending = this.mobilePendingStatus.get(it.id);
+    return pending ? pending === 'doing' : this.isDoingStatus(it);
+  }
+
+  async toggleMobileStatus(it: WorkItem): Promise<void> {
+    if (!it || it.status === 'done' || this.isMobileStatusPending(it)) return;
+    const target = this.isDoingStatus(it) ? 'todo' : 'doing';
+    if (this.dropBlockReason(it, target)) {
+      await this.moveItemTo(it, target);
+      return;
+    }
+    this.mobilePendingStatus.set(it.id, target);
+    try {
+      await this.delay(this.mobileToggleDelayMs);
+      await this.moveItemTo(it, target);
+    } finally {
+      this.mobilePendingStatus.delete(it.id);
+    }
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private checkEndgameCondition(): void {

@@ -9,6 +9,7 @@ const db = getFirestore(fbApp);
 
 type LedgerRow = {
   date: string;
+  dateCompact: string;
   description: string;
   payee: string;
   amount: number;
@@ -128,8 +129,12 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
       this.groupSeq = 0;
       let running = this.openingCredit;
       const openingGroup = this.nextGroupId();
+      const openingDate = this.formatDateValue(
+        data?.founded_at || new Date().toISOString()
+      );
       rows.push({
-        date: this.formatDate(data?.founded_at || new Date().toISOString()),
+        date: openingDate.full,
+        dateCompact: openingDate.compact,
         description: 'Loan funded',
         payee: 'Fifth Fourth Bank',
         amount: this.openingCredit,
@@ -143,10 +148,12 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
           const total = entry.total;
           if (!total) continue;
           const groupId = this.nextGroupId();
+          const entryDate = this.formatDateValue(entry.ts);
           payrollTotal += total;
           running -= total;
           rows.push({
-            date: this.formatDate(entry.ts),
+            date: entryDate.full,
+            dateCompact: entryDate.compact,
             description: 'Payroll batch withdrawal',
             payee: 'Fifth Fourth Bank',
             amount: -total,
@@ -156,6 +163,7 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
           for (const li of entry.lines) {
             rows.push({
               date: '',
+              dateCompact: '',
               description: 'Payroll',
               payee: li.name,
               amount: -li.amount,
@@ -167,9 +175,11 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
         } else if (entry.kind === 'supereats') {
           const total = entry.total;
           const groupId = this.nextGroupId();
+          const entryDate = this.formatDateValue(entry.ts);
           running -= total;
           rows.push({
-            date: this.formatDate(entry.ts),
+            date: entryDate.full,
+            dateCompact: entryDate.compact,
             description: 'Super Eats order',
             payee: 'Super Eats',
             amount: -total,
@@ -179,6 +189,7 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
           if (entry.memo) {
             rows.push({
               date: '',
+              dateCompact: '',
               description: entry.memo,
               payee: '',
               amount: 0,
@@ -190,9 +201,11 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
         } else if (entry.kind === 'cadabra') {
           const total = entry.total;
           const groupId = this.nextGroupId();
+          const entryDate = this.formatDateValue(entry.ts);
           running -= total;
           rows.push({
-            date: this.formatDate(entry.ts),
+            date: entryDate.full,
+            dateCompact: entryDate.compact,
             description: 'Cadabra order',
             payee: 'Cadabra',
             amount: -total,
@@ -202,6 +215,7 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
           if (entry.memo) {
             rows.push({
               date: '',
+              dateCompact: '',
               description: entry.memo,
               payee: '',
               amount: 0,
@@ -213,9 +227,11 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
         } else if (entry.kind === 'mom-gift') {
           const total = entry.total;
           const groupId = this.nextGroupId();
+          const entryDate = this.formatDateValue(entry.ts);
           running += total;
           rows.push({
-            date: this.formatDate(entry.ts),
+            date: entryDate.full,
+            dateCompact: entryDate.compact,
             description: 'Gift from Mom',
             payee: 'Mom',
             amount: total,
@@ -225,6 +241,7 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
           if (entry.memo) {
             rows.push({
               date: '',
+              dateCompact: '',
               description: entry.memo,
               payee: '',
               amount: 0,
@@ -440,13 +457,16 @@ export class GeneralLedgerComponent implements OnInit, OnDestroy {
     }
   }
 
-  private formatDate(iso: string): string {
+  private formatDateValue(iso: string): { full: string; compact: string } {
     try {
       const d = new Date(iso);
-      if (isNaN(d.getTime())) return '';
-      return d.toLocaleString();
+      if (isNaN(d.getTime())) return { full: '', compact: '' };
+      return {
+        full: d.toLocaleString(),
+        compact: d.toLocaleDateString(),
+      };
     } catch {
-      return '';
+      return { full: '', compact: '' };
     }
   }
 }

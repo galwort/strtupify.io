@@ -1,5 +1,9 @@
-<ion-content>
-  <div class="page-container" *ngIf="accessResolved">
+<ion-content [scrollY]="!(showInbox && !showCompanyProfile)">
+  <div
+    class="page-container"
+    *ngIf="accessResolved"
+    [class.inbox-active]="showInbox && !showCompanyProfile"
+  >
     <app-roles
       (loadingStateChange)="handleLoadingState($event)"
       [hidden]="showLoading || showResumes || showBoardroom || showInbox || showCompanyProfile || showWork || showLedger || showHr || showCalendar"
